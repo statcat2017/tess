@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Product requirements document for multi-epoch TESS transit event association.">
+  <title>Multi-Epoch TESS Transit Event Association</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #edf2ff;
+      --muted: #aeb9d3;
+      --dim: #7e8baa;
+      --line: rgba(183, 199, 239, .16);
+      --panel: rgba(21, 31, 57, .78);
+      --panel-strong: #182543;
+      --accent: #92b7ff;
+      --accent-strong: #c5d8ff;
+      --warm: #f7c982;
+      --bg: #08101f;
+      --max: 1120px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 88% 2%, rgba(94, 132, 215, .2), transparent 30rem),
+        radial-gradient(circle at 8% 20%, rgba(180, 116, 67, .1), transparent 25rem),
+        var(--bg);
+      font: 16px/1.72 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    a { color: var(--accent-strong); }
+    a:hover { color: white; }
+
+    .shell {
+      width: min(100% - 2rem, var(--max));
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 4.5rem 0 3.2rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 .8rem;
+      color: var(--warm);
+      font-size: .74rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 500;
+      line-height: 1.16;
+      letter-spacing: -.02em;
+    }
+
+    h1 { max-width: 850px; font-size: clamp(2.35rem, 7vw, 5.2rem); }
+    h2 { margin: 3.8rem 0 1.1rem; font-size: clamp(1.8rem, 4vw, 2.65rem); color: var(--accent-strong); }
+    h3 { margin: 2rem 0 .7rem; font-size: 1.35rem; color: var(--ink); }
+
+    .lede {
+      max-width: 760px;
+      margin: 1.5rem 0 0;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .55rem;
+      margin-top: 1.6rem;
+    }
+
+    .tag {
+      padding: .28rem .65rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: clamp(2rem, 6vw, 5rem);
+      align-items: start;
+    }
+
+    nav {
+      position: sticky;
+      top: 1rem;
+      padding: 1.2rem 0;
+    }
+
+    nav strong {
+      display: block;
+      margin-bottom: .7rem;
+      color: var(--dim);
+      font-size: .72rem;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    nav a {
+      display: block;
+      padding: .24rem 0;
+      color: var(--muted);
+      font-size: .82rem;
+      text-decoration: none;
+    }
+
+    nav a:hover { color: white; }
+
+    main { min-width: 0; padding-bottom: 5rem; }
+
+    section {
+      scroll-margin-top: 1rem;
+    }
+
+    p { margin: 0 0 1rem; }
+    ul, ol { margin: .5rem 0 1.2rem; padding-left: 1.35rem; }
+    li { margin: .42rem 0; padding-left: .2rem; }
+
+    .callout {
+      margin: 1.4rem 0;
+      padding: 1.15rem 1.2rem;
+      border-left: 3px solid var(--warm);
+      border-radius: 0 .65rem .65rem 0;
+      background: rgba(247, 201, 130, .07);
+      color: var(--accent-strong);
+    }
+
+    .panel {
+      margin: 1.4rem 0;
+      padding: 1.1rem 1.2rem;
+      border: 1px solid var(--line);
+      border-radius: .75rem;
+      background: var(--panel);
+    }
+
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: .8rem;
+      margin: 1.4rem 0;
+    }
+
+    .phase {
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: .7rem;
+      background: var(--panel);
+    }
+
+    .phase b { color: var(--warm); }
+
+    code {
+      padding: .12rem .3rem;
+      border-radius: .25rem;
+      background: rgba(146, 183, 255, .12);
+      color: var(--accent-strong);
+      font: .9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    footer {
+      padding: 1.5rem 0 3rem;
+      border-top: 1px solid var(--line);
+      color: var(--dim);
+      font-size: .85rem;
+    }
+
+    @media (max-width: 760px) {
+      .shell { width: min(100% - 1.35rem, var(--max)); }
+      header { padding: 2.7rem 0 2.2rem; }
+      .layout { display: block; }
+      nav {
+        position: static;
+        display: flex;
+        gap: .45rem;
+        overflow-x: auto;
+        margin: 0 -0.675rem;
+        padding: .75rem .675rem;
+        border-bottom: 1px solid var(--line);
+        background: rgba(8, 16, 31, .92);
+      }
+      nav strong { display: none; }
+      nav a { flex: 0 0 auto; padding: .35rem .65rem; border: 1px solid var(--line); border-radius: 999px; font-size: .76rem; }
+      h2 { margin-top: 3rem; }
+      .phase-grid { grid-template-columns: 1fr; }
+      .lede { font-size: 1rem; }
+    }
+
+    @media print {
+      :root { color-scheme: light; --ink: #111827; --muted: #374151; --dim: #4b5563; --line: #d1d5db; --panel: #f8fafc; --accent-strong: #111827; --warm: #92400e; }
+      body { background: white; }
+      nav { display: none; }
+      .layout { display: block; }
+      a { color: inherit; }
+      .panel, .phase { background: white; }
+      h2 { break-before: page; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell">
+      <p class="eyebrow">Product Requirements Document</p>
+      <h1>Multi-Epoch TESS Transit Event Association</h1>
+      <p class="lede">A phased, reproducible batch pipeline for linking isolated transit events across TESS mission epochs and recovering long-period exoplanet candidates.</p>
+      <div class="meta">
+        <span class="tag">Sectors 1–79: development</span>
+        <span class="tag">Sectors 80–105: sealed holdout</span>
+        <span class="tag">Sector 106: conditional extension</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell layout">
+    <nav aria-label="Document contents">
+      <strong>Contents</strong>
+      <a href="#problem">Problem</a>
+      <a href="#solution">Solution</a>
+      <a href="#stories">User stories</a>
+      <a href="#decisions">Decisions</a>
+      <a href="#testing">Testing</a>
+      <a href="#scope">Out of scope</a>
+      <a href="#notes">Further notes</a>
+    </nav>
+
+    <main>
+      <section id="problem">
+        <h2>Problem Statement</h2>
+        <p>Long-period transiting exoplanets are difficult to recover from TESS because a star may be observed for only one approximately 27-day sector during an observing epoch. A planet with a period of tens to hundreds of days may therefore produce only one transit-like event, leaving its period unconstrained and making the event difficult to distinguish from stellar variability, eclipsing binaries, or instrumental artefacts.</p>
+        <p>The extended TESS mission provides a new opportunity. Stars observed during early mission sectors are increasingly revisited years later. A later transit-like event around the same TIC can convert an isolated monotransit into a duotransit or multiepoch candidate, but only if the two events are correctly associated.</p>
+        <p>The researcher needs a rigorous, reproducible way to answer whether two individually detected events around the same star are likely to have been produced by the same transit-producing object. The researcher also needs to know whether that association reduces orbital-period aliases when the full TESS observing window is considered.</p>
+        <p>The repository currently contains the validated research proposal but no implementation, data model, pipeline, or test suite. The work must therefore be phased around observable scientific checkpoints rather than around an assumed neural-network outcome.</p>
+      </section>
+
+      <section id="solution">
+        <h2>Solution</h2>
+        <p>Build a reproducible batch pipeline for multi-epoch TESS transit-event association.</p>
+        <p>The pipeline will use a high-recall upstream event proposal process, represent each candidate as an event record, construct positive and realistic hard-negative candidate pairs, and compare two association strategies:</p>
+        <ol>
+          <li>A deterministic baseline using depth, duration, morphology, and timing compatibility.</li>
+          <li>A small learned association model using normalized local transit morphology, with optional scalar features evaluated through ablations.</li>
+        </ol>
+        <p>Associated events will be passed to a deterministic orbital-inference layer. The layer will generate period aliases from the event separation and reject aliases that predict confidently observable but absent transits in the actual TESS observing window.</p>
+        <p>The principal evaluation will be data-blinded and temporal. Observations through Sector 79 will be used for development. Sectors 80–105 will remain sealed until preprocessing, event-selection rules, model weights, thresholds, ranking rules, and alias logic are frozen. The primary result will compare repeat-event retrieval and candidate burden for the learned and deterministic methods on previously unseen TICs.</p>
+        <div class="callout">The learned method will remain central only if it provides a practically meaningful improvement over the deterministic baseline. Otherwise, the project will pivot to a deterministic morphology-aware framework without invalidating the dataset, orbital-inference layer, or temporal evaluation.</div>
+      </section>
+
+      <section id="stories">
+        <h2>User Stories</h2>
+        <ol>
+          <li>As an exoplanet researcher, I want to identify stars with observations in multiple TESS epochs, so that isolated transit-like events can be compared across time.</li>
+          <li>As an exoplanet researcher, I want to retain high-recall event proposals, so that the association stage is not limited by an overly selective upstream detector.</li>
+          <li>As a data engineer, I want every candidate event represented by a stable event record, so that extraction, pairing, modelling, and evaluation use one consistent contract.</li>
+          <li>As a data engineer, I want event records to include sector, event time, local time and flux windows, event depth, duration, S/N, stellar metadata, and quality information, so that both deterministic and learned methods have the necessary evidence.</li>
+          <li>As a data engineer, I want optional centroid, background, and crowding data to be represented separately from the core morphology, so that they can be added through controlled ablations or candidate vetting.</li>
+          <li>As a researcher, I want TIC identifiers to be used only for grouping and partitioning, so that the association model cannot memorize star-specific identity.</li>
+          <li>As a researcher, I want known planets with events in multiple TESS epochs to generate positive candidate pairs, so that the association task has physically motivated labels.</li>
+          <li>As a researcher, I want realistic same-TIC hard negatives, so that reported performance reflects the false associations the deployed workflow will actually encounter.</li>
+          <li>As a researcher, I want random, morphology-matched, and same-TIC hard-negative performance reported separately, so that easy negative pairs cannot conceal failure on realistic candidates.</li>
+          <li>As a researcher, I want all events from a TIC assigned to only one data partition, so that validation and test results are not inflated by star-level leakage.</li>
+          <li>As a researcher, I want development data restricted to observations through Sector 79, so that later-sector measurements cannot influence model design.</li>
+          <li>As a researcher, I want a deterministic association baseline before any neural model is trained, so that the project can measure whether machine learning adds value.</li>
+          <li>As a researcher, I want the deterministic baseline to compare depth, duration, morphology, and timing, so that it represents a credible scientific alternative rather than a straw-man benchmark.</li>
+          <li>As a researcher, I want the learned association model to compare normalized local transit morphology, so that it can use shape information beyond summary statistics.</li>
+          <li>As a model developer, I want to start with a modest Siamese or contrastive one-dimensional CNN, so that the experiment tests the association hypothesis without requiring large GPU infrastructure.</li>
+          <li>As a model developer, I want optional stellar and contamination metadata controlled through ablation studies, so that any improvement can be attributed to meaningful information rather than unexplained feature accumulation.</li>
+          <li>As a researcher, I want the association model to output the probability that two events arise from the same transit-producing object, so that its output is not misinterpreted as a planet probability or orbital-period estimate.</li>
+          <li>As an exoplanet researcher, I want candidate periods generated as aliases of the observed event separation, so that sparse events produce an explicit finite hypothesis set.</li>
+          <li>As an exoplanet researcher, I want each period alias tested against the actual TIC observing window, so that aliases predicting observable but absent transits can be rejected deterministically.</li>
+          <li>As a researcher, I want the number of viable aliases reported before and after window filtering, so that the orbital-inference contribution is measurable independently of association quality.</li>
+          <li>As a researcher, I want the correct later event ranked among competing candidate pairs, so that evaluation reflects the operational task rather than generic binary classification.</li>
+          <li>As a human reviewer, I want candidate burden measured at fixed repeat-event recall, so that I can determine how many associations require inspection in practice.</li>
+          <li>As a researcher, I want top-k retrieval, mean reciprocal rank, precision-recall, and fixed-burden metrics, so that the result is not dependent on generic accuracy.</li>
+          <li>As a researcher, I want injection/recovery experiments to vary signal strength, event morphology, and epoch separation, so that the method's operating regime is known.</li>
+          <li>As a researcher, I want injections performed into real TESS light curves, so that association performance is tested against realistic noise and instrumental context.</li>
+          <li>As a researcher, I want preprocessing rules, model weights, thresholds, manifests, seeds, and predictions frozen before holdout unblinding, so that the temporal evaluation is auditable.</li>
+          <li>As a reviewer, I want an independent check that no Sectors 80–105 measurements entered development, so that the pseudo-prospective claim is credible.</li>
+          <li>As a researcher, I want failure analysis separated into event-detection failure and event-association failure, so that a weak result identifies the actual limiting stage.</li>
+          <li>As a researcher, I want the project to pivot to deterministic matching if machine learning does not materially improve the baseline, so that the study does not become hostage to a neural architecture.</li>
+          <li>As a researcher, I want known long-period systems reserved for meaningful evaluation where feasible, so that training performance does not substitute for scientific recovery performance.</li>
+          <li>As a researcher, I want alternative TESS reductions used for final candidate verification rather than core training, so that the primary benchmark remains controlled.</li>
+          <li>As a researcher, I want Sector 106 treated as a conditional discovery cohort, so that discovery candidates do not determine whether the core methodology succeeds.</li>
+          <li>As a candidate vetter, I want high-ranked candidates checked for eclipsing-binary signatures, secondary eclipses, odd/even differences, crowding, centroid movement, Gaia neighbours, and difference-image evidence, so that associations are not presented as confirmed planets.</li>
+          <li>As a researcher, I want external photometry queried only for high-ranked candidates and specific aliases, so that follow-up work does not expand into an archive-scale dependency.</li>
+          <li>As a maintainer, I want every derived dataset and result tied to source-product versions and download dates, so that later reruns can explain differences.</li>
+          <li>As a maintainer, I want the pipeline runnable locally on compact event data with archive-side preprocessing available through TIKE, so that development does not require years of raw TESS files on the local machine.</li>
+          <li>As a paper author, I want the final report to support either a positive ML result, a null ML result, or an association-limit result, so that the study remains publishable regardless of the model comparison outcome.</li>
+          <li>As a future researcher, I want the event and association outputs to be suitable for later graph-based multievent analysis, so that future work can extend the core result without changing the foundational data contract.</li>
+        </ol>
+      </section>
+
+      <section id="decisions">
+        <h2>Implementation Decisions</h2>
+        <ul>
+          <li>The first release is a reproducible batch research pipeline, not a continuously deployed service or polished candidate-report application.</li>
+          <li>The core scientific unit is a candidate event pair around one TIC, followed by deterministic period-alias inference.</li>
+          <li>The primary photometric product will be selected during the protocol phase and then held fixed for the core benchmark. TESS-SPOC FFI light curves are the default candidate because they align with the proposal's related-work baseline. SPOC, QLP, TGLC, and other reductions are reserved for robustness checks and final candidate vetting.</li>
+          <li>Individual-event detection is upstream infrastructure. The project will prioritize recall and will not claim novelty for a new monotransit detector.</li>
+          <li>Event proposals must produce records containing TIC identifier, sector, event time, local time array, local flux array, depth, duration, S/N, stellar metadata, and quality information.</li>
+          <li>TIC identifiers are grouping and partitioning keys only. They must not be model features.</li>
+          <li>Positive pairs will be generated from known planets with compatible events in multiple TESS epochs. Label construction must record the catalogue version and the information available at label-generation time.</li>
+          <li>Negative pairs will prioritize same-TIC hard negatives, including unrelated artefacts, stellar variability, eclipsing-binary-like events, morphology-matched events, and timing-incompatible events.</li>
+          <li>All events from a TIC must belong exclusively to training, validation, or test. The temporal holdout adds a second boundary: development uses Sectors 1–79 and the primary sealed evaluation uses Sectors 80–105.</li>
+          <li>The deterministic baseline will compare relative depth difference, relative duration difference, normalized morphology correlation, and timing plausibility. Thresholds must be learned only from development data.</li>
+          <li>The learned association model will initially use a small Siamese or contrastive one-dimensional CNN with shared event encoding, compact embeddings, absolute embedding difference, and a small comparison head.</li>
+          <li>The first learned-model input is normalized local transit morphology. Stellar metadata, depth, duration, S/N, and contamination information are optional inputs evaluated through explicit ablations.</li>
+          <li>Timing information will initially remain in the deterministic orbital layer rather than being supplied broadly to the neural model, reducing the risk that the model memorizes common period distributions.</li>
+          <li>The learned output is <code>P(same transit-producing object)</code>. It is not <code>P(star contains a planet)</code> and it is not an orbital-period prediction.</li>
+          <li>Candidate periods will be generated from <code>P_n = Delta T / n</code> for permitted positive integers, with an initial long-period lower boundary near 27 days.</li>
+          <li>The observing-window filter will use the actual cadence availability and quality for each TIC. It will predict transit epochs, establish whether usable TESS data exist, check for corresponding events, and reject aliases with confidently observable but absent events.</li>
+          <li>The primary association metric is true-repeat retrieval at a fixed candidate burden. Supporting metrics include precision-recall AUC, top-1 and top-5 retrieval, mean reciprocal rank, recall at fixed false-association rate, and precision at fixed human-vetting budget.</li>
+          <li>Full-pipeline reporting will include recovered known long-period systems, retrieved true repeat events, candidate pairs per recovered system, aliases before and after window filtering, and false associations per 1,000 targets.</li>
+          <li>The project will begin with a tracer-bullet dataset containing a small set of known multiepoch systems and realistic competing events. This validates the data contract and end-to-end flow before broad archive processing.</li>
+          <li>The pipeline will expose event-detection recall separately from event-association performance. A missed event must not be reported as an association failure without evidence that the event was retained upstream.</li>
+          <li>The project will follow these phased checkpoints: protocol freeze, data smoke test, event-recall check, label/leakage audit, deterministic baseline, learned-model comparison, freeze/seal audit, temporal holdout, and injection/operating-regime report.</li>
+          <li>The ML stop/go decision is operational rather than purely statistical. ML continues as the principal method only if it materially improves repeat recall at fixed false-association rate, candidate burden at fixed recall, or top-k correct-match retrieval on unseen TICs.</li>
+          <li>If ML does not materially improve the baseline, the frozen dataset, deterministic matcher, orbital layer, and temporal evaluation remain the core contribution.</li>
+          <li>The sealed holdout is an operational data boundary, not a claim that public data are inaccessible. Holdout manifests, measurements, and labels must be kept outside development inputs until the freeze record is complete, with hashes and access logs sufficient for audit.</li>
+          <li>Reproducibility metadata will include exact TIC lists, sector manifests, source-product versions, catalogue versions and download dates, preprocessing parameters, event-selection rules, pair construction, TIC assignments, random seeds, model checkpoints, thresholds, injection parameters, and holdout-unblinding date.</li>
+          <li>Local execution will handle model development, training, plotting, debugging, ablations, analysis, and manuscript generation. TIKE may handle archive-side manifests, large-scale preprocessing, compact event extraction, and selected transit-search workloads.</li>
+          <li>Candidate-specific false-positive vetting occurs only after the core temporal experiment. It must not alter the primary holdout scores.</li>
+          <li>Sector 106 is a conditional discovery extension. It proceeds only after the core temporal result and is reported separately from the primary methodology result.</li>
+        </ul>
+
+        <div class="panel">
+          <h3>Phased Checkpoints</h3>
+          <div class="phase-grid">
+            <div class="phase"><b>0. Protocol freeze</b><br>Fix definitions, metrics, source product, and sector boundaries.</div>
+            <div class="phase"><b>1. Data smoke test</b><br>Reproduce light curves and plots for known systems.</div>
+            <div class="phase"><b>2. Event-recall check</b><br>Confirm known repeat events are retained upstream.</div>
+            <div class="phase"><b>3. Label and leakage audit</b><br>Verify pair construction and TIC-level isolation.</div>
+            <div class="phase"><b>4. Deterministic baseline</b><br>Validate matching and period-alias filtering.</div>
+            <div class="phase"><b>5. Learned comparison</b><br>Evaluate the modest association model on unseen TICs.</div>
+            <div class="phase"><b>6. Freeze and seal</b><br>Version code, weights, thresholds, and predictions.</div>
+            <div class="phase"><b>7. Temporal holdout</b><br>Unblind Sectors 80–105 without post-hoc tuning.</div>
+            <div class="phase"><b>8. Operating regime</b><br>Run injections and document failure modes.</div>
+            <div class="phase"><b>9. Optional discovery</b><br>Search Sector 106 only after the core result.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="testing">
+        <h2>Testing Decisions</h2>
+        <ul>
+          <li>Good tests will verify externally observable scientific behavior: records are valid, partitions are leak-free, event pairs receive the expected labels, aliases are generated and filtered correctly, and frozen runs produce reproducible rankings and metrics.</li>
+          <li>The highest test seam is one end-to-end batch run from a versioned compact event dataset and TIC observing manifest to ranked candidate associations, viable period aliases, and evaluation metrics. This seam should be exercised with a small golden fixture before archive-scale runs.</li>
+          <li>No implementation detail of the CNN, data loader, or internal helper structure should be the primary test target. Model internals may be tested only where they affect the public scoring contract or reproducibility.</li>
+          <li>Event-record validation will test required fields, units, finite values, time ordering, cadence alignment, quality flags, and serialization round trips.</li>
+          <li>Partition tests will assert that a TIC cannot occur in multiple partitions and that no holdout measurement or label is consumed by development workflows.</li>
+          <li>Pair-construction tests will verify positive pairs from known repeated events and hard negatives from realistic same-TIC contexts. Tests will also confirm that random unrelated-star pairs cannot dominate a dataset by accident.</li>
+          <li>Deterministic matcher tests will use controlled events with known depth, duration, morphology, and timing differences to verify compatibility decisions and threshold behavior.</li>
+          <li>Orbital-inference tests will verify alias arithmetic, integer-cycle handling, period boundaries, transit-epoch prediction, cadence coverage, and rejection of aliases contradicted by observed data.</li>
+          <li>The orbital layer should include property-style tests for invariants such as positive periods, increasing predicted epochs, and preservation of the observed event times under a generated alias.</li>
+          <li>Association evaluation tests will verify ranking, top-k retrieval, candidate-burden curves, fixed-recall comparisons, and metric behavior on known toy outcomes.</li>
+          <li>Reproducibility tests will rerun the same frozen fixture with the same seed and assert equivalent event records, scores, rankings, and aggregate metrics within declared numerical tolerances.</li>
+          <li>Injection tests will verify that injected events preserve the source light curve outside the intended window, carry correct provenance, and can be recovered under the expected signal and separation regimes.</li>
+          <li>Temporal-holdout tests will run against a deliberately miniature sealed fixture and verify that unblinding is impossible through normal development inputs before the freeze checkpoint.</li>
+          <li>The tracer-bullet fixture is the primary prior art for this repository because no existing implementation or test suite is currently present. The fixture should include known repeat events, unrelated same-TIC dips, missing-cadence intervals, multiple aliases, and at least one rejected alias.</li>
+          <li>Archive-scale execution is an integration and reproducibility test, not a substitute for deterministic fixture tests. It must emit manifests, logs, version metadata, and compact derived outputs.</li>
+          <li>Human vetting remains a scientific validation activity rather than an automated test. The workflow should preserve plots and candidate context so a reviewer can inspect why an association was ranked.</li>
+        </ul>
+      </section>
+
+      <section id="scope">
+        <h2>Out of Scope</h2>
+        <ul>
+          <li>Developing a novel large Transformer for individual transit-event detection.</li>
+          <li>Treating event detection as the principal methodological novelty.</li>
+          <li>Exhaustive TGLC or TARS archive searches.</li>
+          <li>Pixel-level deep-learning models.</li>
+          <li>Graph neural networks or full event-graph clustering in the first release.</li>
+          <li>Systematic archive-scale processing of ZTF, ATLAS, or ASAS-SN.</li>
+          <li>Occurrence-rate measurement.</li>
+          <li>A full multidimensional TESS survey selection function.</li>
+          <li>Automated follow-up observation scheduling.</li>
+          <li>A polished candidate-reporting product.</li>
+          <li>Claiming that an association probability is a planet probability.</li>
+          <li>Claiming that a pair of events uniquely determines an orbital period without alias analysis.</li>
+          <li>Using current catalogue information in a way that leaks later observations into development labels or features.</li>
+          <li>Using Sector 106 discovery candidates to tune the core model or thresholds.</li>
+          <li>Adding architecture complexity without an empirical failure mode and a predeclared evaluation.</li>
+          <li>Replacing the deterministic baseline with a weak benchmark designed to make ML appear better.</li>
+          <li>Treating a statistically detectable improvement as sufficient without an operational improvement in recall, candidate burden, or ranking.</li>
+          <li>Full candidate-specific follow-up before the sealed temporal evaluation is complete.</li>
+          <li>Comprehensive completeness claims beyond the limited injection/recovery operating-regime study.</li>
+          <li>A requirement to discover a new planet for the project to succeed.</li>
+        </ul>
+      </section>
+
+      <section id="notes">
+        <h2>Further Notes</h2>
+        <ul>
+          <li>The research proposal and citation audit are the scientific source documents for this PRD. The cited literature was validated as real, and the proposal's attributed numerical and methodological claims were found to be materially accurate.</li>
+          <li>The first implementation milestone should be the tracer-bullet experiment, not the neural association model. It should demonstrate that a known multiepoch system can move through event extraction, pairing, scoring, alias generation, and window filtering.</li>
+          <li>The main scientific risk is not model architecture. It is realistic event and negative-pair construction under strict temporal and TIC-level leakage controls.</li>
+          <li>The event detector and association model must be evaluated as separate stages. This distinction is required to explain whether poor recovery comes from failure to retain an event or failure to link two retained events.</li>
+          <li>The expected primary outcomes are intentionally symmetric: ML may improve association, deterministic morphology-aware matching may be sufficient, or even known repeat systems may be unrecoverable at acceptable candidate burden. Each outcome is scientifically reportable.</li>
+          <li>The primary result should be written before any optional discovery extension. Sector 106 is an opportunity to apply a validated method to recent data, not a dependency of the core research.</li>
+          <li>The project should preserve enough provenance and compact derived data to permit later extensions such as full archive event graphs, cross-reduction learning, smaller-planet association, and continuous new-sector monitoring.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="shell">Source document: <a href="RESEARCH_PIPELINE_PRD.md">RESEARCH_PIPELINE_PRD.md</a></div>
+  </footer>
+</body>
+</html>
