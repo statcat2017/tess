@@ -1,13 +1,17 @@
 """Observing-window alias filter (issue #2, Proposal §20 tracer slice).
 
-For each period alias of an associated pair, predict interior transit
-epochs. An alias predicting an epoch inside observed cadence with no
-event nearby (within tolerance) is contradicted and rejected.
+For each period alias of an associated pair, predict transit epochs across
+the whole observed window span — before, between, and after the two events.
+An alias predicting an epoch inside observed cadence with no event nearby
+(within epoch_match_tol_days) is contradicted and rejected. The two
+observed events themselves are never contradictions. Empty window coverage
+cannot contradict anything, so every alias is retained.
 """
 
 from __future__ import annotations
 
 import bisect
+import math
 from dataclasses import dataclass
 
 from tess_assoc.event import EventRecord
@@ -58,8 +62,17 @@ def filter_aliases(
     verdicts: list[AliasVerdict] = []
     for n, period in enumerate(generate_aliases(delta_t), start=1):
         contradiction: float | None = None
-        for k in range(1, n):
+        if not starts:
+            verdicts.append(
+                AliasVerdict(n=n, period_days=period, retained=True)
+            )
+            continue
+        k_min = math.ceil((starts[0] - t1) / period) - 1
+        k_max = math.floor((ends[-1] - t1) / period) + 1
+        for k in range(k_min, k_max + 1):
             epoch = t1 + k * period
+            if abs(epoch - t1) <= tol or abs(epoch - t2) <= tol:
+                continue  # observed anchors, never contradictions
             if observed(epoch) and not has_event(epoch):
                 contradiction = epoch
                 break

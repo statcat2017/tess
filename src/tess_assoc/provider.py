@@ -23,6 +23,11 @@ def _shape_flux(shape: str, phase: float, depth: float, duration_days: float) ->
     return 1.0 - depth * max(0.0, 1.0 - abs(phase) / half)
 
 
+def shape_flux(shape: str, phase: float, depth: float, duration_days: float) -> float:
+    """Public analytic transit-shape factor (box or v)."""
+    return _shape_flux(shape, phase, depth, duration_days)
+
+
 def provide_events(manifest: TracerManifest) -> dict[str, EventRecord]:
     step = (2.0 * HALF_SPAN_DAYS) / (N_SAMPLES - 1)
     # Phase grid built once: identical for every event, so morphology

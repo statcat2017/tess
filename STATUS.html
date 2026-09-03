@@ -90,6 +90,8 @@
         <button role="tab" aria-selected="false" data-page="phase2">Phase 2 · Real data</button>
         <button role="tab" aria-selected="false" data-page="phase3">Phase 3 · Blink-finder</button>
         <button role="tab" aria-selected="false" data-page="phase4">Phase 4 · Scoreboard</button>
+        <button role="tab" aria-selected="false" data-page="phase5">Phase 5 · Learning</button>
+        <button role="tab" aria-selected="false" data-page="phase6">Phase 6 · Injection drills</button>
         <button role="tab" aria-selected="false" data-page="roadmap">Roadmap</button>
       </nav>
     </div>
@@ -110,9 +112,11 @@
           <div class="card done"><b>✓ Phase 2 · Real data</b><br>Same chain on genuine TESS recordings of 3 known planets. All true pairs match.</div>
           <div class="card done"><b>✓ Phase 3 · Blink-finder</b><br>Software that spots blinks itself, no star maps needed — finds 34 of 39 real blinks.</div>
           <div class="card done"><b>✓ Phase 4 · Scoreboard</b><br>618 true pairs vs 3,037 false alarms ranked — every true pair on top, randoms scoreless.</div>
-          <div class="card next"><b>→ What's next</b><br>A learning matcher, a blind exam on hidden years, then the hunt for new worlds.</div>
+          <div class="card done"><b>✓ Phase 5 · Learning</b><br>A small Siamese matcher now runs beside the deterministic baseline with TIC-level holdouts and an explicit stop/go decision.</div>
+          <div class="card done"><b>✓ Phase 6 · Injection drills</b><br>Artificial blinks are recovered from real development light curves across depth, shape, and epoch-separation regimes.</div>
+          <div class="card next"><b>→ What's next</b><br>Freeze the protocol, then run the sealed temporal exam before hunting for new worlds.</div>
         </div>
-        <p>Status: <b>46 automated self-checks passing</b> · practice + real replay runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>69 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -254,11 +258,39 @@
         </div>
       </section>
 
+      <section class="page" id="page-phase5" role="tabpanel">
+        <h2>Phase 5 · The learning matcher</h2>
+        <p>The hand-written matcher now has a learned competitor: a small Siamese 1D-CNN that compares the two local blink shapes and optional scalar features. It sees no TIC identifier, and every star stays wholly inside one train, validation, or test pile.</p>
+        <h3>What is measured</h3>
+        <table>
+          <tr><th>Question</th><th>Answer from the code</th></tr>
+          <tr><td>Does learning beat the rules?</td><td>Same candidate pairs, same partitions, same ranking metrics, with an explicit operational stop/go decision.</td></tr>
+          <tr><td>Can the result leak star identity?</td><td>No — TICs group and split examples only; they are never model features.</td></tr>
+          <tr><td>Can a null result be reported honestly?</td><td>Yes — the decision records scope, sample size, recall, burden, and the reason to continue or pivot.</td></tr>
+        </table>
+        <div class="panel"><p><b>Current scientific boundary:</b> the first real benchmark contains hot-Jupiter transits with nearly identical repeated shapes. That makes it a valid pipeline check but not an informative final test of morphology learning. The injection drills below provide the deliberately shape-discriminable rematch.</p></div>
+      </section>
+
+      <section class="page" id="page-phase6" role="tabpanel">
+        <h2>Phase 6 · Injection drills</h2>
+        <p>We now plant controlled transit-shaped dips into genuine TESS-SPOC FFI light curves from the development manifest, then send both modified sectors through the same blind proposer, event-record extractor, matcher, and alias/window code used elsewhere.</p>
+        <h3>The operating grid</h3>
+        <table>
+          <tr><th>Dimension</th><th>Values</th><th>Why it matters</th></tr>
+          <tr><td>Depth</td><td class="num">0.003 · 0.010 · 0.025</td><td>Maps weak to strong signal recovery.</td></tr>
+          <tr><td>Morphology</td><td>box · V-shaped · mismatched</td><td>Same-shape repeats test recovery; cross-epoch box-vs-V pairs are deliberate shape negatives for the learned rematch.</td></tr>
+          <tr><td>Separation</td><td>same-epoch · cross-epoch</td><td>Timing-impossible negatives are separated from physically plausible repeat positives.</td></tr>
+        </table>
+        <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region.</p>
+        <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
+        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>69 passed</b> with one pre-existing archive warning.</p>
+      </section>
+
       <section class="page" id="page-roadmap" role="tabpanel">
         <h2>Roadmap · what comes next</h2>
         <div class="grid2">
-          <div class="card next"><b>→ Learning matcher (#6)</b><br>Teach a small AI to compare dip shapes and test it head-to-head against the hand-written rules on stars it has never seen.</div>
-          <div class="card next"><b>→ Injection drills (#7)</b><br>Plant fake blinks of all sizes into real recordings to map exactly where the finder stops seeing.</div>
+          <div class="card done"><b>✓ Learning matcher (#6)</b><br>Head-to-head learned and deterministic scoring with TIC-level holdouts and a written stop/go boundary.</div>
+          <div class="card done"><b>✓ Injection drills (#7)</b><br>Plant fake blinks of different depths and shapes into real recordings and map detection versus association failures.</div>
           <div class="card next"><b>→ Blind exam (#8)</b><br>Freeze everything, then grade on years of observations kept sealed until grading day. No peeking, no retakes.</div>
           <div class="card next"><b>→ Hunt new worlds (#9)</b><br>Only after passing the exam: aim the frozen code at the newest TESS data and report uncatalogued candidates — or publish the honest negative result.</div>
         </div>
@@ -266,9 +298,9 @@
         <ul>
           <li><b>No new planets yet</b> — only known ones replayed.</li>
           <li><b>No planet-vs-impostor vetting</b> — eclipsing binary stars need extra checks not yet built.</li>
-          <li><b>No AI yet</b> — matching is still hand-written rules.</li>
+          <li><b>No sealed exam yet</b> — all current results are development or tracer-bullet checks.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 46 passed
+        <pre>python3 -m pytest -q            # 69 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file
