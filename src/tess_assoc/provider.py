@@ -25,12 +25,13 @@ def _shape_flux(shape: str, phase: float, depth: float, duration_days: float) ->
 
 def provide_events(manifest: TracerManifest) -> dict[str, EventRecord]:
     step = (2.0 * HALF_SPAN_DAYS) / (N_SAMPLES - 1)
+    # Phase grid built once: identical for every event, so morphology
+    # comparison never depends on absolute event-time magnitude.
+    phases = [-HALF_SPAN_DAYS + i * step for i in range(N_SAMPLES)]
     out: dict[str, EventRecord] = {}
     for e in manifest.events:
-        times = [e.t0 - HALF_SPAN_DAYS + i * step for i in range(N_SAMPLES)]
-        fluxes = [
-            _shape_flux(e.shape, t - e.t0, e.depth, e.duration_days) for t in times
-        ]
+        times = [e.t0 + ph for ph in phases]
+        fluxes = [_shape_flux(e.shape, ph, e.depth, e.duration_days) for ph in phases]
         out[e.id] = EventRecord(
             tic_id=manifest.tic_id,
             sector=e.sector,

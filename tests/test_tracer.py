@@ -77,6 +77,8 @@ def test_matcher_compatible_only_true_repeat():
     }
     assert decisions[("A", "B")].compatible
     assert decisions[("A", "B")].explanation
+    assert decisions[("A", "B")].morph_corr == 1.0
+    assert decisions[("A", "C")].morph_corr == decisions[("B", "C")].morph_corr
     assert not decisions[("A", "C")].compatible
     assert not decisions[("B", "C")].compatible  # 5d separation: no aliases
     with pytest.raises(ValueError, match="missing key"):
