@@ -13,7 +13,7 @@ import pytest
 from conftest import needs_archive
 from tess_assoc.archive import ArchiveUnavailable, cache_dir, find_spoc_ffi_uri
 from tess_assoc.extract import BTJD_OFFSET, coverage_windows, predicted_transits
-from tess_assoc.replay import load_replay_manifest, replay_all, replay_system
+from tess_assoc.replay import MISS_REASONS, load_replay_manifest, replay_all, replay_system
 
 REPLAY = Path(__file__).resolve().parent.parent / "fixtures" / "replay_v1.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -60,6 +60,28 @@ def test_replay_manifest_rejects_wrong_product(tmp_path):
 def test_archive_reports_clearly_for_unknown_target():
     with pytest.raises(ArchiveUnavailable):
         find_spoc_ffi_uri(99999999999, 1)
+
+
+@needs_archive
+def test_live_blind_replay_measures_recall(tmp_path):
+    from tess_assoc.replay import load_replay_manifest, replay_blind_system
+
+    replay = load_replay_manifest(str(REPLAY))
+    system = next(s for s in replay.systems if s.name == "WASP-121 b")
+    res = replay_blind_system(replay, system, cache_dir=str(tmp_path))
+    assert res["sealed_sectors_touched"] == []
+    assert res["n_proposals"] > 0
+    assert res["recall"]["rate"] >= 0.8, res["recall"]
+    assert res["pair_outcome"] == "associated", res["pair_outcome"]
+    missed = res["missed"]
+    assert len(missed) == res["recall"]["known"] - res["recall"]["recalled"]
+    for m in missed:
+        assert set(m) == {"sector", "t0", "max_snr", "proposed", "reason"}
+        assert m["reason"] in MISS_REASONS
+        assert m["max_snr"] is None or isinstance(m["max_snr"], float)
+    assert res["recall"]["coverable"] <= res["recall"]["known"]
+    assert res["recall"]["recalled_coverable"] <= res["recall"]["coverable"]
+    json.dumps(res)
 
 
 @needs_archive

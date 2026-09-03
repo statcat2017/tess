@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable
 from tess_assoc.event import EventRecord
+from tess_assoc._validate import require_positive_finite
 from tess_assoc.manifest import ReplaySystem
 
 BTJD_OFFSET = 2457000.0
@@ -138,6 +139,56 @@ def coverage_windows(
     return spans
 
 
+def extract_at(
+    time: list[float],
+    flux: list[float],
+    t_center: float,
+    duration_days: float,
+    *,
+    tic_id: int,
+    sector: int,
+    half_span_days: float = 0.6,
+    resample_samples: int = 61,
+    quality: dict | None = None,
+) -> EventRecord | SkippedTransit:
+    """Measure one window into an EventRecord (shared ephemeris/blind core)."""
+    _require_deps()
+    import numpy as np
+
+    require_positive_finite("duration_days", duration_days)
+    tarr = np.array(time, dtype=float)
+    step = (2.0 * half_span_days) / (resample_samples - 1)
+    phases = [-half_span_days + i * step for i in range(resample_samples)]
+    grid = [t_center + ph for ph in phases]
+    if grid[0] < tarr[0] or grid[-1] > tarr[-1]:
+        return SkippedTransit(t_center, "window truncated at data edge")
+    interp = np.interp(grid, tarr, np.array(flux, dtype=float))
+    half = duration_days / 2.0
+    inside = np.abs(np.array(phases)) <= half
+    outside = (np.abs(np.array(phases)) > duration_days) & (
+        np.abs(np.array(phases)) <= half_span_days
+    )
+    if int(np.sum(inside)) < 3 or int(np.sum(outside)) < 10:
+        return SkippedTransit(t_center, "too few points in/out of transit")
+    f0 = float(np.median(interp[outside]))
+    depth = 1.0 - float(np.median(interp[inside])) / f0
+    if not depth > 0:
+        return SkippedTransit(t_center, "non-positive measured depth")
+    resid = interp[outside] / f0 - 1.0
+    scatter = float(np.std(resid)) or 1e-9
+    snr = depth / scatter * (float(np.sum(inside)) ** 0.5)
+    return EventRecord(
+        tic_id=tic_id,
+        sector=sector,
+        t0=float(t_center),
+        local_time=[float(v) for v in grid],
+        local_flux=[float(v) for v in interp / f0],
+        depth=depth,
+        duration_days=duration_days,
+        snr=snr,
+        stellar_meta={},
+        quality=dict(quality or {}),
+    )
 def extract_events(
     product: ArchiveProduct,
     system: ReplaySystem,
@@ -146,21 +197,25 @@ def extract_events(
 ) -> tuple[list[ExtractedEvent], list[SkippedTransit], list[tuple[float, float]]]:
     """Extract one EventRecord per predicted transit with full window coverage."""
     _require_deps()
-    import numpy as np
 
     period = system.period_days
     duration_days = system.duration_hours / 24.0
     time, flux = load_lightcurve(product)
     if not time:
         raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
-    tarr, farr = np.array(time), np.array(flux)
     windows = coverage_windows(time)
-    step = (2.0 * half_span_days) / (resample_samples - 1)
-    phases = [-half_span_days + i * step for i in range(resample_samples)]
+    quality_base = {
+        "provider": "archive",
+        "product": "TESS-SPOC FFI",
+        "data_uri": product.data_uri,
+        "retrieved_utc": product.retrieved_utc,
+        "ephemeris": f"{system.name} P={period}d T0={system.t0_bjd_tdb}",
+        "role": "predicted-transit",
+    }
 
     extracted: list[ExtractedEvent] = []
     skipped: list[SkippedTransit] = []
-    for t_pred in predicted_transits(system.t0_bjd_tdb, period, tarr[0], tarr[-1]):
+    for t_pred in predicted_transits(system.t0_bjd_tdb, period, time[0], time[-1]):
         try:
             t_ref = refine_epoch(time, flux, period, t_pred, duration_days)
         except ArchiveUnavailable:
@@ -168,54 +223,30 @@ def extract_events(
                 SkippedTransit(t_pred, "epoch refinement found no usable cadence")
             )
             continue
-        grid = [t_ref + ph for ph in phases]
-        if grid[0] < tarr[0] or grid[-1] > tarr[-1]:
-            skipped.append(SkippedTransit(t_pred, "window truncated at data edge"))
-            continue
-        interp = np.interp(grid, tarr, farr)
-        half = duration_days / 2.0
-        inside = np.abs(np.array(phases)) <= half
-        outside = (np.abs(np.array(phases)) > duration_days) & (
-            np.abs(np.array(phases)) <= half_span_days
-        )
-        if int(np.sum(inside)) < 3 or int(np.sum(outside)) < 10:
-            skipped.append(SkippedTransit(t_pred, "too few points in/out of transit"))
-            continue
-        f0 = float(np.median(interp[outside]))
-        depth = 1.0 - float(np.median(interp[inside])) / f0
-        if not depth > 0:
-            skipped.append(SkippedTransit(t_pred, "non-positive measured depth"))
-            continue
-        resid = interp[outside] / f0 - 1.0
-        scatter = float(np.std(resid)) or 1e-9
-        snr = depth / scatter * (float(np.sum(inside)) ** 0.5)
-        record = EventRecord(
+        result = extract_at(
+            time,
+            flux,
+            t_ref,
+            duration_days,
             tic_id=product.tic_id,
             sector=product.sector,
-            t0=float(t_ref),
-            local_time=[float(v) for v in grid],
-            local_flux=[float(v) for v in interp / f0],
-            depth=depth,
-            duration_days=duration_days,
-            snr=snr,
-            stellar_meta={},
+            half_span_days=half_span_days,
+            resample_samples=resample_samples,
             quality={
-                "provider": "archive",
-                "product": "TESS-SPOC FFI",
-                "data_uri": product.data_uri,
-                "retrieved_utc": product.retrieved_utc,
-                "ephemeris": f"{system.name} P={period}d T0={system.t0_bjd_tdb}",
+                **quality_base,
                 "predicted_t0_btjd": t_pred,
                 "epoch_shift_days": t_ref - t_pred,
-                "role": "predicted-transit",
             },
         )
-        extracted.append(
-            ExtractedEvent(
-                record=record,
-                predicted_t0_btjd=t_pred,
-                measured_depth=depth,
-                n_points=resample_samples,
+        if isinstance(result, SkippedTransit):
+            skipped.append(SkippedTransit(t_pred, result.reason))
+        else:
+            extracted.append(
+                ExtractedEvent(
+                    record=result,
+                    predicted_t0_btjd=t_pred,
+                    measured_depth=result.depth,
+                    n_points=resample_samples,
+                )
             )
-        )
     return extracted, skipped, windows

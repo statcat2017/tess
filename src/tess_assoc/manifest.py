@@ -54,7 +54,7 @@ class ManifestEvent:
     duration_days: float
     snr: float
     shape: str  # "box" | "v" | "real"
-    origin: str  # "ephemeris" | "distractor"
+    origin: str  # "ephemeris" | "distractor" | "proposal"
 
     def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id:
@@ -66,8 +66,8 @@ class ManifestEvent:
         require_positive_finite("event snr", self.snr)
         if self.shape not in ("box", "v", "real"):
             raise ValueError("event shape must be 'box', 'v', or 'real'")
-        if self.origin not in ("ephemeris", "distractor"):
-            raise ValueError("event origin must be 'ephemeris' or 'distractor'")
+        if self.origin not in ("ephemeris", "distractor", "proposal"):
+            raise ValueError("event origin must be 'ephemeris', 'distractor', or 'proposal'")
 
 
 @dataclass(frozen=True)
@@ -121,13 +121,13 @@ def _windows(value: Any) -> tuple[tuple[float, float], ...]:
 def load_manifest(d: dict[str, Any]) -> TracerManifest:
     if not isinstance(d, dict):
         raise ValueError("manifest must be a dict")
-    for key in ("name", "tic_id", "sectors", "events", "matcher_thresholds"):
+    for key in ("name", "tic_id", "sectors", "events", "matcher_thresholds", "epoch_match_tol_days"):
         if key not in d:
             raise ValueError(f"manifest missing key: {key}")
     if not isinstance(d["name"], str) or not d["name"]:
         raise ValueError("manifest name must be a non-empty str")
     require_strict_int("tic_id", d["tic_id"], minimum=1)
-    tol = d.get("epoch_match_tol_days", 0.3)
+    tol = d["epoch_match_tol_days"]
     require_positive_finite("epoch_match_tol_days", tol)
     thresholds = d["matcher_thresholds"]
     if not isinstance(thresholds, dict):

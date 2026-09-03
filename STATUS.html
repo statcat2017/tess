@@ -88,6 +88,7 @@
         <button role="tab" aria-selected="false" data-page="phase0">Phase 0 · Rulebook</button>
         <button role="tab" aria-selected="false" data-page="phase1">Phase 1 · Practice run</button>
         <button role="tab" aria-selected="false" data-page="phase2">Phase 2 · Real data</button>
+        <button role="tab" aria-selected="false" data-page="phase3">Phase 3 · Blink-finder</button>
         <button role="tab" aria-selected="false" data-page="roadmap">Roadmap</button>
       </nav>
     </div>
@@ -106,9 +107,10 @@
           <div class="card done"><b>✓ Phase 0 · Rulebook</b><br>Locked definitions, blink records, orbit math. Demonstrated: alias lists, leak guards, 19 checks.</div>
           <div class="card done"><b>✓ Phase 1 · Practice run</b><br>Full chain on made-up data: match blinks, list orbits, cross off 22 of 33 suspects.</div>
           <div class="card done"><b>✓ Phase 2 · Real data</b><br>Same chain on genuine TESS recordings of 3 known planets. All true pairs match.</div>
-          <div class="card next"><b>→ What's next</b><br>Automatic blink-finding, a learning matcher, a blind exam on hidden years, then the hunt for new worlds.</div>
+          <div class="card done"><b>✓ Phase 3 · Blink-finder</b><br>Software that spots blinks itself, no star maps needed — finds 34 of 39 real blinks.</div>
+          <div class="card next"><b>→ What's next</b><br>A learning matcher, a blind exam on hidden years, then the hunt for new worlds.</div>
         </div>
-        <p>Status: <b>32 automated self-checks passing</b> · practice + real replay runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>40 automated self-checks passing</b> · practice + real replay runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -171,6 +173,15 @@
         <p class="caption">WASP-121 b, sectors 7 + 33 — matched at 0.936.</p>
         <img class="demo" src="assets/replay_kelt-9b.svg" alt="Real KELT-9 b transit windows from sectors 14 and 55 overlaid">
         <p class="caption">KELT-9 b, sectors 14 + 55 — matched at 0.932.</p>
+        <h3>Every blink, up close</h3>
+        <p>Each anchor blink on its own, exactly as measured — hover-free light curves with the numbers the matcher actually used:</p>
+        <img class="demo" src="assets/blink_wasp-43b_s9.svg" alt="WASP-43 b sector 9 blink light curve">
+        <img class="demo" src="assets/blink_wasp-43b_s35.svg" alt="WASP-43 b sector 35 blink light curve">
+        <img class="demo" src="assets/blink_wasp-121b_s7.svg" alt="WASP-121 b sector 7 blink light curve">
+        <img class="demo" src="assets/blink_wasp-121b_s33.svg" alt="WASP-121 b sector 33 blink light curve">
+        <img class="demo" src="assets/blink_kelt-9b_s14.svg" alt="KELT-9 b sector 14 blink light curve">
+        <img class="demo" src="assets/blink_kelt-9b_s55.svg" alt="KELT-9 b sector 55 blink light curve">
+        <p class="caption">Depth, duration, signal strength and sample count are printed under each curve — compare the noisier 30-minute-cadence blinks (sector 9) with the crisp 10-minute ones (sector 35).</p>
         <div class="panel">
           <p><b>Fixed along the way, honestly:</b> catalog clocks drift, so each sector's blinks are
             re-centered by a bounded shift (recorded, never hidden); camera glow differences between
@@ -184,10 +195,41 @@
         </div>
       </section>
 
+      <section class="page" id="page-phase3" role="tabpanel">
+        <h2>Phase 3 · The blink-finder</h2>
+        <p>Until now, a human told the code where the blinks were. The new blink-finder works <b>blind</b>:
+          it smooths each star's recordings, flags every dip that stands out from the noise, and measures
+          it — given no star maps, no orbit tables, nothing but light. On WASP-121 b it proposed
+          <b>36 candidate blinks</b>, recovering <b>34 of 39</b> known transits (recall 0.87 —
+          <b>34 of 37</b> among transits with usable light, 0.92), and the true
+          cross-year pair still matched.</p>
+        <img class="demo" src="assets/blind_recall.svg" alt="Timeline of two sectors showing known transits and blind proposals">
+        <p class="caption">Green ticks: real blinks from the catalog clock. Gold dots: what the software found on its own. (Two sectors of WASP-121 b.)</p>
+        <h3>Every blink's light, hits and misses</h3>
+        <p>Full recordings for both sectors — green ticks are real blinks, gold dots are finds, red crosses are the five misses:</p>
+        <img class="demo" src="assets/sector_wasp-121b_s7.svg" alt="WASP-121 b sector 7 full light curve with found and missed transits marked">
+        <img class="demo" src="assets/sector_wasp-121b_s33.svg" alt="WASP-121 b sector 33 full light curve with found and missed transits marked">
+        <p class="caption">The dips are real; so are the gaps. Every miss has a measured explanation:</p>
+        <table>
+          <tr><th>Blink</th><th>Strongest signal nearby</th><th>Why it was missed</th></tr>
+          <tr><td class="num">Sector 7, day 1492.0</td><td class="num">SNR 41.7, spotted</td><td>Dip hangs off the recording's edge — too little light to measure. Correctly left out.</td></tr>
+          <tr><td class="num">Sector 7, day 1503.5</td><td class="num">no usable light</td><td>Spacecraft recorded nothing there (data gap). Nothing to find.</td></tr>
+          <tr><td class="num">Sector 7, day 1504.7</td><td class="num">SNR 23.4, single point</td><td>The transit's own light was flagged suspect, leaving one good point — and one point is never enough to claim a blink.</td></tr>
+          <tr><td class="num">Sector 33, day 2202.1</td><td class="num">SNR 22.7, spotted</td><td>Same edge story as the first: spotted, unmeasurable.</td></tr>
+          <tr><td class="num">Sector 33, day 2214.9</td><td class="num">no usable light</td><td>Data gap again.</td></tr>
+        </table>
+        <div class="panel">
+          <p><b>Why this matters:</b> from here on, failures come in two honest flavors the code tells
+            apart — <i>"never spotted"</i> (blink-finder's fault) vs <i>"spotted but wrongly paired"</i>
+            (matcher's fault). You can't fix what you can't attribute.</p>
+          <p><b>Known limit:</b> the finder is deliberately trigger-happy — false alarms are expected and
+            left for the matcher and calendar checks to weed out. Tuning that trade-off is a later phase's job.</p>
+        </div>
+      </section>
+
       <section class="page" id="page-roadmap" role="tabpanel">
         <h2>Roadmap · what comes next</h2>
         <div class="grid2">
-          <div class="card next"><b>→ Automatic blink-finder</b><br>Today blinks are handed to the code; next it must spot them in raw recordings itself — casting a wide net on purpose.</div>
           <div class="card next"><b>→ Learning matcher</b><br>Teach a small AI to compare dip shapes and test it head-to-head against the hand-written rules on stars it has never seen.</div>
           <div class="card next"><b>→ Blind exam</b><br>Freeze everything, then grade on years of observations kept sealed until grading day. No peeking, no retakes.</div>
           <div class="card next"><b>→ Hunt new worlds</b><br>Only after passing the exam: aim the frozen code at the newest TESS data and report uncatalogued candidates — or publish the honest negative result.</div>
@@ -198,7 +240,7 @@
           <li><b>No planet-vs-impostor vetting</b> — eclipsing binary stars need extra checks not yet built.</li>
           <li><b>No AI yet</b> — matching is still hand-written rules.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 32 passed
+        <pre>python3 -m pytest -q            # 40 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file
@@ -208,7 +250,7 @@ print(render_report(run_tracer(load_manifest_file('fixtures/tracer_v1.json'))))"
   </div>
 
   <footer>
-    <div class="shell">3 Sep 2026 — every number above is actual output of the code at commit dd40f24, explained without jargon.</div>
+    <div class="shell">3 Sep 2026 — every number above is actual output of the code, explained without jargon.</div>
   </footer>
 
   <script>

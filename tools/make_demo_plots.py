@@ -79,10 +79,185 @@ def _svg_two_windows(
         f.write(svg + "\n")
 
 
+def _svg_single_window(
+    path: str,
+    title: str,
+    subtitle: str,
+    x: list[float],
+    y: list[float],
+    color: str,
+    stats: str,
+) -> None:
+    x0, x1max = min(x), max(x)
+    y0, y1max = min(y), max(y)
+    pad = max((y1max - y0) * 0.15, 1e-6)
+    y0, y1max = y0 - pad, y1max + pad
+    if x1max == x0:
+        x1max = x0 + 1.0
+
+    def px(v: float) -> float:
+        return ML + (v - x0) / (x1max - x0) * (W - ML - MR)
+
+    def py(v: float) -> float:
+        return MT + (1.0 - (v - y0) / (y1max - y0)) * (H - MT - MB)
+
+    pts = " ".join(f"{px(a):.1f},{py(b):.1f}" for a, b in zip(x, y))
+    grid_lines = ""
+    for frac in (0.0, 0.5, 1.0):
+        gy = MT + frac * (H - MT - MB)
+        val = y1max - frac * (y1max - y0)
+        grid_lines += (
+            f'<line x1="{ML}" y1="{gy:.1f}" x2="{W - MR}" y2="{gy:.1f}" '
+            f'stroke="{GRID}" stroke-width="1"/>'
+            f'<text x="{ML - 8}" y="{gy + 4:.1f}" fill="{DIM}" font-size="11" '
+            f'text-anchor="end">{val:.4f}</text>'
+        )
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img">
+<rect x="0" y="0" width="{W}" height="{H}" rx="12" fill="{BG}" stroke="{GRID}"/>
+<text x="{ML}" y="22" fill="{INK}" font-size="14" font-weight="bold">{title}</text>
+<text x="{W - MR}" y="22" fill="{DIM}" font-size="11" text-anchor="end">{subtitle}</text>
+{grid_lines}
+<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="2" stroke-linejoin="round" opacity="0.9"/>
+<text x="{ML}" y="{H - 10}" fill="{DIM}" font-size="11">{stats}</text>
+</svg>"""
+    with open(path, "w") as f:
+        f.write(svg + "\n")
+
+
+def _blink_stats(ev: dict) -> str:
+    return (
+        f"depth {ev['depth']:.4f} · duration {ev['duration_days'] * 24:.2f}h · "
+        f"SNR {ev['snr']:.1f} · {len(ev['local_flux'])} samples"
+    )
+
+
+def _svg_sector_curve(
+    path: str,
+    title: str,
+    subtitle: str,
+    time: list[float],
+    flux: list[float],
+    known: list[float],
+    found: list[float],
+    missed: list[float],
+) -> None:
+    """Full detrended sector curve: green ticks (known), gold dots (found)."""
+    step = max(1, len(time) // 1200)
+    tx, fx = time[::step], flux[::step]
+    x0, x1max = tx[0], tx[-1]
+    y0, y1max = min(fx), max(fx)
+    pad = max((y1max - y0) * 0.15, 1e-6)
+    y0, y1max = y0 - pad, y1max + pad
+
+    def px(v: float) -> float:
+        return ML + (v - x0) / (x1max - x0) * (W - ML - MR)
+
+    def py(v: float) -> float:
+        return MT + (1.0 - (v - y0) / (y1max - y0)) * (H - MT - MB)
+
+    pts = " ".join(f"{px(a):.1f},{py(b):.1f}" for a, b in zip(tx, fx))
+    fmap = {round(t, 6): f for t, f in zip(tx, fx)}
+
+    def at(t: float) -> float:
+        near = min(fmap, key=lambda k: abs(k - t))
+        return fmap[near]
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img">',
+        f'<rect x="0" y="0" width="{W}" height="{H}" rx="12" fill="{BG}" stroke="{GRID}"/>',
+        f'<text x="{ML}" y="22" fill="{INK}" font-size="14" font-weight="bold">{title}</text>',
+        f'<text x="{W - MR}" y="22" fill="{DIM}" font-size="11" text-anchor="end">{subtitle}</text>',
+        f'<polyline points="{pts}" fill="none" stroke="#92b7ff" stroke-width="1" opacity="0.55"/>',
+    ]
+    for t in known:
+        parts.append(
+            f'<line x1="{px(t):.1f}" y1="{MT}" x2="{px(t):.1f}" y2="{MT + 12}" '
+            f'stroke="#9fe8b3" stroke-width="2" opacity="0.9"/>'
+        )
+    for t in found:
+        parts.append(
+            f'<circle cx="{px(t):.1f}" cy="{py(at(t)):.1f}" r="4" '
+            f'fill="#f7c982" opacity="0.95"/>'
+        )
+    for t in missed:
+        cx, cy = px(t), py(at(t))
+        parts.append(
+            f'<line x1="{cx - 5:.1f}" y1="{cy - 5:.1f}" x2="{cx + 5:.1f}" y2="{cy + 5:.1f}" '
+            f'stroke="#f2a3a3" stroke-width="2"/>'
+            f'<line x1="{cx - 5:.1f}" y1="{cy + 5:.1f}" x2="{cx + 5:.1f}" y2="{cy - 5:.1f}" '
+            f'stroke="#f2a3a3" stroke-width="2"/>'
+        )
+    parts.append(
+        f'<circle cx="{ML}" cy="{H - 12}" r="4" fill="#9fe8b3"/>'
+        f'<text x="{ML + 12}" y="{H - 8}" fill="{INK}" font-size="11">known</text>'
+        f'<circle cx="{ML + 110}" cy="{H - 12}" r="4" fill="#f7c982"/>'
+        f'<text x="{ML + 122}" y="{H - 8}" fill="{INK}" font-size="11">found</text>'
+        f'<text x="{ML + 200}" y="{H - 8}" fill="#f2a3a3" font-size="14">×</text>'
+        f'<text x="{ML + 216}" y="{H - 8}" fill="{INK}" font-size="11">missed</text>'
+    )
+    parts.append("</svg>")
+    with open(path, "w") as f:
+        f.write("\n".join(parts) + "\n")
+
+
+def _svg_blind_timeline(
+    path: str,
+    title: str,
+    lanes: list[tuple[int, float, float, list[float], list[float]]],
+) -> None:
+    """Two lanes (sectors): green ticks = known transits, gold dots = proposals."""
+    lane_h, gap = 64, 26
+    top = 44
+    H2 = top + len(lanes) * (lane_h + gap) + 34
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H2}" width="100%" role="img">',
+        f'<rect x="0" y="0" width="{W}" height="{H2}" rx="12" fill="{BG}" stroke="{GRID}"/>',
+        f'<text x="{ML}" y="24" fill="{INK}" font-size="14" font-weight="bold">{title}</text>',
+    ]
+    y = top
+    for sector, t0, t1, known, found in lanes:
+        def px(t: float) -> float:
+            return ML + (t - t0) / (t1 - t0) * (W - ML - MR)
+
+        parts.append(
+            f'<text x="{ML}" y="{y + 14}" fill="{DIM}" font-size="11">S{sector}</text>'
+        )
+        for t in known:
+            parts.append(
+                f'<line x1="{px(t):.1f}" y1="{y}" x2="{px(t):.1f}" y2="{y + lane_h}" '
+                f'stroke="#9fe8b3" stroke-width="2" opacity="0.85"/>'
+            )
+        for t in found:
+            parts.append(
+                f'<circle cx="{px(t):.1f}" cy="{y + lane_h / 2:.1f}" r="4" '
+                f'fill="#f7c982" opacity="0.9"/>'
+            )
+        parts.append(
+            f'<text x="{ML}" y="{y + lane_h + 16}" fill="{DIM}" font-size="10">'
+            f'{t0:.1f} – {t1:.1f} (BTJD)</text>'
+        )
+        y += lane_h + gap
+    parts.append(
+        f'<circle cx="{ML}" cy="{H2 - 12}" r="4" fill="#9fe8b3"/>'
+        f'<text x="{ML + 12}" y="{H2 - 8}" fill="{INK}" font-size="11">known transit</text>'
+        f'<circle cx="{ML + 150}" cy="{H2 - 12}" r="4" fill="#f7c982"/>'
+        f'<text x="{ML + 162}" y="{H2 - 8}" fill="{INK}" font-size="11">blind proposal</text>'
+    )
+    parts.append("</svg>")
+    with open(path, "w") as f:
+        f.write("\n".join(parts) + "\n")
+
+
 def main() -> None:
+    from tess_assoc.archive import download_spoc_ffi
+    from tess_assoc.extract import load_lightcurve, predicted_transits
     from tess_assoc.manifest import load_manifest_file
     from tess_assoc.provider import provide_events
-    from tess_assoc.replay import load_replay_manifest, replay_system
+    from tess_assoc.replay import (
+        load_replay_manifest,
+        replay_blind_system,
+        replay_system,
+    )
 
     os.makedirs("assets", exist_ok=True)
     fix = provide_events(load_manifest_file("fixtures/tracer_v1.json"))
@@ -134,6 +309,51 @@ def main() -> None:
             (pb, list(eb["local_flux"]), f"S{secs[1]} anchor", "#92b7ff"),
             "TESS-SPOC FFI windows",
         )
+        for ev_dict, sec in ((ea, secs[0]), (eb, secs[1])):
+            t0 = ev_dict["t0"]
+            _svg_single_window(
+                f"assets/blink_{slug}_s{sec}.svg",
+                f"{system.name} · sector {sec} blink at BTJD {t0:.3f}",
+                f"TIC {system.tic_id} · TESS-SPOC FFI",
+                [t - t0 for t in ev_dict["local_time"]],
+                list(ev_dict["local_flux"]),
+                "#92b7ff",
+                _blink_stats(ev_dict),
+            )
+
+    system = next(s for s in replay.systems if s.name == "WASP-121 b")
+    blind = replay_blind_system(replay, system)
+    from tess_assoc.propose import detrend
+
+    lanes = []
+    missed_by_sector: dict[int, list[float]] = {}
+    for m in blind["missed"]:
+        missed_by_sector.setdefault(m["sector"], []).append(m["t0"])
+    for sector in system.sectors:
+        time, flux = load_lightcurve(download_spoc_ffi(system.tic_id, sector))
+        detrended, _ = detrend(time, flux)
+        known = predicted_transits(
+            system.t0_bjd_tdb, system.period_days, time[0], time[-1]
+        )
+        found = sorted(
+            e["t0"] for e in blind["events"] if e["sector"] == sector
+        )
+        lanes.append((sector, time[0], time[-1], known, found))
+        _svg_sector_curve(
+            f"assets/sector_wasp-121b_s{sector}.svg",
+            f"WASP-121 b · sector {sector} light curve (detrended)",
+            f"{len(found)} found · {len(missed_by_sector.get(sector, []))} missed",
+            time,
+            detrended,
+            known,
+            found,
+            missed_by_sector.get(sector, []),
+        )
+    _svg_blind_timeline(
+        "assets/blind_recall.svg",
+        f"Blind recall: WASP-121 b ({blind['recall']['recalled']}/{blind['recall']['known']} known transits found, no period given)",
+        lanes,
+    )
     print("wrote assets/*.svg")
 
 

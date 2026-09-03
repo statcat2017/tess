@@ -17,6 +17,19 @@ ASSETS = [
     "replay_wasp-121b.svg",
     "replay_kelt-9b.svg",
 ]
+TIMELINES = ["blind_recall.svg"]
+SINGLES = [
+    "blink_wasp-43b_s9.svg",
+    "blink_wasp-43b_s35.svg",
+    "blink_wasp-121b_s7.svg",
+    "blink_wasp-121b_s33.svg",
+    "blink_kelt-9b_s14.svg",
+    "blink_kelt-9b_s55.svg",
+]
+CURVES = [
+    "sector_wasp-121b_s7.svg",
+    "sector_wasp-121b_s33.svg",
+]
 
 
 @needs_archive
@@ -38,3 +51,22 @@ def test_demo_plots_regenerate():
         text = path.read_text()
         assert text.startswith("<svg")
         assert text.count("<polyline") == 2, name
+    for name in TIMELINES:
+        path = root / "assets" / name
+        assert path.exists(), name
+        text = path.read_text()
+        assert text.startswith("<svg")
+        assert "<line" in text and "<circle" in text, name
+    for name in SINGLES:
+        path = root / "assets" / name
+        assert path.exists(), name
+        text = path.read_text()
+        assert text.startswith("<svg")
+        assert text.count("<polyline") == 1, name
+    for name in CURVES:
+        path = root / "assets" / name
+        assert path.exists(), name
+        text = path.read_text()
+        assert text.startswith("<svg")
+        assert text.count("<polyline") == 1, name
+        assert "<circle" in text and "<line" in text, name
