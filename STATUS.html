@@ -103,12 +103,12 @@
           the pair becomes real evidence — <i>if</i> you can prove both blinks came from the same planet
           and work out what orbits fit.</p>
         <div class="grid2">
-          <div class="card done"><b>✓ Phase 0 · Rulebook</b><br>Locked definitions, blink records, orbit math. Demonstrated: alias lists, leak guards, 13 checks.</div>
+          <div class="card done"><b>✓ Phase 0 · Rulebook</b><br>Locked definitions, blink records, orbit math. Demonstrated: alias lists, leak guards, 19 checks.</div>
           <div class="card done"><b>✓ Phase 1 · Practice run</b><br>Full chain on made-up data: match blinks, list orbits, cross off 22 of 33 suspects.</div>
           <div class="card done"><b>✓ Phase 2 · Real data</b><br>Same chain on genuine TESS recordings of 3 known planets. All true pairs match.</div>
           <div class="card next"><b>→ What's next</b><br>Automatic blink-finding, a learning matcher, a blind exam on hidden years, then the hunt for new worlds.</div>
         </div>
-        <p>Status: <b>31 automated self-checks passing</b> · practice + real replay runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>32 automated self-checks passing</b> · practice + real replay runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -124,7 +124,7 @@
           <tr><td>Leak guards</td><td>Asking for sealed-sector data raises an error; star IDs can group records but never feed the model.</td></tr>
           <tr><td>Reproducibility</td><td>Same inputs → same outputs, byte for byte; identical dip shapes score exactly 1.000.</td></tr>
         </table>
-        <div class="panel"><p><b>What it proves:</b> the vocabulary of the whole project is pinned down and tested (13 checks) before any planet hunting begins.</p>
+        <div class="panel"><p><b>What it proves:</b> the vocabulary of the whole project is pinned down and tested (19 checks across protocol, records, and orbit math) before any planet hunting begins.</p>
         <p><b>What's missing:</b> no blinks, no telescope data, no matching yet — just definitions.</p></div>
       </section>
 
@@ -198,7 +198,7 @@
           <li><b>No planet-vs-impostor vetting</b> — eclipsing binary stars need extra checks not yet built.</li>
           <li><b>No AI yet</b> — matching is still hand-written rules.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 31 passed
+        <pre>python3 -m pytest -q            # 32 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file
@@ -208,7 +208,7 @@ print(render_report(run_tracer(load_manifest_file('fixtures/tracer_v1.json'))))"
   </div>
 
   <footer>
-    <div class="shell">3 Sep 2026 — every number above is actual output of the code at commit 1215660, explained without jargon.</div>
+    <div class="shell">3 Sep 2026 — every number above is actual output of the code at commit dd40f24, explained without jargon.</div>
   </footer>
 
   <script>
