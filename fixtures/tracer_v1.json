@@ -1,0 +1,20 @@
+{
+  "name": "tracer_v1",
+  "tic_id": 1234567,
+  "epoch_match_tol_days": 0.3,
+  "matcher_thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "sectors": [
+    {"sector": 12, "windows": [[1330.0, 1358.0]]},
+    {"sector": 23, "windows": [[1775.0, 1802.0]]},
+    {"sector": 39, "windows": [[2230.0, 2258.0]]}
+  ],
+  "events": [
+    {"id": "A", "sector": 12, "t0": 1345.0, "depth": 0.01, "duration_days": 0.2, "snr": 12.0, "shape": "box", "origin": "ephemeris"},
+    {"id": "B", "sector": 39, "t0": 2245.0, "depth": 0.01, "duration_days": 0.2, "snr": 12.0, "shape": "box", "origin": "ephemeris"},
+    {"id": "C", "sector": 39, "t0": 2240.0, "depth": 0.05, "duration_days": 0.45, "snr": 6.0, "shape": "v", "origin": "distractor"}
+  ]
+}
