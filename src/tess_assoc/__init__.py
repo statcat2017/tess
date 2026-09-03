@@ -6,6 +6,7 @@ from tess_assoc.benchmark import (
     render_benchmark_report,
 )
 from tess_assoc.event import EventRecord
+from tess_assoc.learn import run_comparison
 from tess_assoc.orbit import generate_aliases, predict_epochs
 from tess_assoc.pipeline import render_report, run_records, run_tracer
 from tess_assoc.protocol import (
@@ -26,6 +27,7 @@ __all__ = [
     "render_benchmark_report",
     "render_report",
     "replay_all",
+    "run_comparison",
     "run_records",
     "run_tracer",
     "validate_no_temporal_leak",

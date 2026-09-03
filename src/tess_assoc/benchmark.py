@@ -111,6 +111,28 @@ def _validate_systems(systems: list[dict[str, Any]]) -> None:
         raise ValueError("duplicate TIC ids in benchmark systems")
 
 
+def rank_pairs(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Rank scored entries (shared deterministic/learned path).
+
+    Entries need `score` and `label` ("positive"/other). Mutates ranks in.
+    """
+    ranked = sorted(entries, key=lambda p: p["score"], reverse=True)
+    for rank, entry in enumerate(ranked, start=1):
+        entry["rank"] = rank
+    pos_ranks = sorted(e["rank"] for e in ranked if e["label"] == "positive")
+    mrr = sum(1.0 / r for r in pos_ranks) / len(pos_ranks) if pos_ranks else 0.0
+    min_pos_score = min(
+        (e["score"] for e in ranked if e["label"] == "positive"),
+        default=float("-inf"),
+    )
+    return {
+        "ranked_n": len(ranked),
+        "positive_ranks": pos_ranks,
+        "mrr": mrr,
+        "burden_at_full_recall": sum(1 for e in ranked if e["score"] >= min_pos_score),
+    }
+
+
 def build_benchmark(
     systems: list[dict[str, Any]],
     partitions: dict[int, str],
@@ -175,22 +197,9 @@ def build_benchmark(
                     )
                     negatives.append(entry)
 
-    ranked = sorted(
-        positives + [n for n in negatives if n["category"] != "random"],
-        key=lambda p: p["score"],
-        reverse=True,
+    ranking = rank_pairs(
+        positives + [n for n in negatives if n["category"] != "random"]
     )
-    for rank, entry in enumerate(ranked, start=1):
-        entry["rank"] = rank
-    pos_ranks = sorted(
-        e["rank"] for e in ranked if e["label"] == "positive"
-    )
-    mrr = (
-        sum(1.0 / r for r in pos_ranks) / len(pos_ranks) if pos_ranks else 0.0
-    )
-    min_pos_score = min((e["score"] for e in ranked if e["label"] == "positive"),
-                        default=float("-inf"))
-    burden_at_full_recall = sum(1 for e in ranked if e["score"] >= min_pos_score)
 
     alias_rows = []
     for entry in positives:
@@ -242,12 +251,7 @@ def build_benchmark(
         "n_negatives": len(negatives),
         "positives": positives,
         "negatives": negatives,
-        "ranking": {
-            "ranked_n": len(ranked),
-            "positive_ranks": pos_ranks,
-            "mrr": mrr,
-            "burden_at_full_recall": burden_at_full_recall,
-        },
+        "ranking": ranking,
         "alias_reduction": {
             "rows": alias_rows,
             "median_reduction": median_reduction,

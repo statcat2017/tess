@@ -8,6 +8,7 @@ readme = "RESEARCH_PIPELINE_PRD.md"
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 replay = ["numpy>=1", "astropy>=6", "astroquery>=0.4"]
+ml = ["numpy>=1", "torch>=2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
