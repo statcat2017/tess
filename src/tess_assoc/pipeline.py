@@ -89,13 +89,13 @@ def run_records(
     }
 
 
-def run_holdout_records(
+def run_frozen_records(
     manifest: TracerManifest,
     events: dict[str, EventRecord],
     *,
     freeze_record,
 ) -> dict[str, Any]:
-    """Same core stages over sealed data — verified freeze required.
+    """Same core stages over gated data — verified freeze required.
 
     Rejects sealed sectors exactly like run_records unless the freeze
     record verifies (same source tree, same thresholds). The freeze

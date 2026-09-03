@@ -13,7 +13,7 @@ from tess_assoc.holdout import render_holdout_report
 from tess_assoc.learn import LearnConfig
 from tess_assoc.learn import test_metrics as compute_metrics
 from tess_assoc.manifest import ManifestSector, TracerManifest
-from tess_assoc.pipeline import run_holdout_records, run_records
+from tess_assoc.pipeline import run_frozen_records, run_records
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 REPLAY = str(FIXTURES / "replay_v1.json")
@@ -132,20 +132,20 @@ def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
     with pytest.raises(ValueError, match="temporal leak"):
         run_records(manifest, events)
     path, record = _freeze(tmp_path)
-    out = run_holdout_records(manifest, events, freeze_record=record)
+    out = run_frozen_records(manifest, events, freeze_record=record)
     assert out["sealed_sectors_touched"] == [80]
     assert out["freeze"]["code_sha"] == record.code_sha
     assert len(out["pairs"]) == 1
     json.dumps(out)
     stale = dataclasses.replace(record, code_sha="0" * 64)
     with pytest.raises(ValueError, match="changed since freeze"):
-        run_holdout_records(manifest, events, freeze_record=stale)
+        run_frozen_records(manifest, events, freeze_record=stale)
     drifted = _manifest()
     object.__setattr__(
         drifted, "matcher_thresholds", {**THRESHOLDS, "min_morph_corr": 0.5}
     )
     with pytest.raises(ValueError, match="differ from frozen"):
-        run_holdout_records(drifted, events, freeze_record=record)
+        run_frozen_records(drifted, events, freeze_record=record)
 
 
 def test_holdout_metrics_ranges():

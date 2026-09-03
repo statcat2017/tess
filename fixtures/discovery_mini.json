@@ -1,0 +1,23 @@
+{
+  "name": "discovery_mini",
+  "product": "TESS-SPOC FFI",
+  "ephemeris_source": "synthetic gate-mechanics fixture (never downloaded)",
+  "epoch_match_tol_days": 0.3,
+  "window_half_span_days": 0.6,
+  "resample_samples": 61,
+  "matcher_thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "systems": [
+    {
+      "name": "Mini b",
+      "tic_id": 99999999,
+      "period_days": 10.0,
+      "t0_bjd_tdb": 2457000.0,
+      "duration_hours": 2.0,
+      "sectors": [12, 106]
+    }
+  ]
+}

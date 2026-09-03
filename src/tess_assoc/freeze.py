@@ -208,14 +208,24 @@ def _canonical(obj: Any) -> Any:
     return json.loads(json.dumps(obj))
 
 
+def check_manifest_bytes(path: str, record: FreezeRecord, key: str) -> None:
+    """Byte-binding for any gated cohort manifest (holdout, discovery, ...)."""
+    info = record.manifests.get(key, {})
+    if not info or "sha256" not in info:
+        raise ValueError(f"freeze record pins no {key} manifest")
+    if file_hash(path) != info["sha256"]:
+        raise ValueError(f"{key} manifest bytes differ from frozen manifest")
+
+
 def create_freeze(
     dev_manifest_path: str,
-    holdout_manifest_path: str,
+    cohort_manifest_path: str,
     config,
     *,
     output_path: str,
     ablation: str = "morphology+scalars",
     checkpoint_sha: str | None = None,
+    cohort_key: str = "holdout",
 ) -> FreezeRecord:
     """Snapshot the methodology to output_path (before any sealed access)."""
     from tess_assoc.inject_geometry import (
@@ -228,7 +238,7 @@ def create_freeze(
     from tess_assoc.replay import load_replay_manifest
 
     dev = load_replay_manifest(dev_manifest_path)
-    with open(holdout_manifest_path) as f:
+    with open(cohort_manifest_path) as f:
         holdout_manifest = _parse_holdout_manifest(json.load(f))
     holdout_systems = [s.tic_id for s in holdout_manifest.systems]
     record = FreezeRecord(
@@ -251,14 +261,14 @@ def create_freeze(
                 "path": str(Path(dev_manifest_path).resolve()),
                 "sha256": file_hash(dev_manifest_path),
             },
-            "holdout": {
-                "path": str(Path(holdout_manifest_path).resolve()),
-                "sha256": file_hash(holdout_manifest_path),
+            cohort_key: {
+                "path": str(Path(cohort_manifest_path).resolve()),
+                "sha256": file_hash(cohort_manifest_path),
             },
         },
         systems={
             "dev": sorted(s.tic_id for s in dev.systems),
-            "holdout": sorted(holdout_systems),
+            cohort_key: sorted(holdout_systems),
         },
         checkpoint_sha=checkpoint_sha,
         ephemeris_source=dev.ephemeris_source,
@@ -295,14 +305,16 @@ def verify_freeze(record_or_path: FreezeRecord | str, config) -> FreezeRecord:
         dev = load_replay_manifest(dev_info["path"])
         if dict(dev.matcher_thresholds) != record.thresholds:
             problems.append("matcher thresholds changed since freeze")
-    holdout_info = record.manifests.get("holdout", {})
-    if not holdout_info or "sha256" not in holdout_info:
-        problems.append("holdout manifest not pinned by freeze")
-    elif (
-        Path(holdout_info["path"]).exists()
-        and file_hash(holdout_info["path"]) != holdout_info["sha256"]
+    cohort_keys = [k for k in record.manifests if k != "dev"]
+    if not cohort_keys or any(
+        "sha256" not in record.manifests[k] for k in cohort_keys
     ):
-        problems.append("holdout manifest changed since freeze")
+        problems.append("cohort manifest not pinned by freeze")
+    for key in cohort_keys:
+        info = record.manifests.get(key, {})
+        if info.get("sha256") and Path(info["path"]).exists():
+            if file_hash(info["path"]) != info["sha256"]:
+                problems.append(f"{key} manifest changed since freeze")
     if record.learn_config != _canonical(dataclasses.asdict(config)):
         problems.append("learn config changed since freeze")
     if problems:
@@ -351,9 +363,7 @@ def load_holdout_manifest(
     verifies identically.
     """
     record = verify_freeze(freeze_record, config)
-    info = record.manifests["holdout"]
-    if file_hash(path) != info["sha256"]:
-        raise ValueError("holdout manifest bytes differ from frozen manifest")
+    check_manifest_bytes(path, record, "holdout")
     with open(path) as f:
         manifest = _parse_holdout_manifest(json.load(f))
     if dict(manifest.matcher_thresholds) != record.thresholds:
@@ -422,6 +432,7 @@ __all__ = [
     "HoldoutManifest",
     "HoldoutSystem",
     "audit_development",
+    "check_manifest_bytes",
     "checkpoint_hash",
     "create_freeze",
     "file_hash",

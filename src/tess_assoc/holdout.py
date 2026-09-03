@@ -19,7 +19,7 @@ from tess_assoc.benchmark import build_benchmark
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import predicted_transits
 from tess_assoc.learn import decide, prepare_split, predict_proba, test_metrics
-from tess_assoc.pipeline import run_holdout_records
+from tess_assoc.pipeline import run_frozen_records
 from tess_assoc.replay import replay_blind_system
 
 
@@ -75,7 +75,7 @@ def run_holdout(
     record = _freeze.mark_unblinded(freeze_path)
     thresholds = dict(manifest.matcher_thresholds)
 
-    runner = functools.partial(run_holdout_records, freeze_record=record)
+    runner = functools.partial(run_frozen_records, freeze_record=record)
     blind_results = {
         system.name: replay_blind_system(
             manifest, system, cache_dir, records_runner=runner

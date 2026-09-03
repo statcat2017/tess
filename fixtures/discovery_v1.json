@@ -1,0 +1,42 @@
+{
+  "name": "discovery_v1",
+  "product": "TESS-SPOC FFI",
+  "ephemeris_source": "NASA Exoplanet Archive TOI catalog via TAP, accessed 2026-09-03",
+  "epoch_match_tol_days": 0.3,
+  "window_half_span_days": 0.6,
+  "resample_samples": 61,
+  "matcher_thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "systems": [
+    {
+      "name": "TOI-190.01",
+      "tic_id": 166739520,
+      "toi": "190.01",
+      "period_days": 10.0205932,
+      "t0_bjd_tdb": 2460982.967362,
+      "duration_hours": 5.7033765,
+      "sectors": [30, 69, 106]
+    },
+    {
+      "name": "TOI-240.01",
+      "tic_id": 101948569,
+      "toi": "240.01",
+      "period_days": 19.4723016,
+      "t0_bjd_tdb": 2458360.114761,
+      "duration_hours": 4.2893299,
+      "sectors": [29, 69, 106]
+    },
+    {
+      "name": "TOI-246.01",
+      "tic_id": 158623531,
+      "toi": "246.01",
+      "period_days": 7.8728937,
+      "t0_bjd_tdb": 2458355.73229,
+      "duration_hours": 3.7599578,
+      "sectors": [29, 69, 106]
+    }
+  ]
+}
