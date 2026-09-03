@@ -15,16 +15,10 @@ import json
 from typing import Any
 
 from tess_assoc import freeze as _freeze
-from tess_assoc.benchmark import build_benchmark, rank_pairs
+from tess_assoc.benchmark import build_benchmark
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import predicted_transits
-from tess_assoc.learn import (
-    average_precision,
-    decide,
-    prepare_split,
-    predict_proba,
-    recall_at_far,
-)
+from tess_assoc.learn import decide, prepare_split, predict_proba, test_metrics
 from tess_assoc.pipeline import run_holdout_records
 from tess_assoc.replay import replay_blind_system
 
@@ -56,24 +50,6 @@ def build_holdout_systems(
             }
         )
     return systems
-
-
-def holdout_metrics(
-    entries: list[dict[str, Any]], scores: list[float], far: float
-) -> dict[str, float]:
-    """Ranking metrics on one scored entry list (both methods, same code)."""
-    labels = [1 if e["label"] == "positive" else 0 for e in entries]
-    rescored = [dict(e, score=s) for e, s in zip(entries, scores)]
-    ranking = rank_pairs(rescored)
-    ranks = ranking["positive_ranks"]
-    return {
-        "ap": average_precision(labels, scores),
-        "mrr": ranking["mrr"],
-        "burden_at_full_recall": float(ranking["burden_at_full_recall"]),
-        "top1": sum(1 for r in ranks if r <= 1) / len(ranks) if ranks else 0.0,
-        "top5": sum(1 for r in ranks if r <= 5) / len(ranks) if ranks else 0.0,
-        "recall_at_far": recall_at_far(labels, scores, far)["recall"],
-    }
 
 
 def run_holdout(
@@ -114,7 +90,7 @@ def run_holdout(
         e for e in bench["positives"] + bench["negatives"]
         if e.get("tic_id") in partitions
     ]
-    det_metrics = holdout_metrics(
+    det_metrics = test_metrics(
         test_entries,
         [e["score"] for e in test_entries],
         config.false_association_rate,
@@ -128,7 +104,7 @@ def run_holdout(
         ("test",),
     )
     probas = predict_proba(checkpoint, split.test, ablation)
-    learned_metrics = holdout_metrics(
+    learned_metrics = test_metrics(
         [
             {"label": ("positive" if r["label"] else "negative")}
             for r in split.test
@@ -235,7 +211,6 @@ def render_holdout_report(results: dict[str, Any]) -> str:
 
 __all__ = [
     "build_holdout_systems",
-    "holdout_metrics",
     "render_holdout_report",
     "run_holdout",
 ]

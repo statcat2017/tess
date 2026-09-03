@@ -218,14 +218,19 @@ def create_freeze(
     checkpoint_sha: str | None = None,
 ) -> FreezeRecord:
     """Snapshot the methodology to output_path (before any sealed access)."""
-    from tess_assoc.inject_geometry import DEPTHS, SAME_EPOCH_DT_DAYS, SHAPES
+    from tess_assoc.inject_geometry import (
+        DEPTHS,
+        SAME_EPOCH_DT_DAYS,
+        SHAPES,
+        INJECTION_DURATION_DAYS,
+    )
     from tess_assoc.propose import PROPOSER_SNR_THRESHOLD
     from tess_assoc.replay import load_replay_manifest
 
     dev = load_replay_manifest(dev_manifest_path)
     with open(holdout_manifest_path) as f:
-        holdout_raw = json.load(f)
-    holdout_systems = [s["tic_id"] for s in holdout_raw["systems"]]
+        holdout_manifest = _parse_holdout_manifest(json.load(f))
+    holdout_systems = [s.tic_id for s in holdout_manifest.systems]
     record = FreezeRecord(
         protocol_version=_protocol.PROTOCOL_VERSION,
         code_sha=source_tree_hash(),
@@ -239,7 +244,7 @@ def create_freeze(
             "depths": list(DEPTHS),
             "shapes": list(SHAPES),
             "same_epoch_dt_days": SAME_EPOCH_DT_DAYS,
-            "duration_days": 0.12,
+            "duration_days": INJECTION_DURATION_DAYS,
         },
         manifests={
             "dev": {
@@ -291,7 +296,12 @@ def verify_freeze(record_or_path: FreezeRecord | str, config) -> FreezeRecord:
         if dict(dev.matcher_thresholds) != record.thresholds:
             problems.append("matcher thresholds changed since freeze")
     holdout_info = record.manifests.get("holdout", {})
-    if not holdout_info or file_hash(holdout_info["path"]) != holdout_info["sha256"]:
+    if not holdout_info or "sha256" not in holdout_info:
+        problems.append("holdout manifest not pinned by freeze")
+    elif (
+        Path(holdout_info["path"]).exists()
+        and file_hash(holdout_info["path"]) != holdout_info["sha256"]
+    ):
         problems.append("holdout manifest changed since freeze")
     if record.learn_config != _canonical(dataclasses.asdict(config)):
         problems.append("learn config changed since freeze")
@@ -335,11 +345,15 @@ def _parse_holdout_manifest(d: dict[str, Any]) -> HoldoutManifest:
 def load_holdout_manifest(
     path: str, freeze_record: FreezeRecord | str, config
 ) -> HoldoutManifest:
-    """Unblind gate: verified freeze required, sealed sectors allowed after."""
+    """Unblind gate: verified freeze required, sealed sectors allowed after.
+
+    Binds on manifest bytes, not location: a relocated-but-identical file
+    verifies identically.
+    """
     record = verify_freeze(freeze_record, config)
     info = record.manifests["holdout"]
-    if str(Path(path).resolve()) != info["path"]:
-        raise ValueError("holdout manifest path not covered by freeze record")
+    if file_hash(path) != info["sha256"]:
+        raise ValueError("holdout manifest bytes differ from frozen manifest")
     with open(path) as f:
         manifest = _parse_holdout_manifest(json.load(f))
     if dict(manifest.matcher_thresholds) != record.thresholds:

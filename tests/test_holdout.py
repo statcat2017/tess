@@ -9,8 +9,9 @@ import pytest
 from conftest import needs_archive
 from tess_assoc import freeze as F
 from tess_assoc.event import EventRecord
-from tess_assoc.holdout import holdout_metrics, render_holdout_report
+from tess_assoc.holdout import render_holdout_report
 from tess_assoc.learn import LearnConfig
+from tess_assoc.learn import test_metrics as compute_metrics
 from tess_assoc.manifest import ManifestSector, TracerManifest
 from tess_assoc.pipeline import run_holdout_records, run_records
 
@@ -103,6 +104,20 @@ def test_gate_requires_valid_freeze(tmp_path):
     assert manifest.product == "TESS-SPOC FFI"
 
 
+def test_gate_binds_on_bytes_not_location(tmp_path):
+    import shutil
+
+    freeze_path, _ = _freeze(tmp_path)
+    relocated = str(tmp_path / "renamed_holdout.json")
+    shutil.copy(MINI, relocated)
+    manifest = F.load_holdout_manifest(relocated, freeze_path, CONFIG)
+    assert manifest.name == "holdout_mini"
+    with open(relocated, "a") as f:
+        f.write(" ")
+    with pytest.raises(ValueError, match="bytes differ"):
+        F.load_holdout_manifest(relocated, freeze_path, CONFIG)
+
+
 def test_mark_unblinded_stamps_once(tmp_path):
     path, _ = _freeze(tmp_path)
     first = F.mark_unblinded(path)
@@ -139,7 +154,7 @@ def test_holdout_metrics_ranges():
         {"label": "positive", "score": 0.0},
         {"label": "negative", "score": 0.0},
     ]
-    metrics = holdout_metrics(entries, [0.9, 0.8, 0.1], far=0.05)
+    metrics = compute_metrics(entries, [0.9, 0.8, 0.1], far=0.05)
     assert metrics["ap"] == pytest.approx(1.0)
     assert metrics["top1"] == 0.5  # one of two positives holds rank 1
     assert metrics["top5"] == 1.0

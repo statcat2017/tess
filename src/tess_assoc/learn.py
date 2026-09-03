@@ -427,13 +427,14 @@ def decide(
     }
 
 
-def _test_metrics(
+def test_metrics(
     entries: list[dict[str, Any]], scores: list[float], far: float
 ) -> dict[str, float]:
-    """Head-to-head metrics on identical pairs.
+    """Ranking metrics on one scored entry list (both methods, same code).
 
-    top1/top5 are the fraction of test positives ranked at position <= k —
-    harsh with hundreds of positives, but identical for both methods.
+    Head-to-head metrics on identical pairs. top1/top5 are the fraction of
+    test positives ranked at position <= k — harsh with hundreds of
+    positives, but identical for both methods.
     """
     labels = [1 if e["label"] == "positive" else 0 for e in entries]
     rescored = [dict(e, score=s) for e, s in zip(entries, scores)]
@@ -465,7 +466,7 @@ def run_comparison(
         if e.get("tic_id") in test_tics
     ]
     det_scores = [e["score"] for e in test_entries]
-    det_metrics = _test_metrics(test_entries, det_scores, config.false_association_rate)
+    det_metrics = test_metrics(test_entries, det_scores, config.false_association_rate)
 
     ablation_results: dict[str, Any] = {}
     learned_primary: dict[str, float] | None = None
@@ -497,7 +498,7 @@ def run_comparison(
         checkpoint = train_model(split.train, config, ablation)
         probas = predict_proba(checkpoint, split.test, ablation)
         test_labels = [r["label"] for r in split.test]
-        metrics = _test_metrics(
+        metrics = test_metrics(
             [
                 {"label": ("positive" if r["label"] else "negative")}
                 for r in split.test
@@ -566,5 +567,5 @@ __all__ = [
     "prepare_split",
     "recall_at_far",
     "run_comparison",
-    "train_model",
+    "test_metrics",
 ]

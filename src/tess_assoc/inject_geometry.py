@@ -13,6 +13,7 @@ from tess_assoc._validate import require_positive_finite
 DEPTHS: tuple[float, ...] = (0.003, 0.01, 0.025)
 SHAPES: tuple[str, ...] = ("box", "v")
 SAME_EPOCH_DT_DAYS = 12.0
+INJECTION_DURATION_DAYS = 0.12
 
 
 def feasible_interval(
@@ -91,6 +92,7 @@ __all__ = [
     "DEPTHS",
     "SHAPES",
     "SAME_EPOCH_DT_DAYS",
+    "INJECTION_DURATION_DAYS",
     "feasible_interval",
     "feasible_pair",
     "supported_pair",

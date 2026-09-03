@@ -18,6 +18,7 @@ from tess_assoc.inject_geometry import (
     DEPTHS,
     SAME_EPOCH_DT_DAYS,
     SHAPES,
+    INJECTION_DURATION_DAYS,
     supported_pair,
 )
 from tess_assoc.propose import propose_events, records_from_proposals
@@ -83,7 +84,7 @@ def run_grid(
     thresholds: dict[str, float],
     depths: tuple[float, ...] = DEPTHS,
     shapes: tuple[str, ...] = SHAPES,
-    duration_days: float = 0.12,
+    duration_days: float = INJECTION_DURATION_DAYS,
     half_span_days: float = 0.6,
 ) -> list[dict[str, Any]]:
     """Full depth x shape x separation grid over cached sector curves.

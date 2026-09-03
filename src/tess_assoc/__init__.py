@@ -15,7 +15,6 @@ from tess_assoc.freeze import (
     verify_freeze,
 )
 from tess_assoc.holdout import (
-    holdout_metrics,
     render_holdout_report,
     run_holdout,
 )
@@ -45,7 +44,6 @@ __all__ = [
     "build_benchmark",
     "create_freeze",
     "generate_aliases",
-    "holdout_metrics",
     "inject_transit",
     "learned_comparison",
     "load_holdout_manifest",
