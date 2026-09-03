@@ -23,6 +23,15 @@ class MatchDecision:
     timing_plausible: bool
     explanation: str
 
+    def __post_init__(self) -> None:
+        # Cast numpy-adjacent scalars so decisions stay JSON-serializable.
+        object.__setattr__(self, "compatible", bool(self.compatible))
+        object.__setattr__(self, "rel_depth_diff", float(self.rel_depth_diff))
+        object.__setattr__(self, "rel_duration_diff", float(self.rel_duration_diff))
+        object.__setattr__(self, "morph_corr", float(self.morph_corr))
+        object.__setattr__(self, "timing_plausible", bool(self.timing_plausible))
+        object.__setattr__(self, "explanation", str(self.explanation))
+
 
 REQUIRED_THRESHOLDS: tuple[str, ...] = (
     "max_rel_depth_diff",
@@ -96,4 +105,17 @@ def match(a: EventRecord, b: EventRecord, thresholds: dict[str, float]) -> Match
         morph_corr=corr,
         timing_plausible=timing,
         explanation=("COMPATIBLE: " if compatible else "INCOMPATIBLE: ") + "; ".join(parts),
+    )
+
+
+def match_score(decision: MatchDecision) -> float:
+    """Deterministic ranking score: timing gate, then shape minus mismatch.
+
+    Timing-implausible pairs score -inf (never ranked above plausible ones).
+    Compatible pairs (diffs <= ~0.25, corr >= ~0.9) always score >= ~0.65.
+    """
+    if not decision.timing_plausible:
+        return float("-inf")
+    return decision.morph_corr - max(
+        decision.rel_depth_diff, decision.rel_duration_diff
     )

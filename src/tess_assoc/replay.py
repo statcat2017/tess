@@ -182,6 +182,10 @@ def _finish(
     results["anchors"] = list(anchors)
     results["skipped"] = list(skipped)
     results["products"] = list(products)
+    results["sectors"] = [
+        {"sector": s.sector, "windows": [[a, b] for a, b in s.windows]}
+        for s in manifest_sectors
+    ]
     if extra:
         results.update(extra)
     return results

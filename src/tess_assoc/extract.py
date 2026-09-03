@@ -73,7 +73,9 @@ def load_lightcurve(product: ArchiveProduct) -> tuple[list[float], list[float]]:
     )
     quality = np.asarray(data["QUALITY"])
     good = np.isfinite(time) & np.isfinite(flux) & (quality == 0)
-    return list(time[good]), list(flux[good])
+    # Cast to Python floats: list(np_array) would leak np.float64 scalars,
+    # which pass isinstance(x, float) yet poison comparisons into np.bool_.
+    return [float(v) for v in time[good]], [float(v) for v in flux[good]]
 
 
 def _phase_distance(

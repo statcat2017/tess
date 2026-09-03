@@ -45,7 +45,7 @@ def detrend(
     trend = np.median(sliding_window_view(padded, width), axis=1)
     detrended = farr / trend
     sigma = float(1.4826 * np.median(np.abs(detrended - 1.0))) or 1e-9
-    return list(detrended), sigma
+    return [float(v) for v in detrended], sigma
 
 
 def center_on_minimum(

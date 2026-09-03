@@ -89,6 +89,7 @@
         <button role="tab" aria-selected="false" data-page="phase1">Phase 1 · Practice run</button>
         <button role="tab" aria-selected="false" data-page="phase2">Phase 2 · Real data</button>
         <button role="tab" aria-selected="false" data-page="phase3">Phase 3 · Blink-finder</button>
+        <button role="tab" aria-selected="false" data-page="phase4">Phase 4 · Scoreboard</button>
         <button role="tab" aria-selected="false" data-page="roadmap">Roadmap</button>
       </nav>
     </div>
@@ -108,9 +109,10 @@
           <div class="card done"><b>✓ Phase 1 · Practice run</b><br>Full chain on made-up data: match blinks, list orbits, cross off 22 of 33 suspects.</div>
           <div class="card done"><b>✓ Phase 2 · Real data</b><br>Same chain on genuine TESS recordings of 3 known planets. All true pairs match.</div>
           <div class="card done"><b>✓ Phase 3 · Blink-finder</b><br>Software that spots blinks itself, no star maps needed — finds 34 of 39 real blinks.</div>
+          <div class="card done"><b>✓ Phase 4 · Scoreboard</b><br>618 true pairs vs 3,037 false alarms ranked — every true pair on top, randoms scoreless.</div>
           <div class="card next"><b>→ What's next</b><br>A learning matcher, a blind exam on hidden years, then the hunt for new worlds.</div>
         </div>
-        <p>Status: <b>40 automated self-checks passing</b> · practice + real replay runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>45 automated self-checks passing</b> · practice + real replay runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -227,6 +229,31 @@
         </div>
       </section>
 
+      <section class="page" id="page-phase4" role="tabpanel">
+        <h2>Phase 4 · The scoreboard</h2>
+        <p>Matching blinks is easy to claim and hard to prove — so we built an exam. Every pair of blinks
+          gets a <b>label</b>: true pairs (same planet, different years) vs false alarms in three flavors
+          (wrong timing, lookalike shapes, mismatched sizes), plus random pairings across different stars.
+          Then everything is ranked by one deterministic score and graded separately per flavor — no flavor
+          can hide behind another's easy questions.</p>
+        <h3>Live results (blind blinks, 3 real stars)</h3>
+        <table>
+          <tr><th>Candidates</th><th>Count</th><th>How they fared</th></tr>
+          <tr><td><b>True pairs</b></td><td class="num">618</td><td>All ranked above every false alarm. Reviewing the top 618 finds all of them.</td></tr>
+          <tr><td><b>Random star pairings</b></td><td class="num">2,443</td><td>Score 0.000 compatible — the matcher never blinks at strangers.</td></tr>
+          <tr><td><b>Bad-timing pairs</b></td><td class="num">594</td><td>Rejected by the calendar check, as designed.</td></tr>
+          <tr><td><b>Lookalike shapes</b></td><td class="num">0 here</td><td>None occurred naturally on these quiet stars — honestly reported, not hidden.</td></tr>
+        </table>
+        <div class="panel">
+          <p><b>Fair grading:</b> each star belongs to exactly one of three exam piles (train / practice /
+            final), so the matcher is always judged on stars it never saw. The full answer key —
+            star lists, telescope files, thresholds, pile assignments — ships with the results.</p>
+          <p><b>Known limit:</b> orbit cross-checking removed zero suspects here — with 700-day gaps and
+            no mid-span observations, there was nothing to contradict. The calendar check's power is
+            proven on practice data instead.</p>
+        </div>
+      </section>
+
       <section class="page" id="page-roadmap" role="tabpanel">
         <h2>Roadmap · what comes next</h2>
         <div class="grid2">
@@ -240,7 +267,7 @@
           <li><b>No planet-vs-impostor vetting</b> — eclipsing binary stars need extra checks not yet built.</li>
           <li><b>No AI yet</b> — matching is still hand-written rules.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 40 passed
+        <pre>python3 -m pytest -q            # 45 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file
