@@ -1,7 +1,8 @@
 # Protocol Freeze v1 — Phase 0
 
 Source docs: `RESEARCH_PIPELINE_PRD.md`, `RESEARCH_PROPOSAL.md`
-Code source of truth: `src/tess_assoc/protocol.py` (`PROTOCOL_VERSION = "v1"`)
+Code source of truth (executable subset): `src/tess_assoc/protocol.py` (`PROTOCOL_VERSION = "v1"`).
+Prose freeze (product, metrics, semantics, baselines) lives in this document.
 
 ## Frozen definitions
 
@@ -9,6 +10,7 @@ Code source of truth: `src/tess_assoc/protocol.py` (`PROTOCOL_VERSION = "v1"`)
   Reserved for vetting only: SPOC, QLP, TGLC.
 - Development: Sectors **1–79**. Sealed holdout: **80–105**. Conditional discovery: **106**.
 - Long-period lower boundary: **27.0 days**. Alias formula: `P_n = DeltaT / n`.
+  Executable definition: `tess_assoc.orbit.generate_aliases`. Alias cap: **MAX_ALIAS_N = 10000**.
 - Event record required: tic_id, sector, t0, local_time, local_flux,
   depth, duration_days, snr, stellar_meta, quality.
 - TIC is grouping/partition key only — never a model feature.
@@ -20,7 +22,10 @@ Code source of truth: `src/tess_assoc/protocol.py` (`PROTOCOL_VERSION = "v1"`)
 
 ## Reproducibility
 
-Full field list: see `REPRODUCIBILITY_FIELDS` in `protocol.py`.
+Record per run: TIC list, sector manifest, source-product version, catalogue
+version + download date, preprocessing params, event-selection rules, pair
+construction, TIC partition assignments, random seed, model checkpoint,
+thresholds, injection params, holdout-unblinding date.
 Holdout audit helpers: `validate_no_temporal_leak`, `validate_tic_partition`.
 
 ## Change rule
