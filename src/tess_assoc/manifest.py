@@ -16,6 +16,7 @@ from typing import Any
 
 from tess_assoc import protocol as _protocol
 from tess_assoc._validate import require_finite, require_positive_finite, require_strict_int
+from tess_assoc.matcher import REQUIRED_THRESHOLDS
 
 
 @dataclass(frozen=True)
@@ -52,7 +53,7 @@ class ManifestEvent:
     depth: float
     duration_days: float
     snr: float
-    shape: str  # "box" | "v"
+    shape: str  # "box" | "v" | "real"
     origin: str  # "ephemeris" | "distractor"
 
     def __post_init__(self) -> None:
@@ -63,8 +64,8 @@ class ManifestEvent:
         require_positive_finite("event depth", self.depth)
         require_positive_finite("event duration_days", self.duration_days)
         require_positive_finite("event snr", self.snr)
-        if self.shape not in ("box", "v"):
-            raise ValueError("event shape must be 'box' or 'v'")
+        if self.shape not in ("box", "v", "real"):
+            raise ValueError("event shape must be 'box', 'v', or 'real'")
         if self.origin not in ("ephemeris", "distractor"):
             raise ValueError("event origin must be 'ephemeris' or 'distractor'")
 
@@ -131,7 +132,7 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
     thresholds = d["matcher_thresholds"]
     if not isinstance(thresholds, dict):
         raise ValueError("matcher_thresholds must be a dict")
-    for key in ("max_rel_depth_diff", "max_rel_duration_diff", "min_morph_corr"):
+    for key in REQUIRED_THRESHOLDS:
         if key not in thresholds:
             raise ValueError(f"matcher_thresholds missing key: {key}")
         require_finite(f"threshold {key}", thresholds[key])
@@ -187,3 +188,77 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
 def load_manifest_file(path: str) -> TracerManifest:
     with open(path) as f:
         return load_manifest(json.load(f))
+
+
+SYSTEM_REQUIRED_KEYS: tuple[str, ...] = (
+    "name",
+    "tic_id",
+    "period_days",
+    "t0_bjd_tdb",
+    "duration_hours",
+    "sectors",
+)
+
+
+@dataclass(frozen=True)
+class ReplaySystem:
+    name: str
+    tic_id: int
+    period_days: float
+    t0_bjd_tdb: float
+    duration_hours: float
+    sectors: tuple[int, ...] = ()
+    toi: str = ""
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("system name must be a non-empty str")
+        require_strict_int("tic_id", self.tic_id, minimum=1)
+        require_positive_finite("period_days", self.period_days)
+        require_finite("t0_bjd_tdb", self.t0_bjd_tdb)
+        require_positive_finite("duration_hours", self.duration_hours)
+        if not isinstance(self.sectors, (list, tuple)) or not self.sectors:
+            raise ValueError("system sectors must be a non-empty list")
+        for sector in self.sectors:
+            require_strict_int("sector", sector, minimum=1)
+        if not isinstance(self.toi, str):
+            raise ValueError("toi must be a str")
+        object.__setattr__(self, "sectors", tuple(self.sectors))
+        _protocol.validate_no_temporal_leak(set(self.sectors))
+
+
+@dataclass(frozen=True)
+class ReplayManifest:
+    name: str
+    product: str
+    ephemeris_source: str
+    epoch_match_tol_days: float
+    window_half_span_days: float
+    resample_samples: int
+    matcher_thresholds: dict[str, float] = field(default_factory=dict)
+    systems: tuple[ReplaySystem, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("replay manifest name must be a non-empty str")
+        if self.product != "TESS-SPOC FFI":
+            raise ValueError("replay manifest must declare the TESS-SPOC FFI product")
+        if not isinstance(self.ephemeris_source, str) or not self.ephemeris_source:
+            raise ValueError("ephemeris_source must be a non-empty str")
+        require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
+        require_positive_finite("window_half_span_days", self.window_half_span_days)
+        require_strict_int("resample_samples", self.resample_samples, minimum=3)
+        if not isinstance(self.matcher_thresholds, dict):
+            raise ValueError("matcher_thresholds must be a dict")
+        for key in REQUIRED_THRESHOLDS:
+            if key not in self.matcher_thresholds:
+                raise ValueError(f"matcher_thresholds missing key: {key}")
+            require_finite(f"threshold {key}", self.matcher_thresholds[key])
+        if not isinstance(self.systems, (list, tuple)) or not self.systems:
+            raise ValueError("systems must be a non-empty list")
+        if not all(isinstance(s, ReplaySystem) for s in self.systems):
+            raise ValueError("systems must be ReplaySystem records")
+        object.__setattr__(
+            self, "matcher_thresholds", dict(self.matcher_thresholds)
+        )
+        object.__setattr__(self, "systems", tuple(self.systems))

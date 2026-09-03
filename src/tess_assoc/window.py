@@ -7,6 +7,7 @@ event nearby (within tolerance) is contradicted and rejected.
 
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass
 
 from tess_assoc.event import EventRecord
@@ -22,12 +23,16 @@ class AliasVerdict:
     contradicting_epoch: float | None = None
 
 
-def _observed(t: float, manifest: TracerManifest) -> bool:
-    return any(s <= t <= e for sec in manifest.sectors for s, e in sec.windows)
-
-
-def _has_event(t: float, events: list[EventRecord], tol_days: float) -> bool:
-    return any(abs(e.t0 - t) <= tol_days for e in events)
+def _merge_windows(manifest: TracerManifest) -> tuple[list[float], list[float]]:
+    spans = sorted((s, e) for sec in manifest.sectors for s, e in sec.windows)
+    starts, ends = [], []
+    for s, e in spans:
+        if starts and s <= ends[-1]:
+            ends[-1] = max(ends[-1], e)
+        else:
+            starts.append(s)
+            ends.append(e)
+    return starts, ends
 
 
 def filter_aliases(
@@ -39,12 +44,23 @@ def filter_aliases(
     t1, t2 = sorted([a.t0, b.t0])
     delta_t = t2 - t1
     tol = manifest.epoch_match_tol_days
+    starts, ends = _merge_windows(manifest)
+    event_times = sorted(e.t0 for e in events)
+
+    def observed(t: float) -> bool:
+        i = bisect.bisect_right(starts, t) - 1
+        return i >= 0 and t <= ends[i]
+
+    def has_event(t: float) -> bool:
+        i = bisect.bisect_left(event_times, t - tol)
+        return i < len(event_times) and event_times[i] <= t + tol
+
     verdicts: list[AliasVerdict] = []
     for n, period in enumerate(generate_aliases(delta_t), start=1):
         contradiction: float | None = None
         for k in range(1, n):
             epoch = t1 + k * period
-            if _observed(epoch, manifest) and not _has_event(epoch, events, tol):
+            if observed(epoch) and not has_event(epoch):
                 contradiction = epoch
                 break
         verdicts.append(

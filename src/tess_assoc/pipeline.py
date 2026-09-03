@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from tess_assoc import protocol as _protocol
+from tess_assoc.event import EventRecord
 from tess_assoc.manifest import TracerManifest, load_manifest
 from tess_assoc.matcher import match
 from tess_assoc.pairs import build_pairs
@@ -17,8 +18,10 @@ from tess_assoc.provider import provide_events
 from tess_assoc.window import filter_aliases
 
 
-def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
-    events = provide_events(manifest)
+def run_records(
+    manifest: TracerManifest, events: dict[str, EventRecord]
+) -> dict[str, Any]:
+    """Core stages over prebuilt records (shared by fixture and replay paths)."""
     records = list(events.values())
     pairs = build_pairs(events)
     thresholds = manifest.matcher_thresholds
@@ -105,6 +108,10 @@ def render_report(results: dict[str, Any]) -> str:
     lines.append("")
     lines.append(f"Sealed sectors touched: {results['sealed_sectors_touched']}")
     return "\n".join(lines) + "\n"
+
+
+def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
+    return run_records(manifest, provide_events(manifest))
 
 
 def run_tracer_dict(manifest_dict: dict[str, Any]) -> dict[str, Any]:

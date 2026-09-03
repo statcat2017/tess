@@ -24,20 +24,39 @@ class MatchDecision:
     explanation: str
 
 
+REQUIRED_THRESHOLDS: tuple[str, ...] = (
+    "max_rel_depth_diff",
+    "max_rel_duration_diff",
+    "min_morph_corr",
+)
+
+
 def _rel_diff(a: float, b: float) -> float:
     # Precondition: EventRecord guarantees depth/duration > 0, so mean > 0.
     return abs(a - b) / ((a + b) / 2.0)
 
 
+def _detrend(flux: tuple[float, ...] | list[float]) -> list[float]:
+    """Remove a least-squares line so sector-level slopes can't dominate shape."""
+    n = len(flux)
+    mean_x, mean_y = (n - 1) / 2.0, sum(flux) / n
+    sxx = sum((x - mean_x) ** 2 for x in range(n))
+    if sxx == 0:
+        return [v - mean_y for v in flux]
+    slope = sum((x - mean_x) * (v - mean_y) for x, v in enumerate(flux)) / sxx
+    return [v - (mean_y + slope * (x - mean_x)) for x, v in enumerate(flux)]
+
+
 def morphology_corr(a: EventRecord, b: EventRecord) -> float:
-    """Pearson correlation of the local flux windows; 0.0 if undefined."""
+    """Pearson correlation of detrended local flux windows; 0.0 if undefined."""
     if len(a.local_flux) != len(b.local_flux) or not a.local_flux:
         return 0.0
-    ma = sum(a.local_flux) / len(a.local_flux)
-    mb = sum(b.local_flux) / len(b.local_flux)
-    cov = sum((x - ma) * (y - mb) for x, y in zip(a.local_flux, b.local_flux))
-    va = sum((x - ma) ** 2 for x in a.local_flux)
-    vb = sum((y - mb) ** 2 for y in b.local_flux)
+    fa, fb = _detrend(a.local_flux), _detrend(b.local_flux)
+    ma = sum(fa) / len(fa)
+    mb = sum(fb) / len(fb)
+    cov = sum((x - ma) * (y - mb) for x, y in zip(fa, fb))
+    va = sum((x - ma) ** 2 for x in fa)
+    vb = sum((y - mb) ** 2 for y in fb)
     if va <= 0 or vb <= 0:
         return 0.0
     return cov / (va * vb) ** 0.5
@@ -53,7 +72,7 @@ def timing_plausible(a: EventRecord, b: EventRecord) -> bool:
 def match(a: EventRecord, b: EventRecord, thresholds: dict[str, float]) -> MatchDecision:
     if not isinstance(thresholds, dict):
         raise ValueError("thresholds must be a dict")
-    for key in ("max_rel_depth_diff", "max_rel_duration_diff", "min_morph_corr"):
+    for key in REQUIRED_THRESHOLDS:
         if key not in thresholds:
             raise ValueError(f"thresholds missing key: {key}")
     depth_diff = _rel_diff(a.depth, b.depth)
