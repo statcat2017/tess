@@ -118,7 +118,7 @@
           <div class="card done"><b>✓ Phase 7 · Blind exam</b><br>Frozen code graded on sealed sector 82: KELT-9 anchor pair associated, rules rank every true pair first.</div>
           <div class="card next"><b>→ What's next</b><br>Only after passing the exam: aim the frozen code at the newest TESS data and report uncatalogued candidates — or publish the honest negative result.</div>
         </div>
-        <p>Status: <b>78 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>79 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -270,7 +270,7 @@
           <tr><td>Can the result leak star identity?</td><td>No — TICs group and split examples only; they are never model features.</td></tr>
           <tr><td>Can a null result be reported honestly?</td><td>Yes — the decision records scope, sample size, recall, burden, and the reason to continue or pivot.</td></tr>
         </table>
-        <div class="panel"><p><b>Current scientific boundary:</b> the first real benchmark contains hot-Jupiter transits with nearly identical repeated shapes. That makes it a valid pipeline check but not an informative final test of morphology learning. The injection drills below provide the deliberately shape-discriminable rematch.</p></div>
+        <div class="panel"><p><b>The scoreboard, all three exams:</b> on hot-Jupiter repeats the shape-only model cannot win by construction (identical shapes — timing alone separates pairs). On the injection rematch with deliberately shape-discriminable box-vs-V signals, the model reaches 1.00 per-pair threshold accuracy yet ranks at AP ≈ 0.002 — it learned the base rate ("always say no"), not the morphology, while the deterministic rules stay perfect per region. On sealed sector 82: model AP 0.586 and burden 523 vs rules AP 1.000 and burden 272. Three exams, three PIVOTs: the deterministic morphology-aware matcher remains the supported path.</p></div>
       </section>
 
       <section class="page" id="page-phase6" role="tabpanel">
@@ -283,9 +283,9 @@
           <tr><td>Morphology</td><td>box · V-shaped · mismatched</td><td>Same-shape repeats test recovery; cross-epoch box-vs-V pairs are deliberate shape negatives for the learned rematch.</td></tr>
           <tr><td>Separation</td><td>same-epoch · cross-epoch</td><td>Timing-impossible negatives are separated from physically plausible repeat positives.</td></tr>
         </table>
-        <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region.</p>
+        <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region — and ranking metrics (AP, burden) beside threshold accuracy, so a model that learns only the base rate cannot hide behind a 1.00 accuracy.</p>
         <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
-        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>78 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>79 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase7" role="tabpanel">
@@ -301,7 +301,7 @@
           <tr><td>Exam verdict</td><td><b>PIVOT</b> on 272 sealed positives: the deterministic baseline remains the supported path.</td></tr>
         </table>
         <div class="panel"><p><b>Why this counts as blind:</b> normal code paths still refuse sealed sectors; the sealed run carries its freeze hash, creation and unblinding timestamps, and an access-log entry. Thresholds are byte-identical before and after. No weight, rule, or threshold changed post-unblinding.</p></div>
-        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>78 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>79 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-roadmap" role="tabpanel">
@@ -318,7 +318,7 @@
           <li><b>No planet-vs-impostor vetting</b> — eclipsing binary stars need extra checks not yet built.</li>
           <li><b>No sealed exam yet</b> — all current results are development or tracer-bullet checks.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 78 passed
+        <pre>python3 -m pytest -q            # 79 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file
