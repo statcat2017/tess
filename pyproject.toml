@@ -1,0 +1,20 @@
+[project]
+name = "tess-assoc"
+version = "0.1.0"
+description = "Multi-epoch TESS transit event association (protocol freeze v1)"
+requires-python = ">=3.10"
+readme = "RESEARCH_PIPELINE_PRD.md"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
