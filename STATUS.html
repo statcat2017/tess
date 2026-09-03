@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Plain-language demo of our exoplanet-hunting code and how far along it is.">
+  <title>Hunting Distant Planets — What Our Code Can Do So Far</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #edf2ff;
+      --muted: #aeb9d3;
+      --dim: #7e8baa;
+      --line: rgba(183, 199, 239, .16);
+      --panel: rgba(21, 31, 57, .78);
+      --accent: #92b7ff;
+      --accent-strong: #c5d8ff;
+      --warm: #f7c982;
+      --green: #9fe8b3;
+      --red: #f2a3a3;
+      --bg: #08101f;
+      --max: 1120px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 88% 2%, rgba(94, 132, 215, .2), transparent 30rem),
+        radial-gradient(circle at 8% 20%, rgba(180, 116, 67, .1), transparent 25rem),
+        var(--bg);
+      font: 17px/1.75 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .shell { width: min(100% - 2rem, var(--max)); margin: 0 auto; }
+    header { padding: 4rem 0 2.6rem; border-bottom: 1px solid var(--line); }
+    .eyebrow { margin: 0 0 .8rem; color: var(--warm); font-size: .74rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    h1, h2, h3 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-weight: 500; line-height: 1.16; letter-spacing: -.02em; }
+    h1 { max-width: 900px; font-size: clamp(2rem, 6vw, 3.6rem); }
+    h2 { margin: 3rem 0 1rem; font-size: clamp(1.5rem, 4vw, 2.2rem); color: var(--accent-strong); }
+    h3 { margin: 1.8rem 0 .6rem; font-size: 1.25rem; }
+    .lede { max-width: 800px; margin: 1.2rem 0 0; color: var(--muted); font-size: 1.05rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.4rem; }
+    .tag { padding: .28rem .65rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .78rem; }
+    .tag.ok { color: var(--green); border-color: rgba(159, 232, 179, .35); }
+    main { padding-bottom: 5rem; }
+    p { margin: 0 0 1rem; color: var(--muted); }
+    p b, li b, td b { color: var(--ink); }
+    ul, ol { color: var(--muted); }
+    li { margin: .4rem 0; }
+    table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: .92rem; }
+    th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--dim); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+    td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .pass { color: var(--green); font-weight: 700; }
+    .fail { color: var(--red); font-weight: 700; }
+    .panel { margin: 1.4rem 0; padding: 1.1rem 1.2rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--panel); }
+    .panel p:last-child { margin-bottom: 0; }
+    .phase-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin: 1.4rem 0; }
+    .phase { padding: 1rem; border: 1px solid var(--line); border-radius: .7rem; background: var(--panel); color: var(--muted); }
+    .phase b { color: var(--warm); }
+    .phase.done b { color: var(--green); }
+    .phase.next { border-color: rgba(247, 201, 130, .45); }
+    code { padding: .12rem .3rem; border-radius: .25rem; background: rgba(146, 183, 255, .12); color: var(--accent-strong); font: .9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre { overflow-x: auto; padding: 1rem 1.2rem; border: 1px solid var(--line); border-radius: .75rem; background: rgba(0, 0, 0, .35); font-size: .82rem; line-height: 1.6; }
+    footer { padding: 1.5rem 0 3rem; border-top: 1px solid var(--line); color: var(--dim); font-size: .85rem; }
+    @media (max-width: 760px) { .phase-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell">
+      <p class="eyebrow">Plain-language status page</p>
+      <h1>Hunting Distant Planets: What Our Code Can Do So Far</h1>
+      <p class="lede">NASA's TESS telescope finds planets by watching for tiny blinks — a planet passing in
+        front of its star blocks a little starlight. Our code tackles the hard case: planets so far out
+        that TESS only catches them blinking <b>once</b>, years apart. Below is what the code can already
+        do, shown with a real run on practice data — plus an honest list of what it can't do yet.</p>
+      <div class="meta">
+        <span class="tag ok">24 / 24 self-checks passing</span>
+        <span class="tag">practice data only — no real discoveries yet</span>
+        <span class="tag">3 Sep 2026</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="shell">
+    <main>
+      <section>
+        <h2>The problem in 30 seconds</h2>
+        <p>TESS stares at each patch of sky for about <b>27 days</b> at a time. A planet that orbits in
+          a week blinks over and over — easy to spot. But a planet that takes <b>months or years</b> to
+          orbit might blink just once while TESS is watching. One lonely blink with no pattern looks a
+          lot like camera noise, a flickering star, or two stars eclipsing each other. Useless on its own.</p>
+        <p>Here's the opportunity: TESS keeps revisiting the same stars <b>years later</b>. If that same
+          star blinks again, the two blinks together are powerful evidence — <i>if</i> you can prove both
+          blinks came from the same planet. That's exactly the question our code answers.</p>
+      </section>
+
+      <section>
+        <h2>What the code can do right now</h2>
+        <p>We ran the code on a <b>practice star</b> with three recorded blinks. Two were designed to be
+          from the same (imaginary) planet, 900 days apart; the third is an impostor. Here's what happened:</p>
+
+        <h3>Step 1 — Match the blinks</h3>
+        <p>The code compares every pair of blinks on four clues: <b>how deep</b> the blink is, <b>how long</b>
+          it lasts, the <b>shape</b> of the dip, and whether the <b>timing</b> makes sense. Results:</p>
+        <table>
+          <tr><th>Pair</th><th>Verdict</th><th>Why, in plain words</th></tr>
+          <tr><td><b>Blink A + Blink B</b></td><td class="pass">MATCH</td><td>Same depth, same length, same dip shape — almost certainly the same planet.</td></tr>
+          <tr><td><b>Blink A + Blink C</b></td><td class="fail">no match</td><td>C is 5× deeper, twice as long, and V-shaped instead of U-shaped. Different object.</td></tr>
+          <tr><td><b>Blink C + Blink B</b></td><td class="fail">no match</td><td>Same mismatches — plus only 5 days apart, too close to allow any long orbit.</td></tr>
+        </table>
+
+        <h3>Step 2 — Figure out the orbit</h3>
+        <p>Two blinks 900 days apart could mean an orbit of 900 days (one lap between blinks), 450 days
+          (two laps), 300 days (three laps), and so on — <b>33 possibilities</b> in total. The code then
+          plays detective with TESS's actual observing calendar: for each guess, it asks <i>"would TESS
+          have seen a third blink by now?"</i> If yes, but no blink was recorded, that guess is crossed off.</p>
+        <div class="panel">
+          <p><b>Kept 11 possibilities</b> — including the true answer, a <b>300-day orbit</b>.</p>
+          <p><b>Crossed off 22</b> — every one of them predicted a blink during a stretch when TESS was
+            definitely watching and saw nothing (for example, the 450-day guess demands a blink at day
+            1795, right in the middle of an observed stretch — absent, so it's out).</p>
+        </div>
+        <p>That's the whole trick of the project: turn one mystery blink into a short, ranked list of
+          suspect orbits, each backed by a reason a human can check.</p>
+
+        <h3>Step 3 — Prove it plays fair</h3>
+        <p>Science only counts if you can't peek at the answers. The code is fenced off from newer
+          observations by design, and this run certifies it touched <b>zero</b> sealed data. It also
+          double-checks that identical blinks score identically no matter <i>when</i> they happened —
+          a rounding bug that once made the score depend on the calendar date is fixed and pinned by a test.</p>
+      </section>
+
+      <section>
+        <h2>How far along are we?</h2>
+        <div class="phase-grid">
+          <div class="phase done"><b>✓ Done: the rulebook</b><br>Written down exactly what counts as evidence, what a "match" means, and how orbits get crossed off — locked so results stay comparable.</div>
+          <div class="phase done"><b>✓ Done: the practice run</b><br>The full chain above works end to end on made-up data, with 24 automated self-checks guarding it.</div>
+          <div class="phase next"><b>→ Next: real telescope data</b><br>Point the same chain at genuine TESS recordings of known planets and see if it still holds up.</div>
+          <div class="phase"><b>Later: automatic blink-finder</b><br>Today a human hands the code its blinks; eventually software must spot them itself.</div>
+          <div class="phase"><b>Later: a learning matcher</b><br>Teach a small AI to compare dip shapes and test whether it beats the current hand-written rules.</div>
+          <div class="phase"><b>Later: the blind exam</b><br>Freeze everything, then test on years of observations the code has never seen. No peeking, no retakes.</div>
+          <div class="phase"><b>Later: hunt for new worlds</b><br>Only after passing the blind exam — aim the frozen code at the newest TESS data and look for uncatalogued planets.</div>
+          <div class="phase"><b>Later: publish</b><br>Write up whatever the blind exam says — even "the simple rules were enough" is a result worth sharing.</div>
+        </div>
+
+        <h3>What the code can NOT do yet (honest list)</h3>
+        <ul>
+          <li><b>Find real new planets.</b> Everything so far runs on practice data we invented.</li>
+          <li><b>Spot blinks by itself.</b> It compares blinks; it doesn't find them in raw telescope recordings yet.</li>
+          <li><b>Rule out impostors fully.</b> Telling planets apart from eclipsing binary stars needs extra checks not yet built.</li>
+          <li><b>Use AI.</b> The current matcher is hand-written rules. The learning experiment hasn't started.</li>
+        </ul>
+        <p>Roughly: the skeleton, the practice run, and the honor code exist. The muscles (real data),
+          the eyes (blink-finder), and the exam (blind test) are still ahead. Try it yourself:</p>
+        <pre>python3 -m pytest -q            # 24 passed
+PYTHONPATH=src python3 -c "
+from tess_assoc.pipeline import run_tracer, render_report
+from tess_assoc.manifest import load_manifest_file
+r = run_tracer(load_manifest_file('fixtures/tracer_v1.json'))
+print(render_report(r))"</pre>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <div class="shell">Written 3 Sep 2026 for the TESS transit-association project — every result quoted above comes from an actual run of the code, explained without jargon.</div>
+  </footer>
+</body>
+</html>
