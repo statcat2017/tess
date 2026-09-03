@@ -1,0 +1,24 @@
+{
+  "name": "holdout_v1",
+  "product": "TESS-SPOC FFI",
+  "ephemeris_source": "NASA Exoplanet Archive pscomppars + TOI catalog, accessed 2026-09-03",
+  "epoch_match_tol_days": 0.3,
+  "window_half_span_days": 0.6,
+  "resample_samples": 61,
+  "matcher_thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "systems": [
+    {
+      "name": "KELT-9 b",
+      "tic_id": 16740101,
+      "toi": "1150.01",
+      "period_days": 1.4811235,
+      "t0_bjd_tdb": 2457095.68572,
+      "duration_hours": 4.1588,
+      "sectors": [55, 82]
+    }
+  ]
+}

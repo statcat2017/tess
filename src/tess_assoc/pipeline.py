@@ -11,6 +11,7 @@ from typing import Any
 
 from tess_assoc import protocol as _protocol
 from tess_assoc.event import EventRecord
+from tess_assoc import freeze as _freeze
 from tess_assoc.manifest import TracerManifest, load_manifest
 from tess_assoc.matcher import match
 from tess_assoc.pairs import build_pairs
@@ -18,10 +19,10 @@ from tess_assoc.provider import provide_events
 from tess_assoc.window import filter_aliases
 
 
-def run_records(
+def _stage_results(
     manifest: TracerManifest, events: dict[str, EventRecord]
-) -> dict[str, Any]:
-    """Core stages over prebuilt records (shared by fixture and replay paths)."""
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[EventRecord], set[int]]:
+    """Shared core: pairs → deterministic matches → alias filtering."""
     records = list(events.values())
     pairs = build_pairs(events)
     thresholds = manifest.matcher_thresholds
@@ -68,6 +69,14 @@ def run_records(
             )
 
     touched = {s.sector for s in manifest.sectors} | {e.sector for e in manifest.events}
+    return pair_results, associations, records, touched
+
+
+def run_records(
+    manifest: TracerManifest, events: dict[str, EventRecord]
+) -> dict[str, Any]:
+    """Core stages over prebuilt records (shared by fixture and replay paths)."""
+    pair_results, associations, records, touched = _stage_results(manifest, events)
     _protocol.validate_no_temporal_leak(touched)
     return {
         "fixture": manifest.name,
@@ -77,6 +86,39 @@ def run_records(
         "pairs": pair_results,
         "associations": associations,
         "sealed_sectors_touched": sorted(touched & set(_protocol.SEALED_SECTORS)),
+    }
+
+
+def run_holdout_records(
+    manifest: TracerManifest,
+    events: dict[str, EventRecord],
+    *,
+    freeze_record,
+) -> dict[str, Any]:
+    """Same core stages over sealed data — verified freeze required.
+
+    Rejects sealed sectors exactly like run_records unless the freeze
+    record verifies (same source tree, same thresholds). The freeze
+    evidence lands in the output for audit.
+    """
+    if dict(manifest.matcher_thresholds) != freeze_record.thresholds:
+        raise ValueError("holdout thresholds differ from frozen thresholds")
+    if _freeze.source_tree_hash() != freeze_record.code_sha:
+        raise ValueError("source tree changed since freeze")
+    pair_results, associations, records, touched = _stage_results(manifest, events)
+    return {
+        "fixture": manifest.name,
+        "tic_id": manifest.tic_id,
+        "protocol_version": _protocol.PROTOCOL_VERSION,
+        "events": [e.to_dict() for e in records],
+        "pairs": pair_results,
+        "associations": associations,
+        "sealed_sectors_touched": sorted(touched & set(_protocol.SEALED_SECTORS)),
+        "freeze": {
+            "code_sha": freeze_record.code_sha,
+            "created_utc": freeze_record.created_utc,
+            "unblinded_utc": freeze_record.unblinded_utc,
+        },
     }
 
 

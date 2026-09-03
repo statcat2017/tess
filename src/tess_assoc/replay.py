@@ -168,8 +168,13 @@ def _finish(
     products: list[dict[str, Any]],
     anchors: list[str],
     extra: dict[str, Any] | None = None,
+    records_runner=None,
 ) -> dict[str, Any]:
-    """Shared tail: manifest build → stages → shaped results (one copy)."""
+    """Shared tail: manifest build → stages → shaped results (one copy).
+
+    records_runner defaults to the dev-gated run_records; the sealed
+    holdout passes its freeze-gated runner instead. Same stages either way.
+    """
     manifest = TracerManifest(
         name=name,
         tic_id=tic_id,
@@ -178,7 +183,7 @@ def _finish(
         sectors=tuple(manifest_sectors),
         events=tuple(manifest_events),
     )
-    results = run_records(manifest, records)
+    results = (records_runner or run_records)(manifest, records)
     results["anchors"] = list(anchors)
     results["skipped"] = list(skipped)
     results["products"] = list(products)
@@ -289,7 +294,8 @@ def classify_pair(
 
 
 def replay_blind_system(
-    replay: ReplayManifest, system: ReplaySystem, cache_dir: str | None = None
+    replay: ReplayManifest, system: ReplaySystem, cache_dir: str | None = None,
+    records_runner=None,
 ) -> dict[str, Any]:
     """Blind proposer path: no period, no ephemeris until recall scoring."""
     tol = replay.epoch_match_tol_days
@@ -419,6 +425,7 @@ def replay_blind_system(
         skipped=skipped,
         products=products,
         anchors=[],
+        records_runner=records_runner,
         extra={
             "n_proposals": n_proposals,
             "recall": {
