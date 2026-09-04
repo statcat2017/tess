@@ -141,6 +141,61 @@ def _query_toi_rows(tic_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
     return matches
 
 
+def cross_match_ctoi(tic_id: int) -> dict[str, Any]:
+    """Community TOI lookup via the ExoFOP target JSON (no TAP table exists).
+
+    A CTOI match does NOT block promotion (community claims are unvetted —
+    one was even refuted); it flags, and carries the claimant ephemeris
+    for direct comparison with ours.
+    """
+    import json as _json
+    import urllib.request
+
+    url = f"https://exofop.ipac.caltech.edu/tess/target.php?id={int(tic_id)}&json"
+    request = urllib.request.Request(url, headers={"User-Agent": "tess-assoc/1.0"})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = _json.loads(response.read().decode())
+    except Exception as e:
+        return {"status": "unknown", "matches": [], "reason": f"ExoFOP query failed: {e}"}
+    matches = []
+    for row in payload.get("ctois", []) or []:
+        matches.append({"ctoi": str(row.get("ctoi", "")), "disposition": str(row.get("cdisp", ""))})
+    for row in payload.get("planet_parameters", []) or []:
+        prov = str(row.get("prov", "") or "")
+        if prov and prov != "ctoi":
+            continue  # TOI/follow-up rows belong to other cross-matches
+        try:
+            epoch = float(row["epoch"]) if row.get("epoch") else None
+        except (TypeError, ValueError):
+            epoch = None
+        try:
+            period = float(row["per"]) if row.get("per") else None
+        except (TypeError, ValueError):
+            period = None
+        if not str(row.get("name", "")) and epoch is None and period is None:
+            continue
+        matches.append(
+            {
+                "ctoi": str(row.get("name", "")),
+                "epoch_bjd": epoch,
+                "period_days": period,
+                "disposition": str(row.get("disp", "")),
+            }
+        )
+    if matches:
+        return {"status": "community-claim", "matches": matches, "reason": None}
+    return {"status": "clean", "matches": [], "reason": None}
+
+
+def parse_ctoi_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Pure CTOI-match extraction from an ExoFOP target payload (testable)."""
+    return [
+        {"ctoi": str(row.get("ctoi", "")), "disposition": str(row.get("cdisp", ""))}
+        for row in payload.get("ctois", []) or []
+    ]
+
+
 def cross_match_tois(
     tic_ids: list[int],
 ) -> dict[str, Any]:

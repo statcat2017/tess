@@ -121,7 +121,7 @@
           <div class="card next"><b>→ Phase 8 · New worlds</b><br>2,147 stars mined, 2 EBs caught and classified, 0 planet candidates; bulk pipeline streams with resume.</div>
           <div class="card next"><b>→ What's next</b><br>When Sector 106 lands: run the frozen code, vet the shortlist, report candidates — or the honest negative.</div>
         </div>
-        <p>Status: <b>115 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>117 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -296,7 +296,7 @@
         </table>
         <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region — and ranking metrics (AP, burden) beside threshold accuracy, so a model that learns only the base rate cannot hide behind a 1.00 accuracy.</p>
         <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
-        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>115 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>117 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase7" role="tabpanel">
@@ -312,7 +312,7 @@
           <tr><td>Exam verdict</td><td><b>PIVOT</b> on 272 sealed positives: the deterministic baseline remains the supported path.</td></tr>
         </table>
         <div class="panel"><p><b>Why this counts as blind:</b> normal code paths still refuse sealed sectors; the sealed run carries its freeze hash, creation and unblinding timestamps, and an access-log entry. Thresholds are byte-identical before and after. No weight, rule, or threshold changed post-unblinding.</p></div>
-        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>115 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>117 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase8" role="tabpanel">
@@ -370,12 +370,31 @@
         <p>The pipeline did its job — genuine repeat events, correctly linked across 3.5 years. Species identification failed at the automated layer (both primaries/secondaries sat below the frozen single-point secondary bar, and alias lists can't contain sub-27-day truths by design), and <b>a companion-radius check now closes that hole</b>: depth plus catalog stellar radius lower-bounds the companion, blocking anything over 0.25 R☉. Both EBs re-run as rejected (0.38, 0.71 R☉). Manual multi-epoch folding remains required — stated, not hidden.</p>
         <h3>Scaling up: bulk retrieval, 188 more stars</h3>
         <p>Per-star archive queries were the bottleneck, so they were deleted: MAST file addresses are deterministic in (star, sector), letting the survey fetch whole footprint cones — 362 stars probed with 3 catalog queries, 668 files landed, 1,504 clean 404s, zero failures. A second run covered <b>188 multi-epoch stars</b> (46 pairs, 15 reviewed, 0 candidates), and the scale exposed two real bugs that fault isolation caught and tests now pin: zero-width coverage windows from isolated cadences, and close-pair alias crashes.</p>
-        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>115 passed</b> with archive warnings only.</p>
+        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>117 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-findings" role="tabpanel">
-        <h2>Findings · Two binaries caught, both previously catalogued</h2>
-        <p>The scaled survey (2,147 stars) promoted two pairs. Both survived every automated check the machine then had — clean TOI cross-match, low contamination, no secondary at any alias period. Human follow-up with extra archive sectors showed both are genuine repeat events of <b>stellar</b> companions — and catalog follow-up showed both objects were already known as binaries elsewhere. <b>Neither is a discovery.</b> What follows is the full honest record: how each was caught, how each was closed, and what the machine learned.</p>
+        <h2>Findings · Two binaries closed, one planet candidate open</h2>
+        <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into known binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — is a <b>planet candidate</b>: stated with the full arithmetic, the caveats, and what would confirm or kill it.</p>
+
+        <h3>Finding 3 (candidate) · TIC 231279823 — P = 5.96848 d mini-Neptune candidate</h3>
+        <table>
+          <tr><th>Fact</th><th>Value</th></tr>
+          <tr><td>Star</td><td class="num">Tmag 8.7 · 0.46 R☉ · 3592 K M dwarf · contamination 0.003 · no TOI · no ASAS-SN · no Gaia EB</td></tr>
+          <tr><td>Pipeline pair</td><td class="num">Sector 29 @ 2095.777 + Sector 69 @ 3199.943 (ΔT = 1104.2 d) · depth 0.0033/0.0041 · morph corr 0.91 · 40 aliases · clean on every automated check including companion radius (0.029 R☉ ≈ 3.2 R⊕)</td></tr>
+          <tr><td>Follow-up</td><td class="num"><b>13 events in 5 sectors</b> (2, 29, 30, 69 + one edge-skipped) fit T0 = 1355.67458, P = 5.96848 d with rms 16.7 min, cycles 0–309. A community CTOI (231279823.01) exists on this star — likely the same signal, pending ephemeris comparison.</td></tr>
+          <tr><td>Depth puzzle</td><td class="num">Measured depths run 0.14% (sector 30) to 0.38% (sector 69): companion 2.0–3.0 R⊕. Variation unexplained — activity, systematics, or dilution; stated, not hidden.</td></tr>
+          <tr><td>Verdict</td><td><b>Planet candidate (mini-Neptune around an M dwarf), NOT confirmed.</b> Needs pixel centroid vetting + radial velocity. If the CTOI matches, this is an independent recovery with a 5-year ephemeris; if not, it may be new.</td></tr>
+        </table>
+        <h3>Resolution, one month before we looked (found on the CTOI page)</h3>
+        <p>The community record for this star holds <b>CTOI 231279823.01</b> (ORION pipeline, Cloutier, June 2019): epoch 2458361.64103, P = 5.97607 d, duration 0.116 d, 1.83 R⊕ — close to ours (5.96848 d) but formally inconsistent at ~10σ, an open tension (TTVs? error budgets?). And in August 2026, an independent re-analysis concluded the signal is a <b>blended background eclipsing binary, not a transit</b> — which independently explains our depth scatter (dilution varies by sector aperture). Our candidate is therefore most likely <b>refuted as planetary</b>, pending pixel-level proof. The machine found the same real signal blind; the community record resolved its nature. That is the system working as designed, including the part where the answer is "not a planet".</p>
+        <img class="demo" src="assets/cand231279823_fold.svg" alt="TIC 231279823 all sectors folded at 5.96848 days showing the transit dip">
+        <p class="caption">All four sectors folded at 5.96848 days: one dip, thirteen transits, five years. The depth scatter between epochs is real and unexplained.</p>
+        <img class="demo" src="assets/sector_cand231279823_s29.svg" alt="TIC 231279823 sector 29 light curve with three blind transit proposals">
+        <img class="demo" src="assets/sector_cand231279823_s69.svg" alt="TIC 231279823 sector 69 light curve with three blind transit proposals">
+        <p class="caption">The discovery pair of sectors: three blind finds each, no ephemeris given — the 1104-day association the machine promoted.</p>
+        <img class="demo" src="assets/sector_cand231279823_s30.svg" alt="TIC 231279823 sector 30 light curve showing shallower transit events">
+        <p class="caption">Sector 30 complicates the story: same ~5.97-day spacing, but only ~0.15% deep — the depth puzzle in raw form.</p>
 
         <h3>Finding 1 · TIC 224224413 — P = 5.71296 d eclipsing binary</h3>
         <table>
@@ -415,6 +434,7 @@
           <tr><td>Alias lists can't contain sub-27-day truths, so "40 aliases retained" is vacuous for short-period interlopers.</td><td>Documented in the report; short-period follow-up (extra sectors) is now the prescribed next step for deep pairs.</td></tr>
           <tr><td>Depth alone identifies species when a stellar radius exists: both companions exceed 0.25 R☉ lower bounds.</td><td>New <b>companion-radius check</b> blocks promotion above 0.25 R☉ — both findings re-run as rejected (0.38, 0.71 R☉).</td></tr>
           <tr><td>"No TOI match" is not "unknown": both binaries were catalogued as variables elsewhere, which the machine never asked.</td><td>New <b>variable-catalog cross-match</b> (ASAS-SN + Gaia eclipsing binaries) blocks promotion on any match — the ASAS-SN Algol is now caught automatically.</td></tr>
+          <tr><td>Community claims are invisible to TAP: the CTOI that named our candidate's signal lives only on a web page.</td><td>New <b>CTOI cross-match</b> via the ExoFOP target JSON, carrying claimant ephemerides for direct comparison — flags without blocking (community claims can themselves be refuted, as this one was).</td></tr>
           <tr><td>One busy star flooded the 30-slot shortlist with mirror-image pairs.</td><td>Pair directions deduplicated; per-system review cap added.</td></tr>
         </table>
         <div class="panel"><p><b>To confirm either binary:</b> radial-velocity follow-up (expected semi-amplitudes of km/s, easily measurable) or pixel-level centroid vetting — both outside this codebase by design. What the project claims ends at <i>associated repeat events with measured depths, aliases, and vetting status</i>; species labels above are stated inferences with the arithmetic shown, not confirmations.</p></div>
@@ -434,7 +454,7 @@
           <li><b>No pixel-level vetting in code</b> — centroid, difference imaging, alternate reductions, and external photometry remain explicit manual steps per candidate.</li>
           <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 115 passed
+        <pre>python3 -m pytest -q            # 117 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file

@@ -37,6 +37,7 @@ from tess_assoc.vetting import (
     check_contamination,
     check_variables,
     combine_secondary_searches,
+    cross_match_ctoi,
     cross_match_toi,
     promote_candidate,
     secondary_search,
@@ -297,11 +298,14 @@ def _vet_pair(
             "cross_match": cross_match_toi(tic_id),
             "stellar_rad": stellar_radius(tic_id),
             "variables": check_variables(tic_id),
+            "ctoi": cross_match_ctoi(tic_id),
         }
     if "stellar_rad" not in catalog:
         catalog["stellar_rad"] = stellar_radius(tic_id)
     if "variables" not in catalog:
         catalog["variables"] = check_variables(tic_id)
+    if "ctoi" not in catalog:
+        catalog["ctoi"] = cross_match_ctoi(tic_id)
     results: list[dict[str, Any]] = []
     for event in (event_a, event_b):
         time_r, _, detrended_r, sigma_r = _vetting_inputs(
@@ -327,6 +331,7 @@ def _vet_pair(
         "cross_match": catalog["cross_match"],
         "companion": companion,
         "variables": catalog["variables"],
+        "ctoi": catalog["ctoi"],
     }
 
 
@@ -424,6 +429,7 @@ def triage_ranked_pairs(
                 "cross_match": cross_match_toi(system.tic_id),
                 "stellar_rad": stellar_radius(system.tic_id),
                 "variables": check_variables(system.tic_id),
+                "ctoi": cross_match_ctoi(system.tic_id),
             }
         vetting = _vet_pair(
             system.tic_id, pair["event_a"], pair["event_b"],
@@ -656,6 +662,7 @@ def render_discovery_report(results: dict[str, Any]) -> str:
         lines.append(
             f"  vetting: contamination {cand['vetting']['contamination']['status']}, "
             f"TOI {cand['vetting']['cross_match']['status']}, "
+            f"CTOI {cand['vetting'].get('ctoi', {}).get('status', 'n/a')}, "
             f"companion {cand['vetting']['companion']['status']}, "
             f"secondaries {cand['vetting']['secondary']['n_flagged']}; "
             f"manual: {', '.join(cand['promotion']['manual_checklist'][:2])} + "

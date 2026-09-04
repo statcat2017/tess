@@ -306,6 +306,7 @@ def _prefetch_catalog(manifest, tic_ids: list[int]) -> dict[int, dict[str, Any]]
     from tess_assoc.vetting import (
         check_contamination,
         check_variables,
+        cross_match_ctoi,
         cross_match_tois,
         stellar_radius,
     )
@@ -335,6 +336,7 @@ def _prefetch_catalog(manifest, tic_ids: list[int]) -> dict[int, dict[str, Any]]
             "cross_match": cross_match,
             "stellar_rad": stellar_radius(tic),
             "variables": check_variables(tic),
+            "ctoi": cross_match_ctoi(tic),
         }
     return prefetch
 

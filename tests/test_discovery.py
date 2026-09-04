@@ -98,6 +98,42 @@ def test_discovery_gate_needs_valid_freeze(tmp_path):
         load_discovery_manifest(MINI, stale, CONFIG)
 
 
+def test_ctoi_parse_and_flag_semantics():
+    from tess_assoc.vetting import cross_match_ctoi, parse_ctoi_payload
+
+    assert parse_ctoi_payload({}) == []
+    assert parse_ctoi_payload({"ctois": [{"ctoi": "X.01", "cdisp": "PC"}]}) == [
+        {"ctoi": "X.01", "disposition": "PC"}
+    ]
+    base = dict(
+        compatible=True, aliases_retained=3,
+        cross_match={"status": "clean"},
+        contamination={"status": "low"}, secondary={"n_flagged": 0},
+        companion={"status": "planetary-range"},
+    )
+    flagged = promote_candidate(
+        **base, variables={"status": "clean"},
+    )
+    assert flagged["candidate"]
+
+
+@needs_archive
+def test_live_ctoi_cross_match():
+    from tess_assoc.vetting import cross_match_ctoi
+
+    ours = cross_match_ctoi(231279823)
+    assert ours["status"] == "community-claim"
+    epis = [m for m in ours["matches"] if m.get("period_days")]
+    assert epis and epis[0]["period_days"] == pytest.approx(5.97607, abs=1e-4)
+    assert epis[0]["epoch_bjd"] == pytest.approx(2458361.64103, abs=1e-3)
+    kelt = cross_match_ctoi(16740101)
+    assert kelt["status"] == "community-claim"
+    assert any(
+        m.get("period_days") == pytest.approx(1.4811235, abs=1e-6)
+        for m in kelt["matches"]
+    )
+
+
 def test_combine_secondary_searches_unions_both_sectors():
     from tess_assoc.vetting import combine_secondary_searches
 
