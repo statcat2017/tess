@@ -8,6 +8,7 @@ small dark-theme SVG line charts into assets/. Re-run to refresh:
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 
 W, H = 680, 300
 ML, MR, MT, MB = 58, 16, 34, 42
@@ -356,6 +357,7 @@ def main() -> None:
     )
 
     _mining_figures()
+    _findings_figures()
     print("wrote assets/*.svg")
 
 
@@ -412,6 +414,107 @@ def _mining_figures() -> None:
         [t for t in found if abs(t - t_inj) <= 0.15],
         [],
     )
+
+
+@dataclass(frozen=True)
+class FoldSpec:
+    sector: int
+    t0: float
+    period: float
+    note: str
+
+
+@dataclass(frozen=True)
+class FindingCase:
+    tic: int
+    sectors: tuple[int, ...]
+    slug: str
+    title: str
+    pair: tuple[int, float, int, float]
+    curves: tuple[int, ...]
+    fold: FoldSpec | None = None
+
+
+def _findings_figures() -> None:
+    """Phase 8 findings: the two eclipsing binaries, as the pipeline saw them."""
+    from tess_assoc.archive import download_spoc_ffi
+    from tess_assoc.extract import extract_at, load_lightcurve
+    from tess_assoc.propose import detrend, propose_events
+
+    cases = [
+        FindingCase(
+            tic=224224413, sectors=(2, 29, 69), slug="eb224224413",
+            title="TIC 224224413",
+            pair=(29, 2096.300, 69, 3198.904),
+            curves=(2,),
+            fold=FoldSpec(
+                sector=2, t0=1359.328, period=5.71296,
+                note="primary + secondary at phase ~0.49",
+            ),
+        ),
+        FindingCase(
+            tic=197931848, sectors=(29, 69), slug="eb197931848",
+            title="TIC 197931848",
+            pair=(29, 2103.130, 69, 3197.023),
+            curves=(29, 69),
+        ),
+    ]
+    for case in cases:
+        tic = case.tic
+        curves = {}
+        for sector in case.sectors:
+            time, flux = load_lightcurve(download_spoc_ffi(tic, sector))
+            curves[sector] = (time, flux)
+        for sector in case.curves:
+            time, flux = curves[sector]
+            detrended, _ = detrend(time, flux)
+            found = sorted(p.t0_guess for p in propose_events(time, flux))
+            _svg_sector_curve(
+                f"assets/sector_{case.slug}_s{sector}.svg",
+                f"Finding: {case.title} sector {sector} (detrended)",
+                f"{len(found)} blind proposals",
+                time,
+                detrended,
+                [],
+                found,
+                [],
+            )
+        sec_a, t_a, sec_b, t_b = case.pair
+        ta, fa = curves[sec_a]
+        tb, fb = curves[sec_b]
+        ra = extract_at(ta, fa, t_a, 0.2, tic_id=tic, sector=sec_a, quality={})
+        rb = extract_at(tb, fb, t_b, 0.2, tic_id=tic, sector=sec_b, quality={})
+        xa = [t - ra.t0 for t in ra.local_time]
+        xb = [t - rb.t0 for t in rb.local_time]
+        _svg_two_windows(
+            f"assets/{case.slug}_pair.svg",
+            f"Finding: {case.title} associated pair "
+            f"(depth {ra.depth:.3f} vs {rb.depth:.3f})",
+            f"S{sec_a}@{t_a:.1f} + S{sec_b}@{t_b:.1f} BTJD",
+            (xa, list(ra.local_flux), f"S{sec_a}", "#f7c982"),
+            (xb, list(rb.local_flux), f"S{sec_b}", "#92b7ff"),
+            "same dip, years apart",
+        )
+        if case.fold is not None:
+            fold = case.fold
+            time, flux = curves[fold.sector]
+            detrended, _ = detrend(time, flux)
+            phased = sorted(
+                ((t - fold.t0) % fold.period, f)
+                for t, f in zip(time, detrended)
+            )
+            step = max(1, len(phased) // 1500)
+            xs = [p for p, _ in phased[::step]]
+            ys = [f for _, f in phased[::step]]
+            _svg_single_window(
+                f"assets/{case.slug}_fold.svg",
+                f"Finding: {case.title} folded at P={fold.period:.5f}d",
+                f"sector {fold.sector} · {fold.note}",
+                xs,
+                ys,
+                "#92b7ff",
+                "period fit to the minute over 322 orbits",
+            )
 
 
 if __name__ == "__main__":

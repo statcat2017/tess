@@ -37,6 +37,16 @@ MINING_CURVES = [
     "sector_mining_noisy_42055368_s69.svg",
     "sector_mining_injected_42015014_s69.svg",
 ]
+FINDINGS_PAIRS = [
+    "eb224224413_pair.svg",
+    "eb197931848_pair.svg",
+]
+FINDINGS_CURVES = [
+    "sector_eb224224413_s2.svg",
+    "sector_eb197931848_s29.svg",
+    "sector_eb197931848_s69.svg",
+    "eb224224413_fold.svg",
+]
 
 
 @needs_archive
@@ -84,3 +94,15 @@ def test_demo_plots_regenerate():
         assert text.startswith("<svg")
         assert text.count("<polyline") == 1, name
         assert "<circle" in text, name  # legend dots; quiet curves carry no markers
+    for name in FINDINGS_PAIRS:
+        path = root / "assets" / name
+        assert path.exists(), name
+        text = path.read_text()
+        assert text.startswith("<svg")
+        assert text.count("<polyline") == 2, name
+    for name in FINDINGS_CURVES:
+        path = root / "assets" / name
+        assert path.exists(), name
+        text = path.read_text()
+        assert text.startswith("<svg")
+        assert text.count("<polyline") == 1, name

@@ -94,6 +94,7 @@
         <button role="tab" aria-selected="false" data-page="phase6">Phase 6 · Injection drills</button>
         <button role="tab" aria-selected="false" data-page="phase7">Phase 7 · Blind exam</button>
         <button role="tab" aria-selected="false" data-page="phase8">Phase 8 · New worlds</button>
+        <button role="tab" aria-selected="false" data-page="findings">Findings · Two binaries</button>
         <button role="tab" aria-selected="false" data-page="roadmap">Roadmap</button>
       </nav>
     </div>
@@ -370,6 +371,52 @@
         <h3>Scaling up: bulk retrieval, 188 more stars</h3>
         <p>Per-star archive queries were the bottleneck, so they were deleted: MAST file addresses are deterministic in (star, sector), letting the survey fetch whole footprint cones — 362 stars probed with 3 catalog queries, 668 files landed, 1,504 clean 404s, zero failures. A second run covered <b>188 multi-epoch stars</b> (46 pairs, 15 reviewed, 0 candidates), and the scale exposed two real bugs that fault isolation caught and tests now pin: zero-width coverage windows from isolated cadences, and close-pair alias crashes.</p>
         <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>113 passed</b> with archive warnings only.</p>
+      </section>
+
+      <section class="page" id="page-findings" role="tabpanel">
+        <h2>Findings · Two uncatalogued eclipsing binaries</h2>
+        <p>The scaled survey (2,147 stars) promoted two pairs. Both survived every automated check — clean TOI cross-match, low contamination, no secondary at any alias period. Human follow-up with extra archive sectors showed both are genuine repeat events of <b>stellar</b> companions. The pipeline found real things; species identification needed eyes. Each finding below shows exactly how it was caught and how it was closed.</p>
+
+        <h3>Finding 1 · TIC 224224413 — P = 5.71296 d eclipsing binary</h3>
+        <table>
+          <tr><th>Fact</th><th>Value</th></tr>
+          <tr><td>Star</td><td class="num">Tmag 12.0 · 1.64 R☉ · 6406 K dwarf · contamination 0.011</td></tr>
+          <tr><td>Pipeline pair</td><td class="num">Sector 29 @ 2096.300 + Sector 69 @ 3198.904 (ΔT = 1102.6 d) · depth 0.054 both · morph corr 0.992 · score 0.981 · 40 aliases retained</td></tr>
+          <tr><td>Why promoted</td><td>No TOI match · low contamination · no secondary at any alias period · companion check did not yet exist</td></tr>
+          <tr><td>Follow-up</td><td class="num">Archived sector 2 holds <b>four</b> 6% eclipses at 1359.328 / 1365.037 / 1370.766 / 1376.474 plus 0.45% dips at phase 0.49 (the secondary, twice). Joint fit: P = 5.71296 d, residuals 0.0 min at sectors 29 and 69 over 322 orbits.</td></tr>
+          <tr><td>Verdict</td><td><b>Eclipsing binary</b>: companion ≥ 0.38 R☉ (≈4 Jupiter radii — stellar regardless of geometry). Now auto-rejected by the companion-radius check.</td></tr>
+        </table>
+        <img class="demo" src="assets/sector_eb224224413_s2.svg" alt="TIC 224224413 sector 2 light curve showing four deep eclipses found blind">
+        <p class="caption">Sector 2, which the survey never searched: four ~6% eclipses the blind proposer flags on sight, plus two shallow secondary dips. This single extra epoch closed the case.</p>
+        <img class="demo" src="assets/eb224224413_pair.svg" alt="Overlaid sector 29 and 69 eclipse windows of TIC 224224413">
+        <p class="caption">The associated pair itself: the sector 29 and sector 69 dips overlaid — the 0.992-correlation match that earned promotion.</p>
+        <img class="demo" src="assets/eb224224413_fold.svg" alt="TIC 224224413 sector 2 phase-folded at 5.71296 days showing primary and secondary">
+        <p class="caption">Sector 2 folded at the fitted 5.71296-day period: deep primary plus the half-phase secondary the automated search missed (0.45% vs the frozen single-point bar).</p>
+
+        <h3>Finding 2 · TIC 197931848 — P ≈ 5.11 d eclipsing binary</h3>
+        <table>
+          <tr><th>Fact</th><th>Value</th></tr>
+          <tr><td>Star</td><td class="num">Tmag 12.6 · 1.54 R☉ · 6008 K dwarf · contamination 0.0001</td></tr>
+          <tr><td>Pipeline pair</td><td class="num">Sector 29 @ 2103.130 + Sector 69 @ 3197.023 (ΔT = 1093.9 d) · depth 0.21 both · morph corr 0.999 · score 0.975 · 40 aliases retained</td></tr>
+          <tr><td>Why promoted</td><td>No TOI match · negligible contamination · no secondary at any alias period</td></tr>
+          <tr><td>Follow-up</td><td class="num">Six archived sectors (2, 3, 29, 30, 31, 69) show alternating 45%/35% eclipses every ~2.55 d — primary and secondary of a P ≈ 5.11 d binary. Both flagged events are <b>secondaries</b>, 214 orbits apart.</td></tr>
+          <tr><td>Verdict</td><td><b>Eclipsing binary</b>: companion ≥ 0.71 R☉. A planet would need to be seven-tenths the size of its star.</td></tr>
+        </table>
+        <img class="demo" src="assets/sector_eb197931848_s69.svg" alt="TIC 197931848 sector 69 light curve showing alternating deep eclipses">
+        <p class="caption">Sector 69 alone tells the story the two-epoch pair couldn't: eight deep eclipses alternating 45% / 35% — a binary caught mid-blink, not a duotransit.</p>
+        <img class="demo" src="assets/sector_eb197931848_s29.svg" alt="TIC 197931848 sector 29 light curve showing matching deep eclipses">
+        <p class="caption">Sector 29, three years earlier: the same alternating pattern at the same depths — the association was correct.</p>
+        <img class="demo" src="assets/eb197931848_pair.svg" alt="Overlaid sector 29 and 69 eclipse windows of TIC 197931848">
+        <p class="caption">The associated pair: two ~21% dips, correlation 0.999 — genuinely the same object, genuinely repeating, genuinely not a planet.</p>
+
+        <h3>What the findings taught the machine</h3>
+        <table>
+          <tr><th>Lesson</th><th>Change (already in the code)</th></tr>
+          <tr><td>Alias lists can't contain sub-27-day truths, so "40 aliases retained" is vacuous for short-period interlopers.</td><td>Documented in the report; short-period follow-up (extra sectors) is now the prescribed next step for deep pairs.</td></tr>
+          <tr><td>Depth alone identifies species when a stellar radius exists: both companions exceed 0.25 R☉ lower bounds.</td><td>New <b>companion-radius check</b> blocks promotion above 0.25 R☉ — both findings re-run as rejected (0.38, 0.71 R☉).</td></tr>
+          <tr><td>One busy star flooded the 30-slot shortlist with mirror-image pairs.</td><td>Pair directions deduplicated; per-system review cap added.</td></tr>
+        </table>
+        <div class="panel"><p><b>To confirm either binary:</b> radial-velocity follow-up (expected semi-amplitudes of km/s, easily measurable) or pixel-level centroid vetting — both outside this codebase by design. What the project claims ends at <i>associated repeat events with measured depths, aliases, and vetting status</i>; species labels above are stated inferences with the arithmetic shown, not confirmations.</p></div>
       </section>
 
       <section class="page" id="page-roadmap" role="tabpanel">
