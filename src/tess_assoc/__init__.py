@@ -16,6 +16,14 @@ from tess_assoc.audit import (
     measure_flux_channel,
     render_single_event_audit,
 )
+from tess_assoc.pixel_audit import (
+    aperture_depths,
+    audit_tesscut_file,
+    difference_centroid,
+    difference_image,
+    download_tesscut,
+    render_pixel_audit_html,
+)
 from tess_assoc.event import EventRecord
 from tess_assoc.discovery import (
     DISCOVERY_SECTOR,
@@ -91,6 +99,8 @@ __all__ = [
     "audit_development",
     "audit_flux_channels",
     "audit_lightcurve_file",
+    "audit_tesscut_file",
+    "aperture_depths",
     "build_benchmark",
     "build_survey_manifest",
     "build_single_event_audit",
@@ -108,6 +118,9 @@ __all__ = [
     "cross_match_toi",
     "cross_match_tois",
     "direct_url",
+    "difference_centroid",
+    "difference_image",
+    "download_tesscut",
     "expected_filename",
     "fetch_one",
     "fetch_tois_box",
@@ -129,6 +142,7 @@ __all__ = [
     "render_report",
     "render_survey_report",
     "render_single_event_audit",
+    "render_pixel_audit_html",
     "rank_single_transits",
     "replay_all",
     "resolve_coverage",
