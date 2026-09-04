@@ -45,6 +45,7 @@ from tess_assoc.protocol import (
 )
 from tess_assoc.vetting import (
     check_contamination,
+    combine_secondary_searches,
     cross_match_toi,
     promote_candidate,
     secondary_search,
@@ -61,6 +62,7 @@ __all__ = [
     "build_benchmark",
     "check_contamination",
     "check_manifest_bytes",
+    "combine_secondary_searches",
     "cone_tics",
     "create_freeze",
     "cross_match_toi",

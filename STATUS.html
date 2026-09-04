@@ -117,10 +117,10 @@
           <div class="card done"><b>✓ Phase 5 · Learning</b><br>A small Siamese matcher now runs beside the deterministic baseline with TIC-level holdouts and an explicit stop/go decision.</div>
           <div class="card done"><b>✓ Phase 6 · Injection drills</b><br>Artificial blinks are recovered from real development light curves across depth, shape, and epoch-separation regimes.</div>
           <div class="card done"><b>✓ Phase 7 · Blind exam</b><br>Frozen code graded on sealed sector 82: KELT-9 anchor pair associated, rules rank every true pair first.</div>
-          <div class="card next"><b>→ Phase 8 · New worlds</b><br>Discovery machine built and rehearsed; waiting on the archive — Sector 106 has no telescope files yet.</div>
+          <div class="card next"><b>→ Phase 8 · New worlds</b><br>First dig complete: 8 uncatalogued stars mined, 0 candidates, pipeline sensitivity proven by injection.</div>
           <div class="card next"><b>→ What's next</b><br>When Sector 106 lands: run the frozen code, vet the shortlist, report candidates — or the honest negative.</div>
         </div>
-        <p>Status: <b>91 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>96 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -287,7 +287,7 @@
         </table>
         <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region — and ranking metrics (AP, burden) beside threshold accuracy, so a model that learns only the base rate cannot hide behind a 1.00 accuracy.</p>
         <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
-        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>91 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>96 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase7" role="tabpanel">
@@ -303,22 +303,21 @@
           <tr><td>Exam verdict</td><td><b>PIVOT</b> on 272 sealed positives: the deterministic baseline remains the supported path.</td></tr>
         </table>
         <div class="panel"><p><b>Why this counts as blind:</b> normal code paths still refuse sealed sectors; the sealed run carries its freeze hash, creation and unblinding timestamps, and an access-log entry. Thresholds are byte-identical before and after. No weight, rule, or threshold changed post-unblinding.</p></div>
-        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>91 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>96 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase8" role="tabpanel">
         <h2>Phase 8 · Hunting new worlds</h2>
-        <p>The instrument is built; the sky isn't ready. Sector 106 finished observing on Aug 9, 2026, but the archive holds <b>zero</b> Sector 106 telescope files — the newest recordings available anywhere are around sector 82. So the discovery machine stands armed: frozen pipeline, Sector 106 pilot cohort picked (three known TOIs with early coverage, for validation-by-redetection), and a vetting chain proven live.</p>
-        <h3>How a hunt will run</h3>
+        <p>Sector 106 finished observing on Aug 9, 2026, but the archive holds <b>zero</b> Sector 106 telescope files — the newest recordings available anywhere are around sector 82. So the hunt runs on two tracks: the Sector 106 machine stands armed (pilot cohort picked, tripwire test fires when the files land), and <b>archive mining</b> hunts multi-epoch stars available today.</p>
+        <h3>First mining results (8 uncatalogued stars, 16 recordings)</h3>
         <table>
-          <tr><th>Step</th><th>What happens</th></tr>
-          <tr><td>Freeze</td><td>Methodology hashed before any new data is touched — same machinery as the blind exam, separate record.</td></tr>
-          <tr><td>Search</td><td>Blind blink-finding in early + 106 recordings, early × 106 pairs ranked by the frozen rules.</td></tr>
-          <tr><td>Vet</td><td>Secondary-eclipse hunt, contamination check, TOI cross-match — only clean pairs become candidates.</td></tr>
-          <tr><td>Report</td><td>Candidates reported as candidates, never confirmed planets; manual pixel work listed per candidate.</td></tr>
+          <tr><th>Measure</th><th>Result</th></tr>
+          <tr><td>Validation</td><td class="num">Known planet TOI-190 re-detected across sectors 30 → 69 and correctly <b>excluded</b> as a known TOI — 8 pairs found, 0 promoted.</td></tr>
+          <tr><td>Hunt</td><td class="num">8 uncatalogued stars searched (sectors 3 → 69 baselines): <b>0 candidates</b>. Most are genuinely quiet below 0.1–0.8% sensitivity floors; two are noisy variables where only &gt;1.6% dips clear the frozen bar — a known operating limit, not a code failure.</td></tr>
+          <tr><td>Pipeline proof</td><td class="num">An injected 1% dip is recovered on every hunt curve, including the noisy ones — the zeros are real non-detections.</td></tr>
         </table>
-        <div class="panel"><p><b>Proof it works today:</b> a full rehearsal on real WASP-121 data runs the identical code path (flagged rehearsal, zero promotions), and the vetting chain correctly refuses to promote KELT-9 — a known planet — as a "discovery". When Sector 106 lands in the archive, the run is one command.</p></div>
-        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, and the archive-blocked path are all tested. The repository suite reports <b>91 passed</b> with archive warnings only.</p>
+        <div class="panel"><p><b>How a hunt runs:</b> frozen methodology hashed first; blind blink-finding in both epochs; early × late pairs ranked by the frozen rules; secondary-eclipse hunt across <i>both</i> event sectors, contamination check, TOI cross-match — only clean pairs become candidates, reported as candidates, never confirmed planets.</p></div>
+        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>96 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-roadmap" role="tabpanel">
@@ -335,7 +334,7 @@
           <li><b>No planet-vs-impostor vetting</b> — eclipsing binary stars need extra checks not yet built.</li>
           <li><b>No sealed exam yet</b> — all current results are development or tracer-bullet checks.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 91 passed
+        <pre>python3 -m pytest -q            # 96 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file

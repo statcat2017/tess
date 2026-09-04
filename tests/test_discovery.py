@@ -93,6 +93,60 @@ def test_discovery_gate_needs_valid_freeze(tmp_path):
         load_discovery_manifest(MINI, stale, CONFIG)
 
 
+def test_combine_secondary_searches_unions_both_sectors():
+    from tess_assoc.vetting import combine_secondary_searches
+
+    flat = {"aliases": [{"period_days": 10.0, "secondary_found": False, "max_snr": None}]}
+    assert combine_secondary_searches([10.0], [flat, flat])["n_flagged"] == 0
+    hit = {"aliases": [{"period_days": 10.0, "secondary_found": True, "max_snr": 6.0}]}
+    merged = combine_secondary_searches([10.0, 20.0], [flat, hit])
+    assert merged["n_flagged"] == 1
+    assert merged["flagged_periods"] == [10.0]
+    assert merged["worst"] == {"period_days": 10.0, "max_snr": 6.0}
+
+
+def test_secondary_in_second_sector_convicts():
+    import random
+
+    from tess_assoc.propose import detrend
+    from tess_assoc.vetting import combine_secondary_searches, secondary_search
+
+    rng = random.Random(9)
+    time_a = [100.0 + i * 0.02 for i in range(500)]
+    flat_a = [1.0 + rng.gauss(0, 0.001) for _ in time_a]
+    time_b = [200.0 + i * 0.02 for i in range(500)]
+    flat_b = [1.0 + rng.gauss(0, 0.001) for _ in time_b]
+    dipped_b = [f - 0.02 if abs(t - 206.0) <= 0.1 else f for t, f in zip(time_b, flat_b)]
+    det_a, sig_a = detrend(time_a, flat_a)
+    det_b, sig_b = detrend(time_b, dipped_b)
+    res_a = secondary_search(time_a, det_a, sig_a, 100.0, [10.0], 0.1)
+    res_b = secondary_search(time_b, det_b, sig_b, 201.0, [10.0], 0.1)
+    assert res_a["n_flagged"] == 0
+    merged = combine_secondary_searches([10.0], [res_a, res_b])
+    assert merged["n_flagged"] == 1
+
+
+def test_discovery_manifest_rejects_duplicate_names():
+    from tess_assoc.discovery import DiscoveryManifest, DiscoverySystem
+
+    base = dict(
+        name="x", product="TESS-SPOC FFI", ephemeris_source="e",
+        epoch_match_tol_days=0.3, window_half_span_days=0.6,
+        resample_samples=61,
+        matcher_thresholds={
+            "max_rel_depth_diff": 0.25,
+            "max_rel_duration_diff": 0.25,
+            "min_morph_corr": 0.9,
+        },
+    )
+    dup = DiscoverySystem(name="same", tic_id=1, sectors=[12])
+    with pytest.raises(ValueError, match="unique"):
+        DiscoveryManifest(
+            systems=(dup, DiscoverySystem(name="same", tic_id=2, sectors=[12])),
+            **base,
+        )
+
+
 def test_secondary_search_flags_real_dip_and_clears_flat():
     import random
 
@@ -262,6 +316,63 @@ def test_live_cohort_selection_probes_old_footprint():
         25.0148, -40.1221, 106, radius_deg=0.5, mag_limit=12.5, max_targets=5,
     )
     assert empty == [], "Sector 106 SPOC unexpectedly archived"
+
+
+@needs_archive
+def test_live_mining_validation_excludes_known_toi(tmp_path):
+    from tess_assoc.discovery import run_discovery
+
+    validation_path = str(FIXTURES / "mining_validation.json")
+    freeze_path = str(tmp_path / "freeze.json")
+    F.create_freeze(
+        REPLAY, validation_path, CONFIG, output_path=freeze_path,
+        cohort_key="discovery",
+    )
+    manifest = load_discovery_manifest(validation_path, freeze_path, CONFIG)
+    results = run_discovery(
+        manifest, freeze_path=freeze_path, config=CONFIG,
+        cache_dir=str(tmp_path),
+    )
+    assert results["purpose"] == "mining"
+    assert results["status"] == "complete"
+    assert results["sealed_sectors_touched"] == []
+    assert results["n_pairs_ranked"] >= 1
+    assert results["candidates"] == []
+    assert results["reviewed"]
+    assert all(
+        any("known-toi" in r for r in e["promotion"]["reasons"])
+        for e in results["reviewed"]
+    )
+    json.dumps(results)
+    assert "NOT confirmed planets" in render_discovery_report(results)
+
+
+@needs_archive
+def test_live_mining_hunt_reports_cleanly(tmp_path):
+    from tess_assoc.discovery import run_discovery
+
+    hunt_path = str(FIXTURES / "mining_v1.json")
+    freeze_path = str(tmp_path / "freeze.json")
+    F.create_freeze(
+        REPLAY, hunt_path, CONFIG, output_path=freeze_path,
+        cohort_key="discovery",
+    )
+    manifest = load_discovery_manifest(hunt_path, freeze_path, CONFIG)
+    assert len(manifest.systems) == 8
+    results = run_discovery(
+        manifest, freeze_path=freeze_path, config=CONFIG,
+        cache_dir=str(tmp_path),
+    )
+    assert results["purpose"] == "mining"
+    assert results["status"] == "complete"
+    assert results["sealed_sectors_touched"] == []
+    assert len(results["systems"]) == 8
+    for entry in results["candidates"]:
+        assert entry["promotion"]["candidate"]
+        assert entry["vetting"]["cross_match"]["status"] == "clean"
+    json.dumps(results)
+    report = render_discovery_report(results)
+    assert "NOT confirmed planets" in report
 
 
 @needs_archive

@@ -1,0 +1,25 @@
+{
+  "name": "mining-validation",
+  "product": "TESS-SPOC FFI",
+  "ephemeris_source": "NASA Exoplanet Archive TOI catalog via TAP, accessed 2026-09-03",
+  "epoch_match_tol_days": 0.3,
+  "window_half_span_days": 0.6,
+  "resample_samples": 61,
+  "matcher_thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "purpose": "mining",
+  "systems": [
+    {
+      "name": "TOI-190.01",
+      "tic_id": 166739520,
+      "toi": "190.01",
+      "period_days": 10.0205932,
+      "t0_bjd_tdb": 2460982.967362,
+      "duration_hours": 5.7033765,
+      "sectors": [30, 69]
+    }
+  ]
+}

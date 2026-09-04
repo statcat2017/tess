@@ -1,0 +1,56 @@
+{
+  "name": "mining-v1",
+  "product": "TESS-SPOC FFI",
+  "ephemeris_source": "none (blind hunt over uncatalogued TICs)",
+  "epoch_match_tol_days": 0.3,
+  "window_half_span_days": 0.6,
+  "resample_samples": 61,
+  "matcher_thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "purpose": "mining",
+  "systems": [
+    {
+      "name": "TIC 42055368",
+      "tic_id": 42055368,
+      "sectors": [3, 69]
+    },
+    {
+      "name": "TIC 42015014",
+      "tic_id": 42015014,
+      "sectors": [3, 69]
+    },
+    {
+      "name": "TIC 115271947",
+      "tic_id": 115271947,
+      "sectors": [3, 30]
+    },
+    {
+      "name": "TIC 42014978",
+      "tic_id": 42014978,
+      "sectors": [29, 69]
+    },
+    {
+      "name": "TIC 42074448",
+      "tic_id": 42074448,
+      "sectors": [3, 30]
+    },
+    {
+      "name": "TIC 42073085",
+      "tic_id": 42073085,
+      "sectors": [3, 30]
+    },
+    {
+      "name": "TIC 42073112",
+      "tic_id": 42073112,
+      "sectors": [3, 30]
+    },
+    {
+      "name": "TIC 42073079",
+      "tic_id": 42073079,
+      "sectors": [3, 30]
+    }
+  ]
+}

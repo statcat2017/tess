@@ -76,6 +76,27 @@ def secondary_search(
     }
 
 
+def combine_secondary_searches(
+    retained_periods: list[float], results: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Union secondary flags across event sectors (either window can convict)."""
+    flagged: set[float] = set()
+    worst: dict[str, Any] | None = None
+    for result in results:
+        for alias in result["aliases"]:
+            if alias["secondary_found"]:
+                flagged.add(alias["period_days"])
+                if worst is None or alias["max_snr"] > worst["max_snr"]:
+                    worst = {
+                        "period_days": alias["period_days"],
+                        "max_snr": alias["max_snr"],
+                    }
+    return {
+        "n_aliases": len(retained_periods),
+        "n_flagged": len(flagged),
+        "flagged_periods": sorted(flagged),
+        "worst": worst,
+    }
 def check_contamination(
     tic_id: int, *, contratio: float | None = None
 ) -> dict[str, Any]:
@@ -163,6 +184,7 @@ __all__ = [
     "MANUAL_CHECKLIST",
     "SECONDARY_SNR_THRESHOLD",
     "check_contamination",
+    "combine_secondary_searches",
     "cross_match_toi",
     "promote_candidate",
     "secondary_search",

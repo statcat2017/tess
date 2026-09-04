@@ -34,6 +34,7 @@ from tess_assoc.pipeline import run_frozen_records
 from tess_assoc.replay import RECALL_TOL_DAYS, replay_blind_system
 from tess_assoc.vetting import (
     check_contamination,
+    combine_secondary_searches,
     cross_match_toi,
     promote_candidate,
     secondary_search,
@@ -85,7 +86,12 @@ class DiscoverySystem:
 
 @dataclass(frozen=True)
 class DiscoveryManifest:
-    """Discovery cohort manifest (duck-types ReplayManifest for blind replay)."""
+    """Discovery cohort manifest (duck-types ReplayManifest for blind replay).
+
+    purpose selects the honesty regime: "rehearsal" (stand-in data, never
+    promoted), "mining" (archive multi-epoch data, promotions allowed and
+    labeled), "discovery" (requires Sector 106).
+    """
 
     name: str
     product: str
@@ -95,6 +101,7 @@ class DiscoveryManifest:
     resample_samples: int
     matcher_thresholds: dict[str, float] = field(default_factory=dict)
     systems: tuple[DiscoverySystem, ...] = ()
+    purpose: str = "rehearsal"
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
@@ -116,6 +123,15 @@ class DiscoveryManifest:
             raise ValueError("systems must be a non-empty list")
         if not all(isinstance(s, DiscoverySystem) for s in self.systems):
             raise ValueError("systems must be DiscoverySystem records")
+        if self.purpose not in ("rehearsal", "mining", "discovery"):
+            raise ValueError("purpose must be rehearsal, mining, or discovery")
+        has_new = any(DISCOVERY_SECTOR in s.sectors for s in self.systems)
+        if self.purpose == "discovery" and not has_new:
+            raise ValueError("discovery purpose requires Sector 106 in cohort")
+        if self.purpose == "mining" and has_new:
+            raise ValueError("mining purpose excludes Sector 106 (that is discovery)")
+        if len({s.name for s in self.systems}) != len(self.systems):
+            raise ValueError("system names must be unique (results key on name)")
         object.__setattr__(self, "matcher_thresholds", dict(self.matcher_thresholds))
         object.__setattr__(self, "systems", tuple(self.systems))
 
@@ -149,6 +165,7 @@ def _parse_discovery_manifest(d: dict[str, Any]) -> DiscoveryManifest:
         resample_samples=d["resample_samples"],
         matcher_thresholds=dict(d["matcher_thresholds"]),
         systems=tuple(systems),
+        purpose=d.get("purpose", "rehearsal"),
     )
 
 
@@ -262,21 +279,35 @@ def _vet_pair(
     retained_periods: list[float],
     blind_result: dict[str, Any],
     half_span_days: float,
+    catalog: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Automated vetting for one ranked pair (catalog queries are live)."""
-    time_a, _, detrended_a, sigma_a = _vetting_inputs(blind_result, rec_a.sector)
-    secondary = {"n_aliases": 0, "n_flagged": 0, "aliases": [], "worst": None}
-    if time_a and sigma_a:
-        secondary = secondary_search(
-            time_a, detrended_a, sigma_a, rec_a.t0,
-            retained_periods, half_span_days,
+    """Automated vetting for one ranked pair (catalog queries are live).
+
+    Secondary search spans BOTH event sectors: an EB secondary landing in
+    either window must flag. Per-TIC catalog lookups come from the shared
+    cache (one MAST/TAP query per star, not per pair).
+    """
+    if catalog is None:
+        catalog = {
+            "contamination": check_contamination(tic_id),
+            "cross_match": cross_match_toi(tic_id),
+        }
+    results: list[dict[str, Any]] = []
+    for rec in (rec_a, rec_b):
+        time_r, _, detrended_r, sigma_r = _vetting_inputs(blind_result, rec.sector)
+        if not time_r or not sigma_r:
+            continue
+        results.append(
+            secondary_search(
+                time_r, detrended_r, sigma_r, rec.t0,
+                retained_periods, half_span_days,
+            )
         )
-    contamination = check_contamination(tic_id)
-    cross_match = cross_match_toi(tic_id)
+    secondary = combine_secondary_searches(retained_periods, results)
     return {
         "secondary": secondary,
-        "contamination": contamination,
-        "cross_match": cross_match,
+        "contamination": catalog["contamination"],
+        "cross_match": catalog["cross_match"],
     }
 
 
@@ -329,6 +360,7 @@ def run_discovery(
             "status": "complete",
             "n_proposals": res["n_proposals"],
             "recall": res["recall"],
+            "pair_outcome": res["pair_outcome"],
             "n_cross_pairs": len(pairs),
         }
 
@@ -339,11 +371,18 @@ def run_discovery(
     )
     candidates: list[dict[str, Any]] = []
     reviewed: list[dict[str, Any]] = []
+    catalog_cache: dict[int, dict[str, Any]] = {}
     for name, pair in ranked[:shortlist_k]:
         system = next(s for s in manifest.systems if s.name == name)
+        if system.tic_id not in catalog_cache:
+            catalog_cache[system.tic_id] = {
+                "contamination": check_contamination(system.tic_id),
+                "cross_match": cross_match_toi(system.tic_id),
+            }
         vetting = _vet_pair(
             system.tic_id, pair["rec_a"], pair["rec_b"],
             pair["retained_periods"], blind_results[name], half_span,
+            catalog=catalog_cache[system.tic_id],
         )
         promotion = promote_candidate(
             compatible=pair["compatible"],
@@ -355,6 +394,8 @@ def run_discovery(
         entry = {
             "system": name,
             "tic_id": system.tic_id,
+            "record_a": pair["a"],
+            "record_b": pair["b"],
             "event_a": _event_summary(pair["rec_a"]),
             "event_b": _event_summary(pair["rec_b"]),
             "score": pair["score"],
@@ -369,10 +410,10 @@ def run_discovery(
                 if p["sector"] in (pair["rec_a"].sector, pair["rec_b"].sector)
             ],
         }
-        if not is_discovery:
+        if manifest.purpose == "rehearsal":
             entry["promotion"] = {
                 "candidate": False,
-                "reasons": ["rehearsal cohort (no Sector 106)"],
+                "reasons": ["rehearsal cohort (promotion disabled)"],
                 "manual_checklist": promotion["manual_checklist"],
             }
         (candidates if entry["promotion"]["candidate"] else reviewed).append(entry)
@@ -392,6 +433,7 @@ def run_discovery(
     results = {
         "protocol_version": record.protocol_version,
         "cohort": manifest.name,
+        "purpose": manifest.purpose,
         "is_discovery": is_discovery,
         "status": status,
         "freeze": {
@@ -449,6 +491,20 @@ def _cross_epoch_pairs(
     early = [rid for rid, r in records.items() if r.sector != DISCOVERY_SECTOR]
     late = [rid for rid, r in records.items() if r.sector == DISCOVERY_SECTOR]
     new_side = late or list(records)
+    if not early or not new_side:
+        return []
+    alias_manifest = TracerManifest(
+        name="discovery-alias",
+        tic_id=next(iter(records.values())).tic_id,
+        epoch_match_tol_days=0.3,
+        matcher_thresholds=dict(thresholds),
+        sectors=tuple(
+            ManifestSector(sector=s, windows=tuple(w))
+            for s, w in sorted(windows.items())
+        ),
+        events=tuple(),
+    )
+    all_records = list(records.values())
     pairs = []
     for rid_a in early:
         for rid_b in new_side:
@@ -458,20 +514,7 @@ def _cross_epoch_pairs(
             if rec_a.sector == rec_b.sector:
                 continue
             decision = match(rec_a, rec_b, thresholds)
-            manifest = TracerManifest(
-                name="discovery-alias",
-                tic_id=rec_a.tic_id,
-                epoch_match_tol_days=0.3,
-                matcher_thresholds=dict(thresholds),
-                sectors=tuple(
-                    ManifestSector(sector=s, windows=tuple(w))
-                    for s, w in sorted(windows.items())
-                ),
-                events=tuple(),
-            )
-            verdicts = filter_aliases(
-                rec_a, rec_b, manifest, list(records.values())
-            )
+            verdicts = filter_aliases(rec_a, rec_b, alias_manifest, all_records)
             retained = [v.period_days for v in verdicts if v.retained]
             pairs.append(
                 {
@@ -493,7 +536,8 @@ def render_discovery_report(results: dict[str, Any]) -> str:
     """Candidate report (candidates are not confirmed planets)."""
     lines = [
         f"# Discovery report: {results['cohort']} (protocol {results['protocol_version']})",
-        f"Status: {results['status']}; discovery data: {results['is_discovery']}.",
+        f"Status: {results['status']}; purpose: {results.get('purpose', 'rehearsal')}; "
+        f"discovery data: {results['is_discovery']}.",
         f"Freeze {results['freeze']['code_sha'][:12]}; "
         f"sealed sectors touched: {results['sealed_sectors_touched']}.",
         "",
@@ -506,7 +550,8 @@ def render_discovery_report(results: dict[str, Any]) -> str:
             lines.append(
                 f"- {name}: sectors {system['sectors']}, "
                 f"{system['n_proposals']} proposals, "
-                f"{system['n_cross_pairs']} cross-epoch pairs"
+                f"{system['n_cross_pairs']} cross-epoch pairs, "
+                f"anchor pair: {system.get('pair_outcome', 'n/a')}"
             )
     lines += ["", f"## Candidates ({len(results['candidates'])}) — NOT confirmed planets"]
     for cand in results["candidates"]:

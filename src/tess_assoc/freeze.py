@@ -239,8 +239,13 @@ def create_freeze(
 
     dev = load_replay_manifest(dev_manifest_path)
     with open(cohort_manifest_path) as f:
-        holdout_manifest = _parse_holdout_manifest(json.load(f))
-    holdout_systems = [s.tic_id for s in holdout_manifest.systems]
+        cohort_raw = json.load(f)
+    if not isinstance(cohort_raw.get("systems"), list) or not cohort_raw["systems"]:
+        raise ValueError("cohort manifest must hold a non-empty systems list")
+    try:
+        cohort_systems = [s["tic_id"] for s in cohort_raw["systems"]]
+    except KeyError as e:
+        raise ValueError(f"cohort system missing key: {e}") from e
     record = FreezeRecord(
         protocol_version=_protocol.PROTOCOL_VERSION,
         code_sha=source_tree_hash(),
@@ -268,7 +273,7 @@ def create_freeze(
         },
         systems={
             "dev": sorted(s.tic_id for s in dev.systems),
-            cohort_key: sorted(holdout_systems),
+            cohort_key: sorted(cohort_systems),
         },
         checkpoint_sha=checkpoint_sha,
         ephemeris_source=dev.ephemeris_source,

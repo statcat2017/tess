@@ -318,9 +318,12 @@ def replay_blind_system(
         time, flux = load_lightcurve(product)
         if not time:
             raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
-        sector_known = predicted_transits(
-            system.t0_bjd_tdb, system.period_days, time[0], time[-1]
-        )
+        if system.t0_bjd_tdb is None or system.period_days is None:
+            sector_known = []
+        else:
+            sector_known = predicted_transits(
+                system.t0_bjd_tdb, system.period_days, time[0], time[-1]
+            )
         known.extend((sector, t) for t in sector_known)
         coverable = [
             t
@@ -378,7 +381,7 @@ def replay_blind_system(
     ]
     recalled_coverable = sum(h and c for h, c in zip(recalled, coverable))
     missed: list[dict[str, Any]] = []
-    search_half = system.duration_hours / 24.0
+    search_half = system.duration_hours / 24.0 if system.duration_hours else 0.0
     for (sec, t), hit in zip(known, recalled):
         if hit:
             continue
