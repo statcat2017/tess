@@ -196,6 +196,89 @@ def stellar_radius(tic_id: int) -> float | None:
         return None
 
 
+def tic_coords(tic_id: int) -> tuple[float, float] | None:
+    """RA/Dec from the TIC catalog (None when unavailable)."""
+    from astroquery.mast import Catalogs
+
+    try:
+        tab = Catalogs.query_criteria(catalog="Tic", ID=tic_id)
+        return float(tab["ra"][0]), float(tab["dec"][0])
+    except Exception:
+        return None
+
+
+def cross_match_asassn(
+    ra_deg: float, dec_deg: float, *, radius_arcmin: float = 1.0
+) -> list[dict[str, Any]]:
+    """ASAS-SN variable matches near a position (Vizier II/366)."""
+    from astroquery.vizier import Vizier
+    from astropy.coordinates import SkyCoord
+    import astropy.units as u
+
+    v = Vizier(columns=["ASASSN-V", "Per", "Type", "Vmag"], row_limit=20)
+    res = v.query_region(
+        SkyCoord(ra_deg, dec_deg, unit="deg"),
+        radius=radius_arcmin * u.arcmin,
+        catalog="II/366/catv2021",
+    )
+    out = []
+    if res:
+        for row in res[0]:
+            out.append(
+                {
+                    "name": str(row["ASASSN-V"]),
+                    "period_days": float(row["Per"]) if row["Per"] else None,
+                    "type": str(row["Type"]),
+                    "vmag": float(row["Vmag"]) if row["Vmag"] else None,
+                }
+            )
+    return out
+
+
+def cross_match_gaia_eb(
+    ra_deg: float, dec_deg: float, *, radius_arcsec: float = 60.0
+) -> list[int]:
+    """Gaia DR3 eclipsing-binary source_ids near a position (empty if none)."""
+    from astroquery.gaia import Gaia
+
+    tab = Gaia.launch_job(
+        "SELECT eb.source_id FROM gaiadr3.vari_eclipsing_binary AS eb "
+        "JOIN gaiadr3.gaia_source AS g USING (source_id) "
+        f"WHERE 1=CONTAINS(POINT('ICRS', g.ra, g.dec), "
+        f"CIRCLE('ICRS', {ra_deg}, {dec_deg}, {radius_arcsec}/3600.0))"
+    ).get_results()
+    return [int(r["source_id"]) for r in tab]
+
+
+def check_variables(
+    tic_id: int, *, coords: tuple[float, float] | None = None
+) -> dict[str, Any]:
+    """Variable-star cross-match (ASAS-SN + Gaia EB).
+
+    status "clean" only when both catalogs answered and neither matched.
+    Anything else blocks auto-promotion.
+    """
+    if coords is None:
+        coords = tic_coords(tic_id)
+    if coords is None:
+        return {"status": "unknown", "reason": "no TIC coordinates"}
+    ra_deg, dec_deg = coords
+    try:
+        asassn = cross_match_asassn(ra_deg, dec_deg)
+    except Exception as e:
+        return {"status": "unknown", "reason": f"ASAS-SN query failed: {e}"}
+    try:
+        gaia_eb = cross_match_gaia_eb(ra_deg, dec_deg)
+    except Exception as e:
+        return {"status": "unknown", "reason": f"Gaia EB query failed: {e}"}
+    matches = [
+        {"catalog": "asassn", **m} for m in asassn
+    ] + [{"catalog": "gaia-eb", "source_id": s} for s in gaia_eb]
+    if matches:
+        return {"status": "known-variable", "matches": matches, "reason": None}
+    return {"status": "clean", "matches": [], "reason": None}
+
+
 def check_companion_radius(
     tic_id: int, depth: float, *, rad: float | None = None
 ) -> dict[str, Any]:
@@ -238,6 +321,7 @@ def promote_candidate(
     contamination: dict[str, Any],
     secondary: dict[str, Any],
     companion: dict[str, Any] | None = None,
+    variables: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Admission rule: clean on every automated check, or not a candidate."""
     reasons: list[str] = []
@@ -261,6 +345,8 @@ def promote_candidate(
                 if companion.get("companion_r_sun") is not None else ""
             )
         )
+    if variables is not None and variables.get("status") != "clean":
+        reasons.append(f"variable catalog: {variables.get('status')}")
     return {
         "candidate": not reasons,
         "reasons": reasons,
@@ -275,10 +361,14 @@ __all__ = [
     "SECONDARY_SNR_THRESHOLD",
     "check_companion_radius",
     "check_contamination",
+    "check_variables",
     "combine_secondary_searches",
+    "cross_match_asassn",
+    "cross_match_gaia_eb",
     "cross_match_toi",
     "cross_match_tois",
     "promote_candidate",
     "secondary_search",
     "stellar_radius",
+    "tic_coords",
 ]

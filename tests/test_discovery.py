@@ -273,6 +273,28 @@ def test_companion_radius_blocks_stellar():
     assert not unknown["candidate"]
 
 
+def test_variables_gate_promotion():
+    from tess_assoc.vetting import check_variables
+
+    base = dict(
+        compatible=True, aliases_retained=3,
+        cross_match={"status": "clean"},
+        contamination={"status": "low"}, secondary={"n_flagged": 0},
+        companion={"status": "planetary-range"},
+    )
+    assert promote_candidate(
+        **base, variables={"status": "clean"}
+    )["candidate"]
+    blocked = promote_candidate(
+        **base, variables={"status": "known-variable", "matches": [{"catalog": "asassn"}]}
+    )
+    assert not blocked["candidate"]
+    assert any("variable" in r for r in blocked["reasons"])
+    assert not promote_candidate(
+        **base, variables={"status": "unknown"}
+    )["candidate"]
+
+
 def test_promotion_requires_everything_clean():
     cross = {"status": "clean"}
     contam = {"status": "low"}
@@ -528,6 +550,19 @@ def test_live_rehearsal_run_on_dev(tmp_path):
     assert "NOT confirmed planets" in report
     log_lines = (tmp_path / "access.jsonl").read_text().strip().split("\n")
     assert json.loads(log_lines[0])["event"] == "discovery_run"
+
+
+@needs_archive
+def test_live_variable_catalog_statuses():
+    from tess_assoc.vetting import check_variables
+
+    eb2 = check_variables(197931848)
+    assert eb2["status"] == "known-variable"
+    assert any(m["catalog"] == "asassn" for m in eb2["matches"])
+    asassn = [m for m in eb2["matches"] if m["catalog"] == "asassn"][0]
+    assert asassn["type"] == "EA"
+    eb1 = check_variables(224224413)
+    assert eb1["status"] == "clean"
 
 
 @needs_archive

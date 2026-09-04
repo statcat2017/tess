@@ -35,6 +35,7 @@ from tess_assoc.replay import RECALL_TOL_DAYS, replay_blind_system
 from tess_assoc.vetting import (
     check_companion_radius,
     check_contamination,
+    check_variables,
     combine_secondary_searches,
     cross_match_toi,
     promote_candidate,
@@ -295,9 +296,12 @@ def _vet_pair(
             "contamination": check_contamination(tic_id),
             "cross_match": cross_match_toi(tic_id),
             "stellar_rad": stellar_radius(tic_id),
+            "variables": check_variables(tic_id),
         }
     if "stellar_rad" not in catalog:
         catalog["stellar_rad"] = stellar_radius(tic_id)
+    if "variables" not in catalog:
+        catalog["variables"] = check_variables(tic_id)
     results: list[dict[str, Any]] = []
     for event in (event_a, event_b):
         time_r, _, detrended_r, sigma_r = _vetting_inputs(
@@ -322,6 +326,7 @@ def _vet_pair(
         "contamination": catalog["contamination"],
         "cross_match": catalog["cross_match"],
         "companion": companion,
+        "variables": catalog["variables"],
     }
 
 
@@ -418,6 +423,7 @@ def triage_ranked_pairs(
                 "contamination": check_contamination(system.tic_id),
                 "cross_match": cross_match_toi(system.tic_id),
                 "stellar_rad": stellar_radius(system.tic_id),
+                "variables": check_variables(system.tic_id),
             }
         vetting = _vet_pair(
             system.tic_id, pair["event_a"], pair["event_b"],
@@ -431,6 +437,7 @@ def triage_ranked_pairs(
             contamination=vetting["contamination"],
             secondary=vetting["secondary"],
             companion=vetting["companion"],
+            variables=vetting["variables"],
         )
         entry = {
             "system": name,

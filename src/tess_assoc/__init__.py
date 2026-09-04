@@ -55,12 +55,16 @@ from tess_assoc.survey import (
 from tess_assoc.vetting import (
     check_companion_radius,
     check_contamination,
+    check_variables,
     combine_secondary_searches,
+    cross_match_asassn,
+    cross_match_gaia_eb,
     cross_match_toi,
     cross_match_tois,
     promote_candidate,
     secondary_search,
     stellar_radius,
+    tic_coords,
 )
 from tess_assoc.replay import load_replay_manifest, replay_all
 
@@ -114,6 +118,7 @@ __all__ = [
     "select_cohort",
     "spoc_ffi_uri",
     "stellar_radius",
+    "tic_coords",
     "study_cell",
     "summarize_grid",
     "validate_no_temporal_leak",
