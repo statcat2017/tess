@@ -29,6 +29,11 @@ MINI = str(FIXTURES / "discovery_mini.json")
 COHORT = str(FIXTURES / "discovery_v1.json")
 
 CONFIG = LearnConfig(seed=7, epochs=2, batch_size=8, embedding_dim=8)
+THRESHOLDS = {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9,
+}
 
 
 def _rec(tic, sector, t0, depth=0.01):
@@ -145,6 +150,69 @@ def test_discovery_manifest_rejects_duplicate_names():
             systems=(dup, DiscoverySystem(name="same", tic_id=2, sectors=[12])),
             **base,
         )
+
+
+def test_cross_epoch_close_pair_skips_aliases():
+    from tess_assoc.discovery import _cross_epoch_pairs
+
+    recs = {
+        "a": _rec(1, 12, 100.0),
+        "b": _rec(1, 39, 120.0),
+        "c": _rec(1, 39, 1000.0),
+    }
+    pairs = _cross_epoch_pairs(
+        recs, {12: [(90.0, 120.0)], 39: [(110.0, 130.0), (990.0, 1020.0)]},
+        THRESHOLDS,
+    )
+    assert pairs, "expected cross-sector pairs"
+    close = [p for p in pairs if abs(p["event_b"]["t0"] - 120.0) < 1.0]
+    assert close and all(
+        p["retained_periods"] == [] and p["aliases_total"] == 0 for p in close
+    )
+    far = [p for p in pairs if abs(p["event_b"]["t0"] - 1000.0) < 1.0]
+    assert far and all(p["aliases_total"] > 0 for p in far)
+
+
+def test_triage_caps_pairs_per_system():
+    from tess_assoc.discovery import DiscoveryManifest, DiscoverySystem, triage_ranked_pairs
+
+    def pair(t0, score, compatible=True):
+        return {
+            "a": "x", "b": "y",
+            "event_a": {"sector": 12, "t0": t0, "depth": 0.01,
+                        "duration_days": 0.2, "snr": 10.0},
+            "event_b": {"sector": 39, "t0": t0 + 900.0, "depth": 0.01,
+                        "duration_days": 0.2, "snr": 10.0},
+            "compatible": compatible, "score": score, "morph_corr": 0.99,
+            "retained_periods": [900.0, 450.0], "aliases_total": 33,
+        }
+
+    manifest = DiscoveryManifest(
+        name="cap", product="TESS-SPOC FFI", ephemeris_source="e",
+        epoch_match_tol_days=0.3, window_half_span_days=0.6,
+        resample_samples=61, matcher_thresholds=dict(THRESHOLDS),
+        systems=(
+            DiscoverySystem(name="A", tic_id=1, sectors=[12, 39]),
+            DiscoverySystem(name="B", tic_id=2, sectors=[12, 39]),
+        ),
+        purpose="mining",
+    )
+    harvests = {
+        "A": {"pairs": [pair(100.0 + i, 0.9 - i * 0.01) for i in range(8)],
+              "products": []},
+        "B": {"pairs": [pair(200.0 + i, 0.8 - i * 0.01) for i in range(2)],
+              "products": []},
+    }
+    clean = {
+        1: {"contamination": {"status": "low"}, "cross_match": {"status": "clean"}},
+        2: {"contamination": {"status": "low"}, "cross_match": {"status": "clean"}},
+    }
+    candidates, reviewed = triage_ranked_pairs(
+        manifest, harvests, shortlist_k=10, per_system_cap=2,
+        catalog_prefetch=clean,
+    )
+    assert len(candidates) == 4
+    assert [c["system"] for c in candidates] == ["A", "A", "B", "B"]
 
 
 def test_secondary_search_flags_real_dip_and_clears_flat():

@@ -120,7 +120,7 @@
           <div class="card next"><b>→ Phase 8 · New worlds</b><br>First dig complete: 8 uncatalogued stars mined, 0 candidates, pipeline sensitivity proven by injection.</div>
           <div class="card next"><b>→ What's next</b><br>When Sector 106 lands: run the frozen code, vet the shortlist, report candidates — or the honest negative.</div>
         </div>
-        <p>Status: <b>96 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>105 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -273,6 +273,14 @@
           <tr><td>Can a null result be reported honestly?</td><td>Yes — the decision records scope, sample size, recall, burden, and the reason to continue or pivot.</td></tr>
         </table>
         <div class="panel"><p><b>The scoreboard, all three exams:</b> on hot-Jupiter repeats the shape-only model cannot win by construction (identical shapes — timing alone separates pairs). On the injection rematch with deliberately shape-discriminable box-vs-V signals, the model reaches 1.00 per-pair threshold accuracy yet ranks at AP ≈ 0.002 — it learned the base rate ("always say no"), not the morphology, while the deterministic rules stay perfect per region. On sealed sector 82: model AP 0.586 and burden 523 vs rules AP 1.000 and burden 272. Three exams, three PIVOTs: the deterministic morphology-aware matcher remains the supported path.</p></div>
+        <h3>Head-to-head numbers (identical pairs, frozen thresholds)</h3>
+        <table>
+          <tr><th>Exam</th><th>Test positives</th><th>Rules (AP · burden · recall@FAR)</th><th>Learned Siamese</th><th>Verdict</th></tr>
+          <tr><td>Dev benchmark (#6)</td><td class="num">154</td><td class="num">1.000 · 154 · 1.000</td><td class="num">burden +95% · recall@FAR −0.79 vs rules</td><td>PIVOT</td></tr>
+          <tr><td>Injection rematch (#7)</td><td class="num">1 per cell, ~600 ranked</td><td class="num">1.00 correct per region</td><td class="num">1.00 accuracy · AP ≈ 0.002 — base rate, not shape</td><td>PIVOT</td></tr>
+          <tr><td>Sealed sector 82 (#8)</td><td class="num">272</td><td class="num">1.000 · 272 · 1.000</td><td class="num">0.586 · 523 · 0.051</td><td>PIVOT</td></tr>
+        </table>
+        <p class="caption">Burden = candidates a human must review to recover every true pair (lower is better). The injection row is the cautionary tale: threshold accuracy says "tie" — ranking says the model learned nothing.</p>
       </section>
 
       <section class="page" id="page-phase6" role="tabpanel">
@@ -287,7 +295,7 @@
         </table>
         <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region — and ranking metrics (AP, burden) beside threshold accuracy, so a model that learns only the base rate cannot hide behind a 1.00 accuracy.</p>
         <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
-        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>96 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>105 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase7" role="tabpanel">
@@ -303,21 +311,55 @@
           <tr><td>Exam verdict</td><td><b>PIVOT</b> on 272 sealed positives: the deterministic baseline remains the supported path.</td></tr>
         </table>
         <div class="panel"><p><b>Why this counts as blind:</b> normal code paths still refuse sealed sectors; the sealed run carries its freeze hash, creation and unblinding timestamps, and an access-log entry. Thresholds are byte-identical before and after. No weight, rule, or threshold changed post-unblinding.</p></div>
-        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>96 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>105 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase8" role="tabpanel">
         <h2>Phase 8 · Hunting new worlds</h2>
         <p>Sector 106 finished observing on Aug 9, 2026, but the archive holds <b>zero</b> Sector 106 telescope files — the newest recordings available anywhere are around sector 82. So the hunt runs on two tracks: the Sector 106 machine stands armed (pilot cohort picked, tripwire test fires when the files land), and <b>archive mining</b> hunts multi-epoch stars available today.</p>
-        <h3>First mining results (8 uncatalogued stars, 16 recordings)</h3>
-        <table>
+        <h3>First mining results (8 uncatalogued stars, 16 recordings)</h3>        <table>
           <tr><th>Measure</th><th>Result</th></tr>
           <tr><td>Validation</td><td class="num">Known planet TOI-190 re-detected across sectors 30 → 69 and correctly <b>excluded</b> as a known TOI — 8 pairs found, 0 promoted.</td></tr>
           <tr><td>Hunt</td><td class="num">8 uncatalogued stars searched (sectors 3 → 69 baselines): <b>0 candidates</b>. Most are genuinely quiet below 0.1–0.8% sensitivity floors; two are noisy variables where only &gt;1.6% dips clear the frozen bar — a known operating limit, not a code failure.</td></tr>
-          <tr><td>Pipeline proof</td><td class="num">An injected 1% dip is recovered on every hunt curve, including the noisy ones — the zeros are real non-detections.</td></tr>
+          <tr><td>Pipeline proof</td><td class="num">Injected 1% dips are recovered blind on every quiet hunt curve — the zeros are real non-detections. On the noisiest star a 1% dip stays below the frozen bar (see sensitivity table).</td></tr>
         </table>
         <div class="panel"><p><b>How a hunt runs:</b> frozen methodology hashed first; blind blink-finding in both epochs; early × late pairs ranked by the frozen rules; secondary-eclipse hunt across <i>both</i> event sectors, contamination check, TOI cross-match — only clean pairs become candidates, reported as candidates, never confirmed planets.</p></div>
-        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>96 passed</b> with archive warnings only.</p>
+        <h3>Validation: known planet TOI-190 re-detected, then excluded</h3>
+        <p>TOI-190.01 (10-day period, confirmed planet) was run through the identical mining path across sectors 30 → 69. Green ticks are catalog transits; gold dots are blind finds:</p>
+        <img class="demo" src="assets/sector_mining_toi190_s30.svg" alt="TOI-190 sector 30 light curve with known transits and blind proposals">
+        <img class="demo" src="assets/sector_mining_toi190_s69.svg" alt="TOI-190 sector 69 light curve with known transits and blind proposals">
+        <p class="caption">8 cross-epoch pairs found, anchor pair associated — then all 8 correctly refused promotion as a known TOI. Finding real planets while declining to "discover" them is the required behavior.</p>
+        <h3>The quiet and the noisy: why zero candidates is a measurement</h3>
+        <p>Six hunt stars are genuinely quiet — flat light, nothing to promote:</p>
+        <img class="demo" src="assets/sector_mining_quiet_42015014_s69.svg" alt="Quiet hunt star TIC 42015014 sector 69 light curve, no proposals">
+        <p>Two are noisy variables where the frozen 4σ bar only admits &gt;1.6% dips:</p>
+        <img class="demo" src="assets/sector_mining_noisy_42055368_s69.svg" alt="Noisy hunt star TIC 42055368 sector 69 light curve, no proposals">
+        <p>And the pipeline proves it would have seen a real dip — a planted 1% transit recovered blind on the quiet curve:</p>
+        <img class="demo" src="assets/sector_mining_injected_42015014_s69.svg" alt="Planted 1 percent dip recovered blind on TIC 42015014 sector 69">
+        <h3>Per-recording sensitivity floors (4σ single-point, frozen threshold)</h3>
+        <table>
+          <tr><th>Star</th><th>Sector</th><th>Noise σ</th><th>Floor</th><th>Proposals</th></tr>
+          <tr><td class="num">42015014 (Tmag 8.1)</td><td class="num">3 / 69</td><td class="num">0.015% / 0.039%</td><td class="num">0.06% / 0.16%</td><td class="num">0</td></tr>
+          <tr><td class="num">42074448 (Tmag 10.7)</td><td class="num">3 / 30</td><td class="num">0.035% / 0.070%</td><td class="num">0.14% / 0.28%</td><td class="num">0</td></tr>
+          <tr><td class="num">115271947 (Tmag 8.2)</td><td class="num">3 / 30</td><td class="num">0.049% / 0.055%</td><td class="num">0.20% / 0.22%</td><td class="num">0</td></tr>
+          <tr><td class="num">42014978 (Tmag 8.7)</td><td class="num">29 / 69</td><td class="num">0.031% / 0.046%</td><td class="num">0.12% / 0.18%</td><td class="num">0</td></tr>
+          <tr><td class="num">42073085 (Tmag 11.7)</td><td class="num">3 / 30</td><td class="num">0.070% / 0.114%</td><td class="num">0.28% / 0.45%</td><td class="num">0</td></tr>
+          <tr><td class="num">42073079 (Tmag 12.5)</td><td class="num">3 / 30</td><td class="num">0.104% / 0.191%</td><td class="num">0.42% / 0.76%</td><td class="num">0</td></tr>
+          <tr><td class="num">42055368 (Tmag 7.9) variable</td><td class="num">3 / 69</td><td class="num">0.456% / 0.404%</td><td class="num">1.82% / 1.62%</td><td class="num">0</td></tr>
+          <tr><td class="num">42073112 (Tmag 12.3) variable</td><td class="num">3 / 30</td><td class="num">0.705% / 0.763%</td><td class="num">2.82% / 3.05%</td><td class="num">0</td></tr>
+        </table>
+        <p class="caption">Six stars are complete to hot-Jupiter-to-Neptune dips with zero false alarms; two noisy ones only admit giant depths — a frozen-pipeline limit, stated not tuned.</p>
+        <h3>Scaled survey: 148 stars, 2,750 pairs, 0 candidates</h3>
+        <p>The machinery now streams: threaded harvesting with per-star fault isolation, resume from disk, and batched catalog cross-matching (one query per 500 stars, not per pair). Across 148 multi-epoch stars — 2,750 cross-epoch pairs ranked, top 30 vetted:</p>
+        <table>
+          <tr><th>Measure</th><th>Result</th></tr>
+          <tr><td>Systems complete</td><td class="num">147 of 148 (one isolated failure, recorded with reason — a close-pair alias edge since fixed and verified).</td></tr>
+          <tr><td>Reviewed shortlist</td><td class="num">All 30 entries known TOIs, correctly excluded — including a per-system review cap so one busy star can't flood the list.</td></tr>
+          <tr><td>Known-planet anchors</td><td class="num">TOI-349's cross-year anchor pair <b>associated</b>; several short-period TOIs recalled but unassociated across cadence changes (stated limit).</td></tr>
+          <tr><td>Candidates</td><td class="num"><b>0</b> — no uncatalogued star produced a promotable pair.</td></tr>
+        </table>
+        <p class="caption">A null over 148 stars is a result with selection limits, not an absence of effort: hot-Jupiter-complete on quiet stars, degraded on variables, every exclusion reasoned.</p>
+        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>105 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-roadmap" role="tabpanel">
@@ -330,11 +372,11 @@
         </div>
         <h3>Can't-do list (still true)</h3>
         <ul>
-          <li><b>No new planets yet</b> — only known ones replayed.</li>
-          <li><b>No planet-vs-impostor vetting</b> — eclipsing binary stars need extra checks not yet built.</li>
-          <li><b>No sealed exam yet</b> — all current results are development or tracer-bullet checks.</li>
+          <li><b>No new planets yet</b> — 8 uncatalogued stars mined, 0 candidates; the hunt continues.</li>
+          <li><b>No pixel-level vetting in code</b> — centroid, difference imaging, alternate reductions, and external photometry remain explicit manual steps per candidate.</li>
+          <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 96 passed
+        <pre>python3 -m pytest -q            # 105 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file

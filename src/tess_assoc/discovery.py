@@ -251,20 +251,20 @@ def select_cohort(
 
 
 def _vetting_inputs(
-    blind_result: dict[str, Any], sector: int
+    products: list[dict[str, Any]], tic_id: int, sector: int
 ) -> tuple[list[float], list[float], list[float], float | None]:
     """Reload cached sector curve + detrending for secondary search."""
     from tess_assoc.archive import ArchiveProduct
 
-    products = [p for p in blind_result["products"] if p["sector"] == sector]
-    if not products:
+    matches = [p for p in products if p["sector"] == sector]
+    if not matches:
         return [], [], [], None
     product = ArchiveProduct(
-        tic_id=blind_result["tic_id"],
+        tic_id=tic_id,
         sector=sector,
-        local_path=products[0]["local_path"],
-        data_uri=products[0].get("data_uri", ""),
-        retrieved_utc=products[0].get("retrieved_utc", ""),
+        local_path=matches[0]["local_path"],
+        data_uri=matches[0].get("data_uri", ""),
+        retrieved_utc=matches[0].get("retrieved_utc", ""),
         cached=True,
     )
     time, flux = load_lightcurve(product)
@@ -274,10 +274,10 @@ def _vetting_inputs(
 
 def _vet_pair(
     tic_id: int,
-    rec_a: EventRecord,
-    rec_b: EventRecord,
+    event_a: dict[str, Any],
+    event_b: dict[str, Any],
     retained_periods: list[float],
-    blind_result: dict[str, Any],
+    products: list[dict[str, Any]],
     half_span_days: float,
     catalog: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -285,7 +285,8 @@ def _vet_pair(
 
     Secondary search spans BOTH event sectors: an EB secondary landing in
     either window must flag. Per-TIC catalog lookups come from the shared
-    cache (one MAST/TAP query per star, not per pair).
+    cache (one MAST/TAP query per star, not per pair). Events are plain
+    summaries so harvested pairs stay JSON-serializable (survey resume).
     """
     if catalog is None:
         catalog = {
@@ -293,13 +294,15 @@ def _vet_pair(
             "cross_match": cross_match_toi(tic_id),
         }
     results: list[dict[str, Any]] = []
-    for rec in (rec_a, rec_b):
-        time_r, _, detrended_r, sigma_r = _vetting_inputs(blind_result, rec.sector)
+    for event in (event_a, event_b):
+        time_r, _, detrended_r, sigma_r = _vetting_inputs(
+            products, tic_id, event["sector"]
+        )
         if not time_r or not sigma_r:
             continue
         results.append(
             secondary_search(
-                time_r, detrended_r, sigma_r, rec.t0,
+                time_r, detrended_r, sigma_r, event["t0"],
                 retained_periods, half_span_days,
             )
         )
@@ -309,6 +312,140 @@ def _vet_pair(
         "contamination": catalog["contamination"],
         "cross_match": catalog["cross_match"],
     }
+
+
+def harvest_system(
+    manifest: DiscoveryManifest,
+    system: DiscoverySystem,
+    *,
+    record,
+    cache_dir: str | None = None,
+) -> dict[str, Any]:
+    """Blind replay + cross-epoch pairs for one cohort system.
+
+    Fault-isolated unit: ArchiveUnavailable becomes a blocked payload,
+    never an exception. Shared by run_discovery and the survey runner.
+    """
+    runner = functools.partial(run_frozen_records, freeze_record=record)
+    try:
+        res = replay_blind_system(manifest, system, cache_dir, records_runner=runner)
+    except ArchiveUnavailable as e:
+        return {
+            "status": "blocked-on-archive",
+            "systems_out": {
+                "tic_id": system.tic_id,
+                "sectors": list(system.sectors),
+                "status": "blocked-on-archive",
+                "reason": str(e),
+            },
+            "blind_result": None,
+            "pairs": [],
+        }
+    records = _records_of(res)
+    windows = {
+        entry["sector"]: [tuple(w) for w in entry["windows"]]
+        for entry in res["sectors"]
+    }
+    pairs = _cross_epoch_pairs(records, windows, dict(manifest.matcher_thresholds))
+    return {
+        "status": "complete",
+        "systems_out": {
+            "tic_id": system.tic_id,
+            "sectors": [s["sector"] for s in res["sectors"]],
+            "status": "complete",
+            "n_proposals": res["n_proposals"],
+            "recall": res["recall"],
+            "pair_outcome": res["pair_outcome"],
+            "n_cross_pairs": len(pairs),
+        },
+        "blind_result": res,
+        "products": res["products"],
+        "pairs": pairs,
+    }
+
+
+def triage_ranked_pairs(
+    manifest: DiscoveryManifest,
+    harvests: dict[str, dict[str, Any]],
+    *,
+    shortlist_k: int = 10,
+    per_system_cap: int = 5,
+    catalog_prefetch: dict[int, dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Global rank + vetting + promotion over harvested pairs.
+
+    catalog_prefetch maps tic_id -> {"contamination": ..., "cross_match": ...}
+    (batched survey lookups); missing TICs fall back to live queries.
+    Per-system cap keeps one busy star from flooding the review budget.
+    Returns (candidates, reviewed).
+    """
+    half_span = manifest.window_half_span_days
+    allow_promotion = manifest.purpose != "rehearsal"
+    by_system: dict[str, list[dict[str, Any]]] = {}
+    for name, harvest in harvests.items():
+        by_system[name] = sorted(
+            harvest["pairs"], key=lambda pair: pair["score"], reverse=True
+        )[:per_system_cap]
+    ranked = sorted(
+        (
+            (name, pair)
+            for name, pairs in by_system.items()
+            for pair in pairs
+        ),
+        key=lambda item: item[1]["score"],
+        reverse=True,
+    )
+    candidates: list[dict[str, Any]] = []
+    reviewed: list[dict[str, Any]] = []
+    catalog_cache: dict[int, dict[str, Any]] = dict(catalog_prefetch or {})
+    by_name = {s.name: s for s in manifest.systems}
+    for name, pair in ranked[:shortlist_k]:
+        system = by_name[name]
+        blind_products = harvests[name]["products"]
+        if system.tic_id not in catalog_cache:
+            catalog_cache[system.tic_id] = {
+                "contamination": check_contamination(system.tic_id),
+                "cross_match": cross_match_toi(system.tic_id),
+            }
+        vetting = _vet_pair(
+            system.tic_id, pair["event_a"], pair["event_b"],
+            pair["retained_periods"], blind_products, half_span,
+            catalog=catalog_cache[system.tic_id],
+        )
+        promotion = promote_candidate(
+            compatible=pair["compatible"],
+            aliases_retained=len(pair["retained_periods"]),
+            cross_match=vetting["cross_match"],
+            contamination=vetting["contamination"],
+            secondary=vetting["secondary"],
+        )
+        entry = {
+            "system": name,
+            "tic_id": system.tic_id,
+            "record_a": pair["a"],
+            "record_b": pair["b"],
+            "event_a": pair["event_a"],
+            "event_b": pair["event_b"],
+            "score": pair["score"],
+            "morph_corr": pair["morph_corr"],
+            "retained_periods": pair["retained_periods"],
+            "vetting": vetting,
+            "promotion": promotion,
+            "alternate_reduction_check": "pending-manual",
+            "external_photometry": "pending-manual",
+            "products": [
+                p for p in harvests[name]["products"]
+                if p["sector"] in (pair["event_a"]["sector"], pair["event_b"]["sector"])
+            ],
+        }
+        if not allow_promotion:
+            entry["promotion"] = {
+                "candidate": False,
+                "reasons": ["rehearsal cohort (promotion disabled)"],
+                "manual_checklist": promotion["manual_checklist"],
+            }
+        (candidates if entry["promotion"]["candidate"] else reviewed).append(entry)
+    return candidates, reviewed
 
 
 def run_discovery(
@@ -325,98 +462,24 @@ def run_discovery(
     if dict(manifest.matcher_thresholds) != record.thresholds:
         raise ValueError("discovery thresholds differ from frozen thresholds")
     record = _freeze.mark_unblinded(freeze_path)
-    thresholds = dict(manifest.matcher_thresholds)
-    half_span = manifest.window_half_span_days
     is_discovery = any(DISCOVERY_SECTOR in s.sectors for s in manifest.systems)
 
-    runner = functools.partial(run_frozen_records, freeze_record=record)
     systems_out: dict[str, Any] = {}
     blocked: list[str] = []
-    blind_results: dict[str, dict[str, Any]] = {}
-    all_pairs: dict[str, list[dict[str, Any]]] = {}
+    harvests: dict[str, dict[str, Any]] = {}
     for system in manifest.systems:
-        try:
-            res = replay_blind_system(manifest, system, cache_dir, records_runner=runner)
-        except ArchiveUnavailable as e:
+        harvest = harvest_system(manifest, system, record=record, cache_dir=cache_dir)
+        systems_out[system.name] = harvest["systems_out"]
+        if harvest["status"] == "blocked-on-archive":
             blocked.append(system.name)
-            systems_out[system.name] = {
-                "tic_id": system.tic_id,
-                "sectors": list(system.sectors),
-                "status": "blocked-on-archive",
-                "reason": str(e),
-            }
-            continue
-        blind_results[system.name] = res
-        records = _records_of(res)
-        windows = {
-            entry["sector"]: [tuple(w) for w in entry["windows"]]
-            for entry in res["sectors"]
-        }
-        pairs = _cross_epoch_pairs(records, windows, thresholds)
-        all_pairs[system.name] = pairs
-        systems_out[system.name] = {
-            "tic_id": system.tic_id,
-            "sectors": [s["sector"] for s in res["sectors"]],
-            "status": "complete",
-            "n_proposals": res["n_proposals"],
-            "recall": res["recall"],
-            "pair_outcome": res["pair_outcome"],
-            "n_cross_pairs": len(pairs),
-        }
+        else:
+            harvests[system.name] = harvest
 
-    ranked = sorted(
-        ((name, pair) for name, pairs in all_pairs.items() for pair in pairs),
-        key=lambda item: item[1]["score"],
-        reverse=True,
+    candidates, reviewed = triage_ranked_pairs(
+        manifest, harvests, shortlist_k=shortlist_k
     )
-    candidates: list[dict[str, Any]] = []
-    reviewed: list[dict[str, Any]] = []
-    catalog_cache: dict[int, dict[str, Any]] = {}
-    for name, pair in ranked[:shortlist_k]:
-        system = next(s for s in manifest.systems if s.name == name)
-        if system.tic_id not in catalog_cache:
-            catalog_cache[system.tic_id] = {
-                "contamination": check_contamination(system.tic_id),
-                "cross_match": cross_match_toi(system.tic_id),
-            }
-        vetting = _vet_pair(
-            system.tic_id, pair["rec_a"], pair["rec_b"],
-            pair["retained_periods"], blind_results[name], half_span,
-            catalog=catalog_cache[system.tic_id],
-        )
-        promotion = promote_candidate(
-            compatible=pair["compatible"],
-            aliases_retained=len(pair["retained_periods"]),
-            cross_match=vetting["cross_match"],
-            contamination=vetting["contamination"],
-            secondary=vetting["secondary"],
-        )
-        entry = {
-            "system": name,
-            "tic_id": system.tic_id,
-            "record_a": pair["a"],
-            "record_b": pair["b"],
-            "event_a": _event_summary(pair["rec_a"]),
-            "event_b": _event_summary(pair["rec_b"]),
-            "score": pair["score"],
-            "morph_corr": pair["morph_corr"],
-            "retained_periods": pair["retained_periods"],
-            "vetting": vetting,
-            "promotion": promotion,
-            "alternate_reduction_check": "pending-manual",
-            "external_photometry": "pending-manual",
-            "products": [
-                p for p in blind_results[name]["products"]
-                if p["sector"] in (pair["rec_a"].sector, pair["rec_b"].sector)
-            ],
-        }
-        if manifest.purpose == "rehearsal":
-            entry["promotion"] = {
-                "candidate": False,
-                "reasons": ["rehearsal cohort (promotion disabled)"],
-                "manual_checklist": promotion["manual_checklist"],
-            }
-        (candidates if entry["promotion"]["candidate"] else reviewed).append(entry)
+    blind_results = {name: h["blind_result"] for name, h in harvests.items()}
+    n_pairs_ranked = sum(len(h["pairs"]) for h in harvests.values())
 
     status = "complete"
     if blocked and not blind_results:
@@ -444,7 +507,7 @@ def run_discovery(
         "sealed_sectors_touched": sealed,
         "systems": systems_out,
         "blocked_systems": blocked,
-        "n_pairs_ranked": len(ranked),
+        "n_pairs_ranked": n_pairs_ranked,
         "candidates": candidates,
         "reviewed": reviewed,
     }
@@ -514,19 +577,23 @@ def _cross_epoch_pairs(
             if rec_a.sector == rec_b.sector:
                 continue
             decision = match(rec_a, rec_b, thresholds)
-            verdicts = filter_aliases(rec_a, rec_b, alias_manifest, all_records)
-            retained = [v.period_days for v in verdicts if v.retained]
+            if decision.timing_plausible:
+                verdicts = filter_aliases(rec_a, rec_b, alias_manifest, all_records)
+                retained = [v.period_days for v in verdicts if v.retained]
+                aliases_total = len(verdicts)
+            else:
+                retained, aliases_total = [], 0
             pairs.append(
                 {
                     "a": rid_a,
                     "b": rid_b,
-                    "rec_a": rec_a,
-                    "rec_b": rec_b,
+                    "event_a": _event_summary(rec_a),
+                    "event_b": _event_summary(rec_b),
                     "compatible": decision.compatible,
                     "score": match_score(decision),
                     "morph_corr": decision.morph_corr,
                     "retained_periods": retained,
-                    "aliases_total": len(verdicts),
+                    "aliases_total": aliases_total,
                 }
             )
     return pairs
@@ -546,6 +613,8 @@ def render_discovery_report(results: dict[str, Any]) -> str:
     for name, system in results["systems"].items():
         if system.get("status") == "blocked-on-archive":
             lines.append(f"- {name}: BLOCKED ON ARCHIVE ({system.get('reason', '')[:80]})")
+        elif system.get("status") == "failed":
+            lines.append(f"- {name}: FAILED ({system.get('reason', '')[:80]})")
         else:
             lines.append(
                 f"- {name}: sectors {system['sectors']}, "

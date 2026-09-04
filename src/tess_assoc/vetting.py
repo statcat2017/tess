@@ -120,6 +120,41 @@ def check_contamination(
     }
 
 
+def _query_toi_rows(tic_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    from astroquery.ipac.nexsci.nasa_exoplanet_archive import (
+        NasaExoplanetArchive,
+    )
+
+    matches: dict[int, list[dict[str, Any]]] = {t: [] for t in tic_ids}
+    for i in range(0, len(tic_ids), 500):
+        chunk = tic_ids[i : i + 500]
+        tab = NasaExoplanetArchive.query_criteria(
+            table="toi",
+            where="tid in (%s)" % ",".join(str(t) for t in chunk),
+            select="top 2500 tid,toi,tfopwg_disp",
+        )
+        for r in tab:
+            matches.setdefault(int(r["tid"]), []).append(
+                {"toi": str(r["toi"]), "disposition": str(r["tfopwg_disp"])}
+            )
+    return matches
+
+
+def cross_match_tois(
+    tic_ids: list[int],
+) -> dict[str, Any]:
+    """Batched TOI cross-match: one TAP call per 500 TICs.
+
+    Returns {"matches": {tic: rows}, "ok": bool}. ok=False (query failed)
+    must block promotion exactly like status "unknown" does.
+    """
+    try:
+        matches = _query_toi_rows(list(dict.fromkeys(tic_ids)))
+    except Exception as e:
+        return {"matches": {}, "ok": False, "reason": f"TOI query failed: {e}"}
+    return {"matches": matches, "ok": True, "reason": None}
+
+
 def cross_match_toi(
     tic_id: int, *, toi_rows: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
@@ -186,6 +221,7 @@ __all__ = [
     "check_contamination",
     "combine_secondary_searches",
     "cross_match_toi",
+    "cross_match_tois",
     "promote_candidate",
     "secondary_search",
 ]
