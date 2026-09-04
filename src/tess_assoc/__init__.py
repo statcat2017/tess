@@ -5,6 +5,8 @@ from tess_assoc.benchmark import (
     build_benchmark,
     render_benchmark_report,
 )
+from tess_assoc.bulk import bulk_fetch, direct_url, expected_filename, fetch_one
+from tess_assoc.archive import spoc_ffi_uri
 from tess_assoc.event import EventRecord
 from tess_assoc.discovery import (
     DISCOVERY_SECTOR,
@@ -69,6 +71,7 @@ __all__ = [
     "audit_development",
     "build_benchmark",
     "build_survey_manifest",
+    "bulk_fetch",
     "check_contamination",
     "check_manifest_bytes",
     "combine_secondary_searches",
@@ -76,6 +79,9 @@ __all__ = [
     "create_freeze",
     "cross_match_toi",
     "cross_match_tois",
+    "direct_url",
+    "expected_filename",
+    "fetch_one",
     "fetch_tois_box",
     "generate_aliases",
     "inject_transit",
@@ -103,6 +109,7 @@ __all__ = [
     "secondary_search",
     "sectors_for_tic",
     "select_cohort",
+    "spoc_ffi_uri",
     "study_cell",
     "summarize_grid",
     "validate_no_temporal_leak",

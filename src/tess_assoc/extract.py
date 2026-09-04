@@ -127,17 +127,24 @@ def refine_epoch(
 def coverage_windows(
     time: list[float], max_gap_days: float = 0.5
 ) -> list[tuple[float, float]]:
-    """Contiguous observed spans; splits on gaps (real window function)."""
+    """Contiguous observed spans; splits on gaps (real window function).
+
+    Degenerate zero-width spans (isolated single cadences) are dropped:
+    no transit window fits inside them, and downstream window checks
+    treat every span as observable.
+    """
     if not time:
         return []
     spans: list[tuple[float, float]] = []
     start = prev = time[0]
     for t in time[1:]:
         if t - prev > max_gap_days:
-            spans.append((start, prev))
+            if prev > start:
+                spans.append((start, prev))
             start = t
         prev = t
-    spans.append((start, prev))
+    if prev > start:
+        spans.append((start, prev))
     return spans
 
 

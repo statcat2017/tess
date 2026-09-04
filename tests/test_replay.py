@@ -30,6 +30,8 @@ def test_predicted_transits_enumeration():
 def test_coverage_windows_split_on_gaps():
     assert coverage_windows([]) == []
     assert coverage_windows([1.0, 1.1, 1.2, 5.0, 5.1]) == [(1.0, 1.2), (5.0, 5.1)]
+    assert coverage_windows([1.0, 1.1, 5.0]) == [(1.0, 1.1)]
+    assert coverage_windows([7.0]) == []
 
 
 def test_cache_dir_outside_repo_and_env_override(tmp_path):

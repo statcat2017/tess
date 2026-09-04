@@ -80,6 +80,24 @@ def find_spoc_ffi_uri(tic_id: int, sector: int) -> str:
     )
 
 
+def spoc_ffi_uri(tic_id: int, sector: int) -> str:
+    """Deterministic MAST dataURI for a SPOC FFI light curve (no network).
+
+    Layout verified against archived products: the TIC zero-padded to 16
+    digits selects the target path in groups of four.
+    """
+    tic = int(tic_id)
+    sec = int(sector)
+    if tic < 1 or sec < 1:
+        raise ValueError("tic_id and sector must be positive ints")
+    padded = f"{tic:016d}"
+    groups = "/".join(padded[i : i + 4] for i in range(0, 16, 4))
+    return (
+        f"mast:HLSP/tess-spoc/s{sec:04d}/target/{groups}/"
+        f"hlsp_tess-spoc_tess_phot_{padded}-s{sec:04d}_tess_v1_lc.fits"
+    )
+
+
 def download_spoc_ffi(tic_id: int, sector: int, directory: str | None = None) -> ArchiveProduct:
     """Download (or reuse cached) TESS-SPOC FFI light curve. Never in-repo."""
     _require_deps()
@@ -87,24 +105,30 @@ def download_spoc_ffi(tic_id: int, sector: int, directory: str | None = None) ->
 
     directory = directory or cache_dir()
     os.makedirs(directory, exist_ok=True)
-    uri = find_spoc_ffi_uri(tic_id, sector)
-    filename = uri.rsplit("/", 1)[-1].replace("mast:HLSP/", "").replace(":", "_")
+    expected = spoc_ffi_uri(tic_id, sector)
+    filename = expected.rsplit("/", 1)[-1].replace("mast:HLSP/", "").replace(":", "_")
     local_path = os.path.join(directory, filename)
     if os.path.exists(local_path):
-        cached = True
-    else:
-        try:
-            downloaded = Observations.download_file(uri, local_path=local_path)
-        except Exception as e:
-            raise ArchiveUnavailable(f"MAST download failed for {uri}: {e}") from e
-        if isinstance(downloaded, str) and os.path.exists(downloaded):
-            local_path = downloaded
-        cached = False
+        return ArchiveProduct(
+            tic_id=tic_id,
+            sector=sector,
+            local_path=local_path,
+            data_uri=expected,
+            retrieved_utc=datetime.now(timezone.utc).isoformat(),
+            cached=True,
+        )
+    uri = find_spoc_ffi_uri(tic_id, sector)
+    try:
+        downloaded = Observations.download_file(uri, local_path=local_path)
+    except Exception as e:
+        raise ArchiveUnavailable(f"MAST download failed for {uri}: {e}") from e
+    if isinstance(downloaded, str) and os.path.exists(downloaded):
+        local_path = downloaded
     return ArchiveProduct(
         tic_id=tic_id,
         sector=sector,
         local_path=local_path,
         data_uri=uri,
         retrieved_utc=datetime.now(timezone.utc).isoformat(),
-        cached=cached,
+        cached=False,
     )

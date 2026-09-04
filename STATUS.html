@@ -120,7 +120,7 @@
           <div class="card next"><b>→ Phase 8 · New worlds</b><br>First dig complete: 8 uncatalogued stars mined, 0 candidates, pipeline sensitivity proven by injection.</div>
           <div class="card next"><b>→ What's next</b><br>When Sector 106 lands: run the frozen code, vet the shortlist, report candidates — or the honest negative.</div>
         </div>
-        <p>Status: <b>105 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+        <p>Status: <b>110 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
 
       <section class="page" id="page-phase0" role="tabpanel">
@@ -295,7 +295,7 @@
         </table>
         <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region — and ranking metrics (AP, burden) beside threshold accuracy, so a model that learns only the base rate cannot hide behind a 1.00 accuracy.</p>
         <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
-        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>105 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>110 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase7" role="tabpanel">
@@ -311,7 +311,7 @@
           <tr><td>Exam verdict</td><td><b>PIVOT</b> on 272 sealed positives: the deterministic baseline remains the supported path.</td></tr>
         </table>
         <div class="panel"><p><b>Why this counts as blind:</b> normal code paths still refuse sealed sectors; the sealed run carries its freeze hash, creation and unblinding timestamps, and an access-log entry. Thresholds are byte-identical before and after. No weight, rule, or threshold changed post-unblinding.</p></div>
-        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>105 passed</b> with one pre-existing archive warning.</p>
+        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>110 passed</b> with one pre-existing archive warning.</p>
       </section>
 
       <section class="page" id="page-phase8" role="tabpanel">
@@ -359,7 +359,9 @@
           <tr><td>Candidates</td><td class="num"><b>0</b> — no uncatalogued star produced a promotable pair.</td></tr>
         </table>
         <p class="caption">A null over 148 stars is a result with selection limits, not an absence of effort: hot-Jupiter-complete on quiet stars, degraded on variables, every exclusion reasoned.</p>
-        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>105 passed</b> with archive warnings only.</p>
+        <h3>Scaling up: bulk retrieval, 188 more stars</h3>
+        <p>Per-star archive queries were the bottleneck, so they were deleted: MAST file addresses are deterministic in (star, sector), letting the survey fetch whole footprint cones — 362 stars probed with 3 catalog queries, 668 files landed, 1,504 clean 404s, zero failures. A second run covered <b>188 multi-epoch stars</b> (46 pairs, 15 reviewed, 0 candidates), and the scale exposed two real bugs that fault isolation caught and tests now pin: zero-width coverage windows from isolated cadences, and close-pair alias crashes.</p>
+        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>110 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-roadmap" role="tabpanel">
@@ -368,7 +370,7 @@
           <div class="card done"><b>✓ Learning matcher (#6)</b><br>Head-to-head learned and deterministic scoring with TIC-level holdouts and a written stop/go boundary.</div>
           <div class="card done"><b>✓ Injection drills (#7)</b><br>Plant fake blinks of different depths and shapes into real recordings and map detection versus association failures.</div>
           <div class="card done"><b>✓ Blind exam (#8)</b><br>Freeze everything, then grade on sealed sector 82: rules rank all 272 true pairs first, learned matcher trails.</div>
-          <div class="card next"><b>→ Hunt new worlds (#9)</b><br>Machine built and rehearsed; Sector 106 has no archive files yet — the run triggers when they land.</div>
+          <div class="card next"><b>→ Hunt new worlds (#9)</b><br>336 stars mined, 0 candidates; bulk pipeline streams with resume — the run triggers wider, not just on Sector 106.</div>
         </div>
         <h3>Can't-do list (still true)</h3>
         <ul>
@@ -376,7 +378,7 @@
           <li><b>No pixel-level vetting in code</b> — centroid, difference imaging, alternate reductions, and external photometry remain explicit manual steps per candidate.</li>
           <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 105 passed
+        <pre>python3 -m pytest -q            # 110 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file
