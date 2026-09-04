@@ -378,10 +378,16 @@ def harvest_system(
             "recall": res["recall"],
             "pair_outcome": res["pair_outcome"],
             "n_cross_pairs": len(pairs),
+            "n_single_events": len(records),
         },
         "blind_result": res,
         "products": res["products"],
         "pairs": pairs,
+        "events": [
+            {"id": evid, **_event_summary(record)}
+            for evid, record in records.items()
+        ],
+        "windows": res["sectors"],
     }
 
 
@@ -561,6 +567,7 @@ def _records_of(blind_result: dict[str, Any]) -> dict[str, EventRecord]:
 
 def _event_summary(rec: EventRecord) -> dict[str, Any]:
     return {
+        "tic_id": rec.tic_id,
         "sector": rec.sector,
         "t0": rec.t0,
         "depth": rec.depth,

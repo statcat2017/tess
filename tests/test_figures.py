@@ -46,6 +46,12 @@ FINDINGS_CURVES = [
     "sector_eb197931848_s29.svg",
     "sector_eb197931848_s69.svg",
     "eb224224413_fold.svg",
+    "cand231279823_fold.svg",
+    "sector_cand231279823_s29.svg",
+    "sector_cand231279823_s30.svg",
+    "sector_cand231279823_s69.svg",
+    "single_137801807_s69.svg",
+    "single_117549174_s69.svg",
 ]
 
 

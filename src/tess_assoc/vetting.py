@@ -27,6 +27,11 @@ MANUAL_CHECKLIST: tuple[str, ...] = (
     "odd/even depth comparison (needs 3+ events)",
 )
 
+SINGLE_TRANSIT_MANUAL_CHECKLIST: tuple[str, ...] = (
+    *MANUAL_CHECKLIST,
+    "period/second-transit search after targeted follow-up",
+)
+
 
 def secondary_search(
     time: list[float],
@@ -409,10 +414,48 @@ def promote_candidate(
     }
 
 
+def promote_single_transit(
+    *,
+    event: dict[str, Any],
+    cross_match: dict[str, Any],
+    ctoi: dict[str, Any],
+    contamination: dict[str, Any],
+    variables: dict[str, Any],
+    companion: dict[str, Any],
+    min_snr: float = 7.0,
+) -> dict[str, Any]:
+    """Admission rule for an isolated event with no measurable period.
+
+    This creates a follow-up candidate, not a planetary promotion: a second
+    transit is required before an orbital period can be claimed.
+    """
+    require_positive_finite("min_snr", min_snr)
+    reasons: list[str] = []
+    snr = event.get("snr")
+    if snr is None or not math.isfinite(float(snr)) or float(snr) < min_snr:
+        reasons.append(f"event SNR below {min_snr:g}")
+    if cross_match.get("status") != "clean":
+        reasons.append(f"TOI cross-match: {cross_match.get('status')}")
+    if ctoi.get("status") != "clean":
+        reasons.append(f"CTOI cross-match: {ctoi.get('status')}")
+    if contamination.get("status") != "low":
+        reasons.append(f"contamination: {contamination.get('status')}")
+    if variables.get("status") != "clean":
+        reasons.append(f"variable catalog: {variables.get('status')}")
+    if companion.get("status") != "planetary-range":
+        reasons.append(f"companion radius: {companion.get('status')}")
+    return {
+        "candidate": not reasons,
+        "reasons": reasons,
+        "manual_checklist": list(SINGLE_TRANSIT_MANUAL_CHECKLIST),
+    }
+
+
 __all__ = [
     "COMPANION_RADIUS_LIMIT_RSUN",
     "CONTAMINATION_LIMIT",
     "MANUAL_CHECKLIST",
+    "SINGLE_TRANSIT_MANUAL_CHECKLIST",
     "SECONDARY_SNR_THRESHOLD",
     "check_companion_radius",
     "check_contamination",
@@ -423,6 +466,7 @@ __all__ = [
     "cross_match_toi",
     "cross_match_tois",
     "promote_candidate",
+    "promote_single_transit",
     "secondary_search",
     "stellar_radius",
     "tic_coords",

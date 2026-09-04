@@ -13,6 +13,9 @@ from tess_assoc.survey import (
     render_survey_report,
     run_mining_survey,
 )
+from tess_assoc.event import EventRecord
+from tess_assoc.long_period import rank_single_transits
+from tess_assoc.vetting import promote_single_transit
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 REPLAY = str(FIXTURES / "replay_v1.json")
@@ -24,6 +27,53 @@ THRESHOLDS = {
     "max_rel_duration_diff": 0.25,
     "min_morph_corr": 0.9,
 }
+
+
+def _event(tic_id, sector, t0, *, snr=12.0, depth=0.01):
+    return EventRecord(
+        tic_id=tic_id,
+        sector=sector,
+        t0=t0,
+        local_time=[t0 - 0.1, t0, t0 + 0.1],
+        local_flux=[1.0, 1.0 - depth, 1.0],
+        depth=depth,
+        duration_days=0.1,
+        snr=snr,
+    )
+
+
+def test_rank_single_transits_requires_isolation_and_long_baseline():
+    windows = {29: [(2000.0, 2027.0)], 69: [(3100.0, 3127.0)]}
+    candidates = rank_single_transits(
+        [_event(101, 29, 2010.0), _event(102, 29, 2011.0),
+         _event(102, 69, 3111.0), _event(103, 29, 2012.0, snr=6.9)],
+        windows,
+    )
+    assert [c["tic_id"] for c in candidates] == [101]
+    assert candidates[0]["period_status"] == "unconstrained"
+    assert candidates[0]["baseline_days"] == pytest.approx(1127.0)
+
+
+def test_rank_single_transits_rejects_short_baseline():
+    event = _event(101, 29, 2010.0)
+    assert rank_single_transits([event], {29: [(2000.0, 2027.0)]}, min_baseline_days=365.0) == []
+
+
+def test_promote_single_transit_requires_catalog_cleanliness():
+    clean = {"status": "clean"}
+    low = {"status": "low"}
+    small = {"status": "planetary-range"}
+    verdict = promote_single_transit(
+        event={"snr": 8.0}, cross_match=clean, ctoi=clean,
+        contamination=low, variables=clean, companion=small,
+    )
+    assert verdict["candidate"] is True
+    assert "period/second-transit search" in verdict["manual_checklist"][-1]
+    verdict = promote_single_transit(
+        event={"snr": 8.0}, cross_match={"status": "known-toi"},
+        ctoi=clean, contamination=low, variables=clean, companion=small,
+    )
+    assert verdict["candidate"] is False
 
 
 def _targets():

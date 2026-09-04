@@ -358,6 +358,8 @@ def main() -> None:
 
     _mining_figures()
     _findings_figures()
+    _candidate_figures()
+    _long_period_figures()
     print("wrote assets/*.svg")
 
 
@@ -515,6 +517,74 @@ def _findings_figures() -> None:
                 "#92b7ff",
                 "period fit to the minute over 322 orbits",
             )
+
+
+def _candidate_figures() -> None:
+    """Phase 8 planet candidate: TIC 231279823 multi-epoch fold + curves."""
+    from tess_assoc.archive import download_spoc_ffi
+    from tess_assoc.extract import load_lightcurve
+    from tess_assoc.propose import detrend, propose_events
+
+    tic, period, t0 = 231279823, 5.96848, 1355.67458
+    render_sectors = (29, 30, 69)
+    folded: list[tuple[float, float]] = []
+    for sector in (2, 29, 30, 69):
+        time, flux = load_lightcurve(download_spoc_ffi(tic, sector))
+        detrended, _ = detrend(time, flux)
+        if sector in render_sectors:
+            found = sorted(p.t0_guess for p in propose_events(time, flux))
+            _svg_sector_curve(
+                f"assets/sector_cand231279823_s{sector}.svg",
+                f"Candidate: TIC {tic} sector {sector} (detrended)",
+                f"{len(found)} blind proposals",
+                time,
+                detrended,
+                [],
+                found,
+                [],
+            )
+        folded.extend(
+            (((t - t0) % period, f) for t, f in zip(time, detrended))
+        )
+    folded.sort()
+    step = max(1, len(folded) // 1500)
+    _svg_single_window(
+        f"assets/cand231279823_fold.svg",
+        f"Candidate: TIC {tic} folded at P={period:.5f}d",
+        "sectors 2+29+30+69 · 13 transits, cycles 0-309",
+        [p for p, _ in folded[::step]],
+        [f for _, f in folded[::step]],
+        "#92b7ff",
+        "joint fit rms 16.7 min over 5 years",
+    )
+
+
+def _long_period_figures() -> None:
+    """Isolated-event follow-up queue: no period or fold is assumed."""
+    from tess_assoc.archive import download_spoc_ffi
+    from tess_assoc.extract import load_lightcurve
+    from tess_assoc.propose import detrend
+
+    cases = (
+        (137801807, 3204.41835, "depth 5.20% · duration 3.06h · SNR 30.8"),
+        (117549174, 3183.13348, "depth 3.18% · duration 1.67h · SNR 11.7"),
+    )
+    for tic, t0, stats in cases:
+        product = download_spoc_ffi(tic, 69, directory="/tmp/long_followup_cache")
+        time, flux = load_lightcurve(product)
+        detrended, _ = detrend(time, flux)
+        selected = [
+            (t, f) for t, f in zip(time, detrended) if abs(t - t0) <= 0.6
+        ]
+        _svg_single_window(
+            f"assets/single_{tic}_s69.svg",
+            f"Isolated event: TIC {tic} sector 69",
+            "single-transit queue · period unconstrained",
+            [t - t0 for t, _ in selected],
+            [f for _, f in selected],
+            "#f7c982",
+            stats,
+        )
 
 
 if __name__ == "__main__":

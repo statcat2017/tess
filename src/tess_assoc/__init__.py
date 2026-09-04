@@ -51,6 +51,10 @@ from tess_assoc.survey import (
     render_survey_report,
     resolve_coverage,
     run_mining_survey,
+    triage_single_transits,
+)
+from tess_assoc.long_period import (
+    rank_single_transits,
 )
 from tess_assoc.vetting import (
     check_companion_radius,
@@ -109,6 +113,7 @@ __all__ = [
     "render_holdout_report",
     "render_report",
     "render_survey_report",
+    "rank_single_transits",
     "replay_all",
     "resolve_coverage",
     "run_comparison",
@@ -126,6 +131,7 @@ __all__ = [
     "tic_coords",
     "study_cell",
     "summarize_grid",
+    "triage_single_transits",
     "validate_no_temporal_leak",
     "validate_tic_partition",
     "verify_freeze",

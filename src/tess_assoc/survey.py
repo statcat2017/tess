@@ -22,7 +22,12 @@ from tess_assoc.discovery import (
     render_discovery_report,
     triage_ranked_pairs,
 )
-from tess_assoc.vetting import cross_match_tois
+from tess_assoc.long_period import rank_single_transits
+from tess_assoc.vetting import (
+    check_companion_radius,
+    cross_match_tois,
+    promote_single_transit,
+)
 
 
 def fetch_tois_box(
@@ -179,6 +184,8 @@ def run_mining_survey(
             "systems_out": entry["systems_out"],
             "products": entry.get("products", []),
             "pairs": entry.get("pairs", []),
+            "events": entry.get("events", []),
+            "windows": entry.get("windows", []),
         }
         for name, entry in done.items()
     }
@@ -208,6 +215,8 @@ def run_mining_survey(
             "systems_out": harvest["systems_out"],
             "products": harvest.get("products", []),
             "pairs": harvest["pairs"],
+            "events": harvest.get("events", []),
+            "windows": harvest.get("windows", []),
         }
         return system.name, thin
 
@@ -229,10 +238,19 @@ def run_mining_survey(
     triage_in = {
         name: h for name, h in harvests.items() if h["status"] == "complete"
     }
+    single_ranked = _rank_single_transits(manifest, triage_in)
     shortlist_tics = _shortlist_tics(manifest, triage_in, shortlist_k)
+    shortlist_tics += [entry["tic_id"] for entry in single_ranked[:shortlist_k]]
     prefetch = _prefetch_catalog(manifest, shortlist_tics)
     candidates, reviewed = triage_ranked_pairs(
         manifest, triage_in, shortlist_k=shortlist_k, catalog_prefetch=prefetch
+    )
+    single_transits, single_reviewed = triage_single_transits(
+        manifest,
+        triage_in,
+        shortlist_k=shortlist_k,
+        catalog_prefetch=prefetch,
+        ranked=single_ranked,
     )
     n_pairs_ranked = sum(len(h["pairs"]) for h in triage_in.values())
     blocked = sorted(
@@ -268,6 +286,8 @@ def run_mining_survey(
         "n_pairs_ranked": n_pairs_ranked,
         "candidates": candidates,
         "reviewed": reviewed,
+        "single_transits": single_transits,
+        "single_transit_reviewed": single_reviewed,
     }
     (out / "survey_results.json").write_text(json.dumps(results) + "\n")
     if log_path is not None:
@@ -295,6 +315,68 @@ def _shortlist_tics(manifest, triage_in, shortlist_k: int) -> list[int]:
         reverse=True,
     )
     return [tic for _, tic in scored[:shortlist_k]]
+
+
+def _rank_single_transits(manifest, triage_in) -> list[dict[str, Any]]:
+    ranked: list[dict[str, Any]] = []
+    for name, harvest in triage_in.items():
+        windows = {
+            int(entry["sector"]): [tuple(w) for w in entry["windows"]]
+            for entry in harvest.get("windows", [])
+        }
+        for event in rank_single_transits(harvest.get("events", []), windows):
+            ranked.append({"system": name, **event})
+    return sorted(ranked, key=lambda entry: (-entry["score"], entry["tic_id"]))
+
+
+def triage_single_transits(
+    manifest,
+    harvests: dict[str, dict[str, Any]],
+    *,
+    shortlist_k: int = 10,
+    catalog_prefetch: dict[int, dict[str, Any]] | None = None,
+    ranked: list[dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Vette isolated events into a period-free follow-up queue."""
+    ranked = ranked if ranked is not None else _rank_single_transits(manifest, harvests)
+    catalog_cache = dict(catalog_prefetch or {})
+    by_name = {system.name: system for system in manifest.systems}
+    candidates: list[dict[str, Any]] = []
+    reviewed: list[dict[str, Any]] = []
+    for item in ranked[:shortlist_k]:
+        tic_id = item["tic_id"]
+        if tic_id not in catalog_cache:
+            catalog_cache[tic_id] = _prefetch_catalog(manifest, [tic_id])[tic_id]
+        catalog = catalog_cache[tic_id]
+        event = item["event"]
+        companion = check_companion_radius(
+            tic_id, event["depth"], rad=catalog.get("stellar_rad")
+        )
+        vetting = {
+            "contamination": catalog["contamination"],
+            "cross_match": catalog["cross_match"],
+            "ctoi": catalog["ctoi"],
+            "variables": catalog["variables"],
+            "companion": companion,
+        }
+        promotion = promote_single_transit(
+            event=event,
+            cross_match=vetting["cross_match"],
+            ctoi=vetting["ctoi"],
+            contamination=vetting["contamination"],
+            variables=vetting["variables"],
+            companion=companion,
+        )
+        entry = {
+            **item,
+            "vetting": vetting,
+            "promotion": promotion,
+            "manual_follow_up": "period unconstrained; obtain a second transit",
+            "products": harvests[item["system"]].get("products", []),
+            "sectors": list(by_name[item["system"]].sectors),
+        }
+        (candidates if promotion["candidate"] else reviewed).append(entry)
+    return candidates, reviewed
 
 
 def system_tic(manifest, name: str) -> int:
@@ -353,7 +435,19 @@ def render_survey_report(results: dict[str, Any]) -> str:
     )
     if results.get("failed_systems"):
         header += f" Failed: {', '.join(results['failed_systems'])}."
-    return header + "\n\n" + render_discovery_report(results)
+    single = results.get("single_transits", [])
+    single_reviewed = results.get("single_transit_reviewed", [])
+    queue = (
+        f"\n\n## Isolated-event follow-up queue ({len(single)}) — periods unconstrained\n"
+        + "\n".join(
+            f"- TIC {entry['tic_id']}: S{entry['event']['sector']}@"
+            f"{entry['event']['t0']:.3f}, depth {entry['event']['depth']:.4f}, "
+            f"SNR {entry['event']['snr']:.1f}, baseline {entry['baseline_days']:.1f} d"
+            for entry in single
+        )
+        + f"\n\nIsolated events reviewed and blocked: {len(single_reviewed)}."
+    )
+    return header + "\n\n" + render_discovery_report(results) + queue
 
 
 __all__ = [
@@ -363,4 +457,5 @@ __all__ = [
     "resolve_coverage",
     "run_mining_survey",
     "system_tic",
+    "triage_single_transits",
 ]

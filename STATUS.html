@@ -371,13 +371,13 @@
         <h3>Scaling up: bulk retrieval, 188 more stars</h3>
          <p>Per-star archive queries were the bottleneck, so they were deleted: MAST file addresses are deterministic in (star, sector), letting the survey fetch whole footprint cones — 362 stars probed with 3 catalog queries, 668 files landed, 1,504 clean 404s, zero failures. A second run covered <b>188 multi-epoch stars</b> (46 pairs, 15 reviewed, 0 candidates), and the scale exposed two real bugs that fault isolation caught and tests now pin: zero-width coverage windows from isolated cadences, and close-pair alias crashes.</p>
          <h3>Targeted M-dwarf extension: 1,139 more stars, 0 surviving candidates</h3>
-         <p>A targeted search of the Sector 29 ↔ 69 overlap tested <b>264 faint dwarfs</b> (Tmag 13–16) and <b>449 brighter dwarfs</b> (Tmag 8–12.5, R★ &lt; 0.8 R☉). All <b>1,426 sector recordings</b> completed without archive failures. The faint slice produced 5 ranked pairs and no candidates; the brighter slice produced 32 ranked pairs, 7 reviewed, and no candidates. Two bright-star signals were rejected by the existing contamination, secondary-eclipse, and companion-radius checks as eclipsing-system impostors. Combined with the earlier M-dwarf run, the archive mining total is now <b>2,860 unique multi-epoch stars</b> and no planetary candidate remains after the CTOI/EB re-check.</p>
+         <p>A targeted search of the Sector 29 ↔ 69 overlap tested <b>264 faint dwarfs</b> (Tmag 13–16) and <b>449 brighter dwarfs</b> (Tmag 8–12.5, R★ &lt; 0.8 R☉). All <b>1,426 sector recordings</b> completed without archive failures. The faint slice produced 5 ranked pairs and no candidates; the brighter slice produced 32 ranked pairs, 7 reviewed, and no candidates. Two bright-star signals were rejected by the existing contamination, secondary-eclipse, and companion-radius checks as eclipsing-system impostors. Combined with the earlier M-dwarf run, the archive mining total is now <b>2,860 unique multi-epoch stars</b>: no repeating planetary candidate remains after the CTOI/EB re-check, but the new isolated-event track has two clean follow-up targets below.</p>
          <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>117 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-findings" role="tabpanel">
-         <h2>Findings · Two binaries closed, one planet hypothesis refuted</h2>
-         <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into eclipsing binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — was a useful blind recovery, but its planet hypothesis is now <b>refuted</b> by an independent re-analysis recorded on ExoFOP.</p>
+         <h2>Findings · Two binaries closed, one hypothesis refuted, two isolated events queued</h2>
+         <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into eclipsing binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — was a useful blind recovery, but its planet hypothesis is now <b>refuted</b> by an independent re-analysis recorded on ExoFOP. A separate period-free pass over the 1,999-star cohort found two clean isolated events for targeted follow-up.</p>
 
          <h3>Finding 3 (refuted candidate) · TIC 231279823 — P = 5.96848 d transit-like signal</h3>
         <table>
@@ -396,9 +396,22 @@
         <img class="demo" src="assets/sector_cand231279823_s69.svg" alt="TIC 231279823 sector 69 light curve with three blind transit proposals">
         <p class="caption">The discovery pair of sectors: three blind finds each, no ephemeris given — the 1104-day association the machine promoted.</p>
         <img class="demo" src="assets/sector_cand231279823_s30.svg" alt="TIC 231279823 sector 30 light curve showing shallower transit events">
-        <p class="caption">Sector 30 complicates the story: same ~5.97-day spacing, but only ~0.15% deep — the depth puzzle in raw form.</p>
+         <p class="caption">Sector 30 complicates the story: same ~5.97-day spacing, but only ~0.15% deep — the depth puzzle in raw form.</p>
 
-        <h3>Finding 1 · TIC 224224413 — P = 5.71296 d eclipsing binary</h3>
+         <h3>Finding 4 (isolated-event candidates) · two long-period follow-up targets</h3>
+         <p>Professional periodic searches are weakest when only one transit is visible. We therefore ran a separate, conservative queue: exactly one blind event across each star's available recordings, event SNR ≥ 7, and a baseline ≥ 180 days. These are <b>follow-up candidates, not planet detections</b>; one event cannot determine an orbital period.</p>
+         <table>
+           <tr><th>Target</th><th>Signal</th><th>Automated status</th></tr>
+           <tr><td class="num">TIC 137801807</td><td class="num">S69 @ 3204.418 · depth 5.20% · duration 3.06h · SNR 30.8 · Tmag 12.93 · 0.408 R☉ M dwarf</td><td>TOI/CTOI/ASAS-SN/Gaia EB clean · contamination 0.00024 · companion lower bound 0.093 R☉ (~1.0 R<sub>J</sub>) · <b>period unconstrained</b></td></tr>
+           <tr><td class="num">TIC 117549174</td><td class="num">S69 @ 3183.133 · depth 3.18% · duration 1.67h · SNR 11.7 · Tmag 12.84 · 0.640 R☉ star</td><td>TOI/CTOI/ASAS-SN/Gaia EB clean · contamination 0.04345 · companion lower bound 0.114 R☉ (~1.1 R<sub>J</sub>) · <b>period unconstrained</b></td></tr>
+         </table>
+         <p>Both stars have additional archived sectors (TIC 137801807: 2, 29, 69; TIC 117549174: 2, 29, 69, 70), but the proposer found no second event. The depths are large enough that eclipsing binaries remain a serious alternative despite clean catalog checks and small TIC contamination ratios. Required next evidence: pixel centroid/difference imaging, then a targeted photometric campaign to catch a second transit.</p>
+         <img class="demo" src="assets/single_137801807_s69.svg" alt="TIC 137801807 isolated Sector 69 transit-like event">
+         <p class="caption">TIC 137801807: high-SNR isolated event. The plot records the event only; no period or fold has been assumed.</p>
+         <img class="demo" src="assets/single_117549174_s69.svg" alt="TIC 117549174 isolated Sector 69 transit-like event">
+         <p class="caption">TIC 117549174: lower-SNR isolated event with 4.3% TIC contamination, requiring pixel-level vetting before follow-up investment.</p>
+
+         <h3>Finding 1 · TIC 224224413 — P = 5.71296 d eclipsing binary</h3>
         <table>
           <tr><th>Fact</th><th>Value</th></tr>
           <tr><td>Star</td><td class="num">Tmag 12.0 · 1.64 R☉ · 6406 K dwarf · contamination 0.011</td></tr>
@@ -448,7 +461,7 @@
           <div class="card done"><b>✓ Learning matcher (#6)</b><br>Head-to-head learned and deterministic scoring with TIC-level holdouts and a written stop/go boundary.</div>
           <div class="card done"><b>✓ Injection drills (#7)</b><br>Plant fake blinks of different depths and shapes into real recordings and map detection versus association failures.</div>
           <div class="card done"><b>✓ Blind exam (#8)</b><br>Freeze everything, then grade on sealed sector 82: rules rank all 272 true pairs first, learned matcher trails.</div>
-           <div class="card done"><b>✓ Hunt new worlds (#9)</b><br>2,860 unique multi-epoch stars mined across the completed cohorts; no planetary candidate survives catalog and EB vetting.</div>
+           <div class="card done"><b>✓ Hunt new worlds (#9)</b><br>2,860 unique multi-epoch stars mined; no repeating planetary candidate survives catalog and EB vetting, while two isolated events await targeted follow-up.</div>
         </div>
         <h3>Can't-do list (still true)</h3>
         <ul>
