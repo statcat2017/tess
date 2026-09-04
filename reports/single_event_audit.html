@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>TESS single-event audit</title>
+<style>body{font:16px system-ui;max-width:1000px;margin:2rem auto;padding:0 1rem;color:#17213a}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{border:1px solid #ccd3e0;padding:.5rem;text-align:left}.warn{background:#fff2d6}.pass{background:#e7f7ed}.muted{color:#56627a}img{max-width:680px;width:100%}</style>
+</head><body><h1>Single-event evidence audit</h1>
+<p class="muted">Measurements establish robustness and source-localisation evidence; they do not establish an orbital period or confirm a planet.</p>
+<section><h2>TIC 137801807</h2>
+<p>Sector 69 at BTJD 3204.41835; depth 0.0520; duration 3.06 h; SNR 30.8. Period: <b>unconstrained</b>.</p>
+<h3>Measurements</h3><table><tr><th>Evidence</th><th>Result</th></tr>
+<tr><td>SAP_FLUX</td><td>depth 0.05391 · SNR 86.2 · 55 in / 409 out points</td></tr>
+<tr><td>PDCSAP_FLUX</td><td>depth 0.05826 · SNR 82.7 · 55 in / 409 out points</td></tr>
+<tr><td>Reduction consistency</td><td>pass</td></tr><tr><td>PDCSAP shape</td><td>V-shaped</td></tr><tr><td>Centroid shift</td><td>not-significant</td></tr><tr><td>Bright Gaia neighbour</td><td>review</td></tr></table>
+<h3>False-positive checklist</h3><table><tr><th>Check</th><th>Status</th></tr>
+<tr class="pass"><td>sap_pdcsap</td><td>pass</td></tr>
+<tr class="pass"><td>centroid_shift</td><td>not-significant</td></tr>
+<tr class="warn"><td>bright_gaia_neighbor</td><td>review</td></tr>
+<tr class="warn"><td>transit_shape</td><td>V-shaped</td></tr>
+<tr class="warn"><td>period</td><td>unconstrained</td></tr>
+<tr class="warn"><td>pixel_difference_image</td><td>required</td></tr>
+<tr class="warn"><td>radial_velocity</td><td>not-obtained</td></tr>
+<tr class="warn"><td>ground_multicolor</td><td>not-obtained</td></tr>
+</table>
+<img src="../assets/single_137801807_s69.svg" alt="single event">
+</section>
+<section><h2>TIC 117549174</h2>
+<p>Sector 69 at BTJD 3183.13348; depth 0.0318; duration 1.67 h; SNR 11.7. Period: <b>unconstrained</b>.</p>
+<h3>Measurements</h3><table><tr><th>Evidence</th><th>Result</th></tr>
+<tr><td>SAP_FLUX</td><td>depth 0.02826 · SNR 34.8 · 30 in / 401 out points</td></tr>
+<tr><td>PDCSAP_FLUX</td><td>depth 0.03114 · SNR 35.7 · 30 in / 401 out points</td></tr>
+<tr><td>Reduction consistency</td><td>pass</td></tr><tr><td>PDCSAP shape</td><td>flat-bottomed</td></tr><tr><td>Centroid shift</td><td>not-significant</td></tr><tr><td>Bright Gaia neighbour</td><td>review</td></tr></table>
+<h3>False-positive checklist</h3><table><tr><th>Check</th><th>Status</th></tr>
+<tr class="pass"><td>sap_pdcsap</td><td>pass</td></tr>
+<tr class="pass"><td>centroid_shift</td><td>not-significant</td></tr>
+<tr class="warn"><td>bright_gaia_neighbor</td><td>review</td></tr>
+<tr class="warn"><td>transit_shape</td><td>flat-bottomed</td></tr>
+<tr class="warn"><td>period</td><td>unconstrained</td></tr>
+<tr class="warn"><td>pixel_difference_image</td><td>required</td></tr>
+<tr class="warn"><td>radial_velocity</td><td>not-obtained</td></tr>
+<tr class="warn"><td>ground_multicolor</td><td>not-obtained</td></tr>
+</table>
+<img src="../assets/single_117549174_s69.svg" alt="single event">
+</section>
+</body></html>

@@ -7,6 +7,15 @@ from tess_assoc.benchmark import (
 )
 from tess_assoc.bulk import bulk_fetch, direct_url, expected_filename, fetch_one
 from tess_assoc.archive import spoc_ffi_uri
+from tess_assoc.audit import (
+    audit_flux_channels,
+    audit_lightcurve_file,
+    build_single_event_audit,
+    measure_centroid,
+    measure_event_shape,
+    measure_flux_channel,
+    render_single_event_audit,
+)
 from tess_assoc.event import EventRecord
 from tess_assoc.discovery import (
     DISCOVERY_SECTOR,
@@ -80,8 +89,11 @@ __all__ = [
     "SectorRole",
     "assign_partitions",
     "audit_development",
+    "audit_flux_channels",
+    "audit_lightcurve_file",
     "build_benchmark",
     "build_survey_manifest",
+    "build_single_event_audit",
     "bulk_fetch",
     "check_companion_radius",
     "check_contamination",
@@ -106,6 +118,9 @@ __all__ = [
     "load_holdout_manifest",
     "load_replay_manifest",
     "mark_unblinded",
+    "measure_centroid",
+    "measure_event_shape",
+    "measure_flux_channel",
     "predict_epochs",
     "promote_candidate",
     "render_benchmark_report",
@@ -113,6 +128,7 @@ __all__ = [
     "render_holdout_report",
     "render_report",
     "render_survey_report",
+    "render_single_event_audit",
     "rank_single_transits",
     "replay_all",
     "resolve_coverage",

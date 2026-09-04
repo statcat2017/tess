@@ -1,0 +1,298 @@
+[
+  {
+    "audit_version": 1,
+    "tic_id": 137801807,
+    "event": {
+      "tic_id": 137801807,
+      "sector": 69,
+      "t0": 3204.418352997779,
+      "depth": 0.05199308885584297,
+      "duration_days": 0.12731087503289018,
+      "snr": 30.817230454719876
+    },
+    "metadata": {
+      "tmag": 12.9252,
+      "teff": 3257.0,
+      "stellar_radius_r_sun": 0.408067,
+      "available_sectors": [
+        2,
+        29,
+        69
+      ]
+    },
+    "catalogs": {
+      "contamination": {
+        "status": "low",
+        "contratio": 0.000241140966,
+        "limit": 0.1,
+        "reason": null
+      },
+      "cross_match": {
+        "status": "clean",
+        "matches": [],
+        "reason": null
+      },
+      "ctoi": {
+        "status": "clean",
+        "matches": [],
+        "reason": null
+      },
+      "variables": {
+        "status": "clean",
+        "matches": [],
+        "reason": null
+      },
+      "companion": {
+        "status": "planetary-range",
+        "companion_r_sun": 0.09304740911411746,
+        "stellar_r_sun": 0.408067,
+        "limit_r_sun": 0.25,
+        "reason": null
+      }
+    },
+    "available_sectors": [
+      2,
+      29,
+      69
+    ],
+    "event_product": {
+      "sector": 69,
+      "path": "hlsp_tess-spoc_tess_phot_0000000137801807-s0069_tess_v1_lc.fits",
+      "cadences": 8950,
+      "time_range": [
+        3182.5088677147387,
+        3206.4298626487753
+      ],
+      "flux": {
+        "channels": {
+          "SAP_FLUX": {
+            "status": "measured",
+            "n_inside": 55,
+            "n_outside": 409,
+            "baseline": 760.5031127929688,
+            "depth": 0.05390598120413803,
+            "sigma": 0.004637318210480675,
+            "snr": 86.20876077643533
+          },
+          "PDCSAP_FLUX": {
+            "status": "measured",
+            "n_inside": 55,
+            "n_outside": 409,
+            "baseline": 990.620361328125,
+            "depth": 0.05825823316897427,
+            "sigma": 0.005221607479924637,
+            "snr": 82.74360383267438
+          }
+        },
+        "stable": true
+      },
+      "shape": {
+        "status": "measured",
+        "n_center": 27,
+        "n_edge": 28,
+        "center_depth": 0.07668676238379468,
+        "edge_depth": 0.03389402454319457,
+        "edge_to_center_depth": 0.4419801213352175,
+        "left_right_asymmetry": 0.03617232163695561,
+        "shape": "V-shaped"
+      },
+      "centroid": {
+        "psf": {
+          "status": "insufficient-data",
+          "n_inside": 0,
+          "n_outside": 0
+        },
+        "mom": {
+          "status": "measured",
+          "n_inside": 55,
+          "n_outside": 409,
+          "in_event": [
+            1203.068046195201,
+            885.1937561167906
+          ],
+          "out_event": [
+            1203.0659903467795,
+            885.198191701939
+          ],
+          "shift_pixels": 0.004888857570135479,
+          "uncertainty_pixels": 0.009309296169531278,
+          "significance_sigma": 0.52515866732615,
+          "shift_status": "not-significant"
+        }
+      }
+    },
+    "gaia_neighbors": [
+      {
+        "source_id": 2399367919244466432,
+        "separation_arcsec": 2.149894922500892,
+        "g_mag": 14.21446704864502,
+        "parallax_mas": 14.655759744871174
+      },
+      {
+        "source_id": 2399367880589331584,
+        "separation_arcsec": 59.0741605078837,
+        "g_mag": 18.06300163269043,
+        "parallax_mas": -0.1907836335969497
+      }
+    ],
+    "checks": {
+      "sap_pdcsap": "pass",
+      "centroid_shift": "not-significant",
+      "bright_gaia_neighbor": "review",
+      "transit_shape": "V-shaped",
+      "period": "unconstrained",
+      "pixel_difference_image": "required",
+      "radial_velocity": "not-obtained",
+      "ground_multicolor": "not-obtained"
+    }
+  },
+  {
+    "audit_version": 1,
+    "tic_id": 117549174,
+    "event": {
+      "tic_id": 117549174,
+      "sector": 69,
+      "t0": 3183.133477153529,
+      "depth": 0.03180105985232673,
+      "duration_days": 0.06944716061070721,
+      "snr": 11.671593198637387
+    },
+    "metadata": {
+      "tmag": 12.8388,
+      "teff": 4644.0,
+      "stellar_radius_r_sun": 0.639693,
+      "available_sectors": [
+        2,
+        29,
+        69,
+        70
+      ]
+    },
+    "catalogs": {
+      "contamination": {
+        "status": "low",
+        "contratio": 0.04345031,
+        "limit": 0.1,
+        "reason": null
+      },
+      "cross_match": {
+        "status": "clean",
+        "matches": [],
+        "reason": null
+      },
+      "ctoi": {
+        "status": "clean",
+        "matches": [],
+        "reason": null
+      },
+      "variables": {
+        "status": "clean",
+        "matches": [],
+        "reason": null
+      },
+      "companion": {
+        "status": "planetary-range",
+        "companion_r_sun": 0.11407550380450461,
+        "stellar_r_sun": 0.639693,
+        "limit_r_sun": 0.25,
+        "reason": null
+      }
+    },
+    "available_sectors": [
+      2,
+      29,
+      69,
+      70
+    ],
+    "event_product": {
+      "sector": 69,
+      "path": "hlsp_tess-spoc_tess_phot_0000000117549174-s0069_tess_v1_lc.fits",
+      "cadences": 8924,
+      "time_range": [
+        3182.3602978289273,
+        3206.288931132626
+      ],
+      "flux": {
+        "channels": {
+          "SAP_FLUX": {
+            "status": "measured",
+            "n_inside": 30,
+            "n_outside": 401,
+            "baseline": 918.2487182617188,
+            "depth": 0.028258801654043375,
+            "sigma": 0.004453440735860683,
+            "snr": 34.75511190560964
+          },
+          "PDCSAP_FLUX": {
+            "status": "measured",
+            "n_inside": 30,
+            "n_outside": 401,
+            "baseline": 1227.7166748046875,
+            "depth": 0.031139537785652482,
+            "sigma": 0.004780310008844104,
+            "snr": 35.67933302219137
+          }
+        },
+        "stable": true
+      },
+      "shape": {
+        "status": "measured",
+        "n_center": 15,
+        "n_edge": 15,
+        "center_depth": 0.03357509429572392,
+        "edge_depth": 0.029212360383417124,
+        "edge_to_center_depth": 0.8700604122245927,
+        "left_right_asymmetry": 0.01302367248971037,
+        "shape": "flat-bottomed"
+      },
+      "centroid": {
+        "psf": {
+          "status": "insufficient-data",
+          "n_inside": 0,
+          "n_outside": 0
+        },
+        "mom": {
+          "status": "measured",
+          "n_inside": 30,
+          "n_outside": 401,
+          "in_event": [
+            442.9370888000421,
+            925.4942516812575
+          ],
+          "out_event": [
+            442.93711309841365,
+            925.4975342271186
+          ],
+          "shift_pixels": 0.003282635791732016,
+          "uncertainty_pixels": 0.008145922828076725,
+          "significance_sigma": 0.4029789946471977,
+          "shift_status": "not-significant"
+        }
+      }
+    },
+    "gaia_neighbors": [
+      {
+        "source_id": 2420819528542292224,
+        "separation_arcsec": 1.2107549797915003,
+        "g_mag": 13.489768981933594,
+        "parallax_mas": 4.459824194053303
+      },
+      {
+        "source_id": 2420819528542292096,
+        "separation_arcsec": 3.3795436347606325,
+        "g_mag": 16.558828353881836,
+        "parallax_mas": 4.944262221637277
+      }
+    ],
+    "checks": {
+      "sap_pdcsap": "pass",
+      "centroid_shift": "not-significant",
+      "bright_gaia_neighbor": "review",
+      "transit_shape": "flat-bottomed",
+      "period": "unconstrained",
+      "pixel_difference_image": "required",
+      "radial_velocity": "not-obtained",
+      "ground_multicolor": "not-obtained"
+    }
+  }
+]
