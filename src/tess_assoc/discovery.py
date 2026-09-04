@@ -33,11 +33,13 @@ from tess_assoc.propose import propose_with_detail
 from tess_assoc.pipeline import run_frozen_records
 from tess_assoc.replay import RECALL_TOL_DAYS, replay_blind_system
 from tess_assoc.vetting import (
+    check_companion_radius,
     check_contamination,
     combine_secondary_searches,
     cross_match_toi,
     promote_candidate,
     secondary_search,
+    stellar_radius,
 )
 from tess_assoc.window import filter_aliases
 
@@ -292,7 +294,10 @@ def _vet_pair(
         catalog = {
             "contamination": check_contamination(tic_id),
             "cross_match": cross_match_toi(tic_id),
+            "stellar_rad": stellar_radius(tic_id),
         }
+    if "stellar_rad" not in catalog:
+        catalog["stellar_rad"] = stellar_radius(tic_id)
     results: list[dict[str, Any]] = []
     for event in (event_a, event_b):
         time_r, _, detrended_r, sigma_r = _vetting_inputs(
@@ -307,10 +312,16 @@ def _vet_pair(
             )
         )
     secondary = combine_secondary_searches(retained_periods, results)
+    companion = check_companion_radius(
+        tic_id,
+        max(event_a["depth"], event_b["depth"]),
+        rad=catalog.get("stellar_rad"),
+    )
     return {
         "secondary": secondary,
         "contamination": catalog["contamination"],
         "cross_match": catalog["cross_match"],
+        "companion": companion,
     }
 
 
@@ -406,6 +417,7 @@ def triage_ranked_pairs(
             catalog_cache[system.tic_id] = {
                 "contamination": check_contamination(system.tic_id),
                 "cross_match": cross_match_toi(system.tic_id),
+                "stellar_rad": stellar_radius(system.tic_id),
             }
         vetting = _vet_pair(
             system.tic_id, pair["event_a"], pair["event_b"],
@@ -418,6 +430,7 @@ def triage_ranked_pairs(
             cross_match=vetting["cross_match"],
             contamination=vetting["contamination"],
             secondary=vetting["secondary"],
+            companion=vetting["companion"],
         )
         entry = {
             "system": name,
@@ -573,6 +586,8 @@ def _cross_epoch_pairs(
         for rid_b in new_side:
             if rid_a == rid_b:
                 continue
+            if rid_b < rid_a:
+                continue  # one direction only: scoring is fully symmetric
             rec_a, rec_b = records[rid_a], records[rid_b]
             if rec_a.sector == rec_b.sector:
                 continue
@@ -634,6 +649,7 @@ def render_discovery_report(results: dict[str, Any]) -> str:
         lines.append(
             f"  vetting: contamination {cand['vetting']['contamination']['status']}, "
             f"TOI {cand['vetting']['cross_match']['status']}, "
+            f"companion {cand['vetting']['companion']['status']}, "
             f"secondaries {cand['vetting']['secondary']['n_flagged']}; "
             f"manual: {', '.join(cand['promotion']['manual_checklist'][:2])} + "
             f"{len(cand['promotion']['manual_checklist']) - 2} more"

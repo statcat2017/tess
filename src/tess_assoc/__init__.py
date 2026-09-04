@@ -53,12 +53,14 @@ from tess_assoc.survey import (
     run_mining_survey,
 )
 from tess_assoc.vetting import (
+    check_companion_radius,
     check_contamination,
     combine_secondary_searches,
     cross_match_toi,
     cross_match_tois,
     promote_candidate,
     secondary_search,
+    stellar_radius,
 )
 from tess_assoc.replay import load_replay_manifest, replay_all
 
@@ -72,6 +74,7 @@ __all__ = [
     "build_benchmark",
     "build_survey_manifest",
     "bulk_fetch",
+    "check_companion_radius",
     "check_contamination",
     "check_manifest_bytes",
     "combine_secondary_searches",
@@ -110,6 +113,7 @@ __all__ = [
     "sectors_for_tic",
     "select_cohort",
     "spoc_ffi_uri",
+    "stellar_radius",
     "study_cell",
     "summarize_grid",
     "validate_no_temporal_leak",

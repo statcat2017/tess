@@ -16,9 +16,14 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-from tess_assoc.archive import cache_dir, spoc_ffi_uri
+from tess_assoc import protocol as _protocol
+from tess_assoc.archive import ArchiveUnavailable, cache_dir, spoc_ffi_uri
 
 _MAST_DOWNLOAD = "https://mast.stsci.edu/api/v0.1/Download/file"
+_SPOC_SCRIPT = (
+    "https://archive.stsci.edu/hlsps/tess-spoc/download_scripts/"
+    "hlsp_tess-spoc_tess_phot_s{sector:04d}_tess_v1_dl-lc.sh"
+)
 
 
 def direct_url(tic_id: int, sector: int) -> str:
@@ -72,6 +77,52 @@ def fetch_one(
     }
 
 
+def fetch_sector_script(sector: int, directory: str | None = None) -> str:
+    """Download a sector's LC bulk script (one HTTP fetch, cached on disk)."""
+    if int(sector) not in _protocol.ALL_KNOWN_SECTORS:
+        raise ValueError(f"unknown sector: {sector}")
+    directory = directory or cache_dir()
+    os.makedirs(directory, exist_ok=True)
+    local_path = os.path.join(directory, f"spoc_s{int(sector):04d}_dl-lc.sh")
+    if os.path.exists(local_path):
+        return local_path
+    request = urllib.request.Request(
+        _SPOC_SCRIPT.format(sector=int(sector)),
+        headers={"User-Agent": "tess-assoc/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            with open(local_path, "wb") as f:
+                f.write(response.read())
+    except Exception as e:
+        raise ArchiveUnavailable(f"sector script fetch failed: {e}") from e
+    return local_path
+
+
+def parse_sector_script(path: str) -> dict[int, str]:
+    """Script path -> {tic_id: dataURI} (pure parse, offline-testable)."""
+    import re
+
+    out: dict[int, str] = {}
+    pattern = re.compile(r"uri=(mast:[^'\"\s]+)")
+    tic_pattern = re.compile(r"tess_phot_(\d{16})-s\d+_")
+    with open(path) as f:
+        for line in f:
+            uri_match = pattern.search(line)
+            if not uri_match:
+                continue
+            tic_match = tic_pattern.search(uri_match.group(1))
+            if tic_match:
+                out[int(tic_match.group(1))] = uri_match.group(1)
+    return out
+
+
+def overlap_tics(script_a: str, script_b: str) -> list[int]:
+    """TICs present in both sector scripts (the duotransit search space)."""
+    in_a = parse_sector_script(script_a)
+    return sorted(set(in_a) & set(parse_sector_script(script_b)))
+
+
 def bulk_fetch(
     pairs: list[tuple[int, int]],
     directory: str | None = None,
@@ -100,4 +151,7 @@ __all__ = [
     "direct_url",
     "expected_filename",
     "fetch_one",
+    "fetch_sector_script",
+    "overlap_tics",
+    "parse_sector_script",
 ]

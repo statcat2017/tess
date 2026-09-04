@@ -10,6 +10,38 @@ from tess_assoc.archive import download_spoc_ffi, spoc_ffi_uri
 from tess_assoc.bulk import bulk_fetch, direct_url, expected_filename, fetch_one
 
 
+def test_parse_and_overlap_synthetic_scripts(tmp_path):
+    from tess_assoc.bulk import overlap_tics, parse_sector_script
+
+    def script(name, tics):
+        path = tmp_path / name
+        lines = [
+            "curl -f --output 'x' "
+            "'https://mast.stsci.edu/api/v0.1/Download/file/?uri=mast:HLSP/tess-spoc/"
+            f"s0030/target/0000/0000/0000/0001/hlsp_tess-spoc_tess_phot_{t:016d}-s0030_tess_v1_lc.fits'"
+            for t in tics
+        ]
+        path.write_text("\n".join(lines) + "\n# comment line without uri\n")
+        return str(path)
+
+    a = script("a.sh", [10, 20, 30])
+    b = script("b.sh", [20, 30, 40])
+    parsed = parse_sector_script(a)
+    assert sorted(parsed) == [10, 20, 30]
+    assert parsed[20].startswith("mast:HLSP/tess-spoc/")
+    assert overlap_tics(a, b) == [20, 30]
+
+
+@needs_archive
+def test_live_fetch_sector_script(tmp_path):
+    from tess_assoc.bulk import fetch_sector_script, parse_sector_script
+
+    path = fetch_sector_script(30, str(tmp_path))
+    parsed = parse_sector_script(path)
+    assert len(parsed) > 100_000
+    assert 42074448 in parsed
+
+
 def test_spoc_ffi_uri_pattern():
     assert spoc_ffi_uri(22529346, 33) == (
         "mast:HLSP/tess-spoc/s0033/target/0000/0000/2252/9346/"

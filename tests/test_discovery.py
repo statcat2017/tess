@@ -250,6 +250,29 @@ def test_contamination_and_toi_rules():
     assert MANUAL_CHECKLIST
 
 
+def test_companion_radius_blocks_stellar():
+    from tess_assoc.vetting import check_companion_radius
+
+    eb = check_companion_radius(1, 0.053, rad=1.64)
+    assert eb["status"] == "stellar"
+    assert eb["companion_r_sun"] == pytest.approx(0.378, abs=0.01)
+    planet = check_companion_radius(1, 0.01, rad=1.0)
+    assert planet["status"] == "planetary-range"
+    base = dict(
+        compatible=True, aliases_retained=3,
+        cross_match={"status": "clean"},
+        contamination={"status": "low"}, secondary={"n_flagged": 0},
+    )
+    assert promote_candidate(**base, companion=planet)["candidate"]
+    blocked = promote_candidate(**base, companion=eb)
+    assert not blocked["candidate"]
+    assert any("stellar" in r for r in blocked["reasons"])
+    unknown = promote_candidate(
+        **base, companion={"status": "unknown", "reason": "no radius"}
+    )
+    assert not unknown["candidate"]
+
+
 def test_promotion_requires_everything_clean():
     cross = {"status": "clean"}
     contam = {"status": "low"}

@@ -17,6 +17,7 @@ from tess_assoc.propose import dip_snr_at
 
 SECONDARY_SNR_THRESHOLD = 4.0
 CONTAMINATION_LIMIT = 0.1
+COMPANION_RADIUS_LIMIT_RSUN = 0.25
 
 MANUAL_CHECKLIST: tuple[str, ...] = (
     "centroid movement during event (pixel-level)",
@@ -185,6 +186,50 @@ def cross_match_toi(
     return {"status": "clean", "matches": [], "reason": None}
 
 
+def stellar_radius(tic_id: int) -> float | None:
+    """Stellar radius from the TIC catalog (None when unavailable)."""
+    from astroquery.mast import Catalogs
+
+    try:
+        return float(Catalogs.query_criteria(catalog="Tic", ID=tic_id)["rad"][0])
+    except Exception:
+        return None
+
+
+def check_companion_radius(
+    tic_id: int, depth: float, *, rad: float | None = None
+) -> dict[str, Any]:
+    """Companion-size lower bound from transit depth and stellar radius.
+
+    sqrt(depth) * R* lower-bounds the companion radius (central-transit
+    assumption; grazing or dilution only make the truth larger). Above
+    0.25 Rsun (~2.7 Rjup, beyond every confirmed planet) the pair cannot
+    be planetary around a single star — the typical EB interloper signature.
+    """
+    require_positive_finite("depth", depth)
+    if rad is None:
+        from astroquery.mast import Catalogs
+
+        try:
+            tab = Catalogs.query_criteria(catalog="Tic", ID=tic_id)
+            rad = float(tab["rad"][0])
+        except Exception as e:
+            return {"status": "unknown", "reason": f"TIC radius query failed: {e}"}
+    require_positive_finite("rad", rad)
+    companion = depth**0.5 * rad
+    stellar = companion > COMPANION_RADIUS_LIMIT_RSUN
+    return {
+        "status": "stellar" if stellar else "planetary-range",
+        "companion_r_sun": companion,
+        "stellar_r_sun": rad,
+        "limit_r_sun": COMPANION_RADIUS_LIMIT_RSUN,
+        "reason": (
+            f"companion >={companion:.2f} Rsun: stellar"
+            if stellar else None
+        ),
+    }
+
+
 def promote_candidate(
     *,
     compatible: bool,
@@ -192,6 +237,7 @@ def promote_candidate(
     cross_match: dict[str, Any],
     contamination: dict[str, Any],
     secondary: dict[str, Any],
+    companion: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Admission rule: clean on every automated check, or not a candidate."""
     reasons: list[str] = []
@@ -207,6 +253,14 @@ def promote_candidate(
         reasons.append(
             f"secondary eclipse at {secondary['n_flagged']} alias period(s)"
         )
+    if companion is not None and companion.get("status") != "planetary-range":
+        reasons.append(
+            f"companion radius: {companion.get('status')}"
+            + (
+                f" {companion['companion_r_sun']:.2f} Rsun"
+                if companion.get("companion_r_sun") is not None else ""
+            )
+        )
     return {
         "candidate": not reasons,
         "reasons": reasons,
@@ -215,13 +269,16 @@ def promote_candidate(
 
 
 __all__ = [
+    "COMPANION_RADIUS_LIMIT_RSUN",
     "CONTAMINATION_LIMIT",
     "MANUAL_CHECKLIST",
     "SECONDARY_SNR_THRESHOLD",
+    "check_companion_radius",
     "check_contamination",
     "combine_secondary_searches",
     "cross_match_toi",
     "cross_match_tois",
     "promote_candidate",
     "secondary_search",
+    "stellar_radius",
 ]
