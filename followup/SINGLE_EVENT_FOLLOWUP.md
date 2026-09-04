@@ -13,10 +13,20 @@ data, then resolve the Gaia neighbours with speckle imaging.
 | --- | ---: | ---: | --- | ---: | ---: |
 | 137801807 | 344.099834 | -20.279416 | BTJD 3204.41835 | 5.20% | 30.8 |
 | 117549174 | 0.142169 | -13.415334 | BTJD 3183.13348 | 3.18% | 11.7 |
+| 100099500 | 24.312488 | -44.602869 | BTJD 3188.41184 | 1.54% | 28.5 |
+| 166838450 | 40.012425 | -53.327746 | BTJD 3201.45719 | 0.47% | 7.8 |
+| 66435002 | 14.175759 | -30.878835 | BTJD 3188.44523 | 0.46% | 7.0 |
 
 Suggested facilities: SOAR/HRCam or Gemini South/Zorro. Request contrast curves
 that cover companions at 1--5 arcsec and report whether the TESS difference
 image is centred on the TIC source or a Gaia neighbour.
+
+Current pixel screening downgraded TIC 137801807 and TIC 100099500 because the
+target-centred apertures did not reproduce the light-curve dip. TIC 117549174
+has no quality-zero cadences during its event. TIC 166838450 is similarly
+aperture-inconsistent. TIC 66435002 reproduces a dip, but its measured depth
+changes from 4.68% in one pixel to 0.24% in 25 pixels. These are reasons for
+imaging, not evidence that any target is planetary.
 
 Coordination route: [ExoFOP-TESS](https://exofop.ipac.caltech.edu/tess/).
 
