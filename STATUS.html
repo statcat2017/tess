@@ -317,7 +317,7 @@
 
       <section class="page" id="page-phase8" role="tabpanel">
         <h2>Phase 8 · Hunting new worlds</h2>
-        <p>Sector 106 finished observing on Aug 9, 2026, but the archive holds <b>zero</b> Sector 106 telescope files — the newest recordings available anywhere are around sector 82. So the hunt runs on two tracks: the Sector 106 machine stands armed (pilot cohort picked, tripwire test fires when the files land), and <b>archive mining</b> hunts multi-epoch stars available today.</p>
+        <p>Sector 106 finished observing on Aug 9, 2026, but the archive holds <b>zero</b> Sector 106 telescope files — the newest confirmed SPOC recordings currently available are through Sector 85. So the hunt runs on two tracks: the Sector 106 machine stands armed (pilot cohort picked, tripwire test fires when the files land), and <b>archive mining</b> hunts multi-epoch stars available today.</p>
         <h3>First mining results (8 uncatalogued stars, 16 recordings)</h3>        <table>
           <tr><th>Measure</th><th>Result</th></tr>
           <tr><td>Validation</td><td class="num">Known planet TOI-190 re-detected across sectors 30 → 69 and correctly <b>excluded</b> as a known TOI — 8 pairs found, 0 promoted.</td></tr>
@@ -369,22 +369,24 @@
         </table>
         <p>The pipeline did its job — genuine repeat events, correctly linked across 3.5 years. Species identification failed at the automated layer (both primaries/secondaries sat below the frozen single-point secondary bar, and alias lists can't contain sub-27-day truths by design), and <b>a companion-radius check now closes that hole</b>: depth plus catalog stellar radius lower-bounds the companion, blocking anything over 0.25 R☉. Both EBs re-run as rejected (0.38, 0.71 R☉). Manual multi-epoch folding remains required — stated, not hidden.</p>
         <h3>Scaling up: bulk retrieval, 188 more stars</h3>
-        <p>Per-star archive queries were the bottleneck, so they were deleted: MAST file addresses are deterministic in (star, sector), letting the survey fetch whole footprint cones — 362 stars probed with 3 catalog queries, 668 files landed, 1,504 clean 404s, zero failures. A second run covered <b>188 multi-epoch stars</b> (46 pairs, 15 reviewed, 0 candidates), and the scale exposed two real bugs that fault isolation caught and tests now pin: zero-width coverage windows from isolated cadences, and close-pair alias crashes.</p>
-        <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>117 passed</b> with archive warnings only.</p>
+         <p>Per-star archive queries were the bottleneck, so they were deleted: MAST file addresses are deterministic in (star, sector), letting the survey fetch whole footprint cones — 362 stars probed with 3 catalog queries, 668 files landed, 1,504 clean 404s, zero failures. A second run covered <b>188 multi-epoch stars</b> (46 pairs, 15 reviewed, 0 candidates), and the scale exposed two real bugs that fault isolation caught and tests now pin: zero-width coverage windows from isolated cadences, and close-pair alias crashes.</p>
+         <h3>Targeted M-dwarf extension: 1,139 more stars, 0 surviving candidates</h3>
+         <p>A targeted search of the Sector 29 ↔ 69 overlap tested <b>264 faint dwarfs</b> (Tmag 13–16) and <b>449 brighter dwarfs</b> (Tmag 8–12.5, R★ &lt; 0.8 R☉). All <b>1,426 sector recordings</b> completed without archive failures. The faint slice produced 5 ranked pairs and no candidates; the brighter slice produced 32 ranked pairs, 7 reviewed, and no candidates. Two bright-star signals were rejected by the existing contamination, secondary-eclipse, and companion-radius checks as eclipsing-system impostors. Combined with the earlier M-dwarf run, the archive mining total is now <b>2,860 unique multi-epoch stars</b> and no planetary candidate remains after the CTOI/EB re-check.</p>
+         <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>117 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-findings" role="tabpanel">
-        <h2>Findings · Two binaries closed, one planet candidate open</h2>
-        <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into known binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — is a <b>planet candidate</b>: stated with the full arithmetic, the caveats, and what would confirm or kill it.</p>
+         <h2>Findings · Two binaries closed, one planet hypothesis refuted</h2>
+         <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into eclipsing binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — was a useful blind recovery, but its planet hypothesis is now <b>refuted</b> by an independent re-analysis recorded on ExoFOP.</p>
 
-        <h3>Finding 3 (candidate) · TIC 231279823 — P = 5.96848 d mini-Neptune candidate</h3>
+         <h3>Finding 3 (refuted candidate) · TIC 231279823 — P = 5.96848 d transit-like signal</h3>
         <table>
           <tr><th>Fact</th><th>Value</th></tr>
-          <tr><td>Star</td><td class="num">Tmag 8.7 · 0.46 R☉ · 3592 K M dwarf · contamination 0.003 · no TOI · no ASAS-SN · no Gaia EB</td></tr>
+           <tr><td>Star</td><td class="num">Tmag 8.7 · 0.46 R☉ · 3592 K M dwarf · contamination 0.003 · no TOI · CTOI 231279823.01 · no ASAS-SN · no Gaia EB</td></tr>
           <tr><td>Pipeline pair</td><td class="num">Sector 29 @ 2095.777 + Sector 69 @ 3199.943 (ΔT = 1104.2 d) · depth 0.0033/0.0041 · morph corr 0.91 · 40 aliases · clean on every automated check including companion radius (0.029 R☉ ≈ 3.2 R⊕)</td></tr>
-          <tr><td>Follow-up</td><td class="num"><b>13 events in 5 sectors</b> (2, 29, 30, 69 + one edge-skipped) fit T0 = 1355.67458, P = 5.96848 d with rms 16.7 min, cycles 0–309. A community CTOI (231279823.01) exists on this star — likely the same signal, pending ephemeris comparison.</td></tr>
+           <tr><td>Follow-up</td><td class="num"><b>13 events in 5 sectors</b> (2, 29, 30, 69 + one edge-skipped) fit T0 = 1355.67458, P = 5.96848 d with rms 16.7 min, cycles 0–309. The community CTOI reports P = 5.97607 d and the same signal family, making this a blind recovery rather than a new candidate.</td></tr>
           <tr><td>Depth puzzle</td><td class="num">Measured depths run 0.14% (sector 30) to 0.38% (sector 69): companion 2.0–3.0 R⊕. Variation unexplained — activity, systematics, or dilution; stated, not hidden.</td></tr>
-          <tr><td>Verdict</td><td><b>Planet candidate (mini-Neptune around an M dwarf), NOT confirmed.</b> Needs pixel centroid vetting + radial velocity. If the CTOI matches, this is an independent recovery with a 5-year ephemeris; if not, it may be new.</td></tr>
+           <tr><td>Verdict</td><td><b>Planet hypothesis refuted; likely blended background eclipsing binary.</b> The independent re-analysis recorded on ExoFOP supersedes the CTOI planet candidate. Pixel-level confirmation remains outside this codebase.</td></tr>
         </table>
         <h3>Resolution, one month before we looked (found on the CTOI page)</h3>
         <p>The community record for this star holds <b>CTOI 231279823.01</b> (ORION pipeline, Cloutier, June 2019): epoch 2458361.64103, P = 5.97607 d, duration 0.116 d, 1.83 R⊕ — close to ours (5.96848 d) but formally inconsistent at ~10σ, an open tension (TTVs? error budgets?). And in August 2026, an independent re-analysis concluded the signal is a <b>blended background eclipsing binary, not a transit</b> — which independently explains our depth scatter (dilution varies by sector aperture). Our candidate is therefore most likely <b>refuted as planetary</b>, pending pixel-level proof. The machine found the same real signal blind; the community record resolved its nature. That is the system working as designed, including the part where the answer is "not a planet".</p>
@@ -440,17 +442,17 @@
         <div class="panel"><p><b>To confirm either binary:</b> radial-velocity follow-up (expected semi-amplitudes of km/s, easily measurable) or pixel-level centroid vetting — both outside this codebase by design. What the project claims ends at <i>associated repeat events with measured depths, aliases, and vetting status</i>; species labels above are stated inferences with the arithmetic shown, not confirmations.</p></div>
       </section>
 
-      <section class="page" id="page-roadmap" role="tabpanel">
+       <section class="page" id="page-roadmap" role="tabpanel">
         <h2>Roadmap · what comes next</h2>
         <div class="grid2">
           <div class="card done"><b>✓ Learning matcher (#6)</b><br>Head-to-head learned and deterministic scoring with TIC-level holdouts and a written stop/go boundary.</div>
           <div class="card done"><b>✓ Injection drills (#7)</b><br>Plant fake blinks of different depths and shapes into real recordings and map detection versus association failures.</div>
           <div class="card done"><b>✓ Blind exam (#8)</b><br>Freeze everything, then grade on sealed sector 82: rules rank all 272 true pairs first, learned matcher trails.</div>
-          <div class="card next"><b>→ Hunt new worlds (#9)</b><br>336 stars mined, 0 candidates; bulk pipeline streams with resume — the run triggers wider, not just on Sector 106.</div>
+           <div class="card done"><b>✓ Hunt new worlds (#9)</b><br>2,860 unique multi-epoch stars mined across the completed cohorts; no planetary candidate survives catalog and EB vetting.</div>
         </div>
         <h3>Can't-do list (still true)</h3>
         <ul>
-          <li><b>No new planets yet</b> — 8 uncatalogued stars mined, 0 candidates; the hunt continues.</li>
+           <li><b>No new planets yet</b> — 2,860 unique multi-epoch stars mined; one blind recovery was later refuted as a blended eclipsing binary.</li>
           <li><b>No pixel-level vetting in code</b> — centroid, difference imaging, alternate reductions, and external photometry remain explicit manual steps per candidate.</li>
           <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
         </ul>
