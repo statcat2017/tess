@@ -30,6 +30,13 @@ CURVES = [
     "sector_wasp-121b_s7.svg",
     "sector_wasp-121b_s33.svg",
 ]
+MINING_CURVES = [
+    "sector_mining_toi190_s30.svg",
+    "sector_mining_toi190_s69.svg",
+    "sector_mining_quiet_42015014_s69.svg",
+    "sector_mining_noisy_42055368_s69.svg",
+    "sector_mining_injected_42015014_s69.svg",
+]
 
 
 @needs_archive
@@ -70,3 +77,10 @@ def test_demo_plots_regenerate():
         assert text.startswith("<svg")
         assert text.count("<polyline") == 1, name
         assert "<circle" in text and "<line" in text, name
+    for name in MINING_CURVES:
+        path = root / "assets" / name
+        assert path.exists(), name
+        text = path.read_text()
+        assert text.startswith("<svg")
+        assert text.count("<polyline") == 1, name
+        assert "<circle" in text, name  # legend dots; quiet curves carry no markers

@@ -354,7 +354,64 @@ def main() -> None:
         f"Blind recall: WASP-121 b ({blind['recall']['recalled']}/{blind['recall']['known']} known transits found, no period given)",
         lanes,
     )
+
+    _mining_figures()
     print("wrote assets/*.svg")
+
+
+def _mining_figures() -> None:
+    """Phase 8: TOI-190 validation redetection, quiet/noisy hunt curves."""
+    from tess_assoc.archive import download_spoc_ffi
+    from tess_assoc.extract import load_lightcurve, predicted_transits
+    from tess_assoc.inject import inject_transit
+    from tess_assoc.propose import detrend, propose_events
+
+    t0_190, period_190 = 2460982.967362, 10.0205932
+    for tic, sector, tag in (
+        (166739520, 30, "mining_toi190_s30"),
+        (166739520, 69, "mining_toi190_s69"),
+        (42015014, 69, "mining_quiet_42015014_s69"),
+        (42055368, 69, "mining_noisy_42055368_s69"),
+    ):
+        time, flux = load_lightcurve(download_spoc_ffi(tic, sector))
+        detrended, sigma = detrend(time, flux)
+        found = sorted(p.t0_guess for p in propose_events(time, flux))
+        if tic == 166739520:
+            known = predicted_transits(t0_190, period_190, time[0], time[-1])
+            sub = f"TOI-190.01 P=10.02d · {len(found)} proposals"
+        else:
+            known = []
+            sub = f"TIC {tic} · no known ephemeris · {len(found)} proposals"
+        missed = [
+            t for t in known
+            if not any(abs(t - f) <= 0.15 for f in found)
+        ]
+        _svg_sector_curve(
+            f"assets/sector_{tag}.svg",
+            f"Mining: TIC {tic} sector {sector} (detrended, sigma {sigma * 100:.3f}%)",
+            sub,
+            time,
+            detrended,
+            known,
+            found,
+            missed,
+        )
+
+    time, flux = load_lightcurve(download_spoc_ffi(42015014, 69))
+    t_inj = time[len(time) // 2]
+    mod = inject_transit(time, flux, t_inj, 0.01, 0.12, "box")
+    detrended, _ = detrend(time, mod)
+    found = sorted(p.t0_guess for p in propose_events(time, mod))
+    _svg_sector_curve(
+        "assets/sector_mining_injected_42015014_s69.svg",
+        "Mining sensitivity: planted 1% dip recovered blind",
+        f"TIC 42015014 s69 · {len(found)} proposal(s) near BTJD {t_inj:.2f}",
+        time,
+        detrended,
+        [],
+        [t for t in found if abs(t - t_inj) <= 0.15],
+        [],
+    )
 
 
 if __name__ == "__main__":
