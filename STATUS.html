@@ -118,7 +118,7 @@
           <div class="card done"><b>✓ Phase 5 · Learning</b><br>A small Siamese matcher now runs beside the deterministic baseline with TIC-level holdouts and an explicit stop/go decision.</div>
           <div class="card done"><b>✓ Phase 6 · Injection drills</b><br>Artificial blinks are recovered from real development light curves across depth, shape, and epoch-separation regimes.</div>
           <div class="card done"><b>✓ Phase 7 · Blind exam</b><br>Frozen code graded on sealed sector 82: KELT-9 anchor pair associated, rules rank every true pair first.</div>
-          <div class="card done"><b>✓ Phase 8 · New worlds</b><br>3,630 stars mined, 2 EBs caught and classified, 5 isolated events audited; no confirmed planets.</div>
+          <div class="card done"><b>✓ Phase 8 · New worlds</b><br>4,336 stars mined, 2 EBs caught and classified, 5 isolated events audited; no confirmed planets.</div>
           <div class="card next"><b>→ What's next</b><br>When Sector 106 lands: run the frozen code, vet the shortlist, report candidates — or the honest negative.</div>
         </div>
         <p>Status: <b>130 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
@@ -375,12 +375,14 @@
          </p>
          <h3>Alternate baseline: S3 ↔ S69 complementary cohort</h3>
          <p>A complementary sample of <b>770 bright non-giant targets</b> was tested across the approximately five-year S3 ↔ S69 baseline: 1,540 SPOC recordings, 1 ranked pair, and 3 isolated-event candidates. The cohort was selected deterministically from a different sector overlap and excluded previously mined TICs. It adds <b>770 unique stars</b> to the archive total, bringing cumulative mining to <b>3,630 unique multi-epoch stars</b>.</p>
+         <h3>Alternate baseline: S30 ↔ S69 complementary cohort</h3>
+         <p>A second non-overlapping sample of <b>706 bright non-giant targets</b> was tested across the approximately three-year S30 ↔ S69 baseline: <b>1,412 SPOC recordings</b>, 455 ranked pairs, 22 reviewed pair entries, and <b>0 pair or clean isolated-event candidates</b>. One isolated event was blocked as an ASAS-SN rotating variable with high contamination. The cohort adds <b>706 unique stars</b>, bringing cumulative mining to <b>4,336 unique multi-epoch stars</b>.</p>
          <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>130 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-findings" role="tabpanel">
          <h2>Findings · Two binaries closed, one hypothesis refuted, two isolated events queued</h2>
-         <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into eclipsing binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — was a useful blind recovery, but its planet hypothesis is now <b>refuted</b> by an independent re-analysis recorded on ExoFOP. Period-free passes over the mined cohorts have now produced five isolated events; all have received the available in-code audit, with none confirmed as planetary.</p>
+         <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into eclipsing binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — was a useful blind recovery, but its planet hypothesis is now <b>refuted</b> by an independent re-analysis recorded on ExoFOP. Period-free passes over the mined cohorts have now produced five isolated events; all have received the available in-code audit, with none confirmed as planetary. The latest S30 ↔ S69 cohort produced no additional clean candidate.</p>
 
          <h3>Finding 3 (refuted candidate) · TIC 231279823 — P = 5.96848 d transit-like signal</h3>
         <table>
@@ -482,11 +484,11 @@
           <div class="card done"><b>✓ Learning matcher (#6)</b><br>Head-to-head learned and deterministic scoring with TIC-level holdouts and a written stop/go boundary.</div>
           <div class="card done"><b>✓ Injection drills (#7)</b><br>Plant fake blinks of different depths and shapes into real recordings and map detection versus association failures.</div>
           <div class="card done"><b>✓ Blind exam (#8)</b><br>Freeze everything, then grade on sealed sector 82: rules rank all 272 true pairs first, learned matcher trails.</div>
-           <div class="card done"><b>✓ Hunt new worlds (#9)</b><br>3,630 unique multi-epoch stars mined; no repeating planetary candidate survives catalog and EB vetting, while five isolated events have completed in-code auditing.</div>
+           <div class="card done"><b>✓ Hunt new worlds (#9)</b><br>4,336 unique multi-epoch stars mined; no repeating planetary candidate survives catalog and EB vetting, while five isolated events have completed in-code auditing.</div>
         </div>
         <h3>Can't-do list (still true)</h3>
         <ul>
-           <li><b>No new planets yet</b> — 3,630 unique multi-epoch stars mined; one blind recovery was later refuted as a blended eclipsing binary and five isolated events remain unresolved.</li>
+           <li><b>No new planets yet</b> — 4,336 unique multi-epoch stars mined; one blind recovery was later refuted as a blended eclipsing binary and five isolated events remain unresolved.</li>
            <li><b>No high-resolution imaging or spectroscopy yet</b> — TESSCut difference/centroid checks are implemented, but speckle imaging, RVs, alternate reductions, and external photometry remain outstanding.</li>
           <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
         </ul>
