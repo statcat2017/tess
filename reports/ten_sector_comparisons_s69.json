@@ -1,0 +1,30 @@
+{
+  "cohort": "S1,S2,S4-S11 versus S69",
+  "purpose": "development-sector mining",
+  "targets_selected": 1169,
+  "recordings": 2328,
+  "downloaded": 2328,
+  "download_failures": 0,
+  "pair_candidates": 0,
+  "isolated_event_promotions_before_pixel_audit": 2,
+  "isolated_event_promotions_after_pixel_audit": 0,
+  "duplicate_tics_against_prior_manifests": 12,
+  "new_unique_tics": 1157,
+  "cumulative_unique_tics": 5745,
+  "comparisons": {
+    "S1-S69": {"targets": 120, "pairs_ranked": 0, "pair_reviewed": 0, "single_promoted": 0, "single_reviewed": 0},
+    "S2-S69": {"targets": 120, "pairs_ranked": 6, "pair_reviewed": 5, "single_promoted": 2, "single_reviewed": 1},
+    "S4-S69": {"targets": 120, "pairs_ranked": 81, "pair_reviewed": 5, "single_promoted": 0, "single_reviewed": 0},
+    "S5-S69": {"targets": 120, "pairs_ranked": 211, "pair_reviewed": 10, "single_promoted": 0, "single_reviewed": 1},
+    "S6-S69": {"targets": 120, "pairs_ranked": 4, "pair_reviewed": 4, "single_promoted": 0, "single_reviewed": 0},
+    "S7-S69": {"targets": 120, "pairs_ranked": 6, "pair_reviewed": 5, "single_promoted": 0, "single_reviewed": 0},
+    "S8-S69": {"targets": 120, "pairs_ranked": 0, "pair_reviewed": 0, "single_promoted": 0, "single_reviewed": 0},
+    "S9-S69": {"targets": 120, "pairs_ranked": 2, "pair_reviewed": 2, "single_promoted": 0, "single_reviewed": 0},
+    "S10-S69": {"targets": 105, "pairs_ranked": 0, "pair_reviewed": 0, "single_promoted": 0, "single_reviewed": 0},
+    "S11-S69": {"targets": 104, "pairs_ranked": 3, "pair_reviewed": 3, "single_promoted": 0, "single_reviewed": 1}
+  },
+  "pixel_audit": {
+    "TIC 9033200": "rejected: 1.78-pixel difference-centroid offset; target apertures max SNR 2.3 versus event SNR 30.2",
+    "TIC 5653383": "rejected: target-centred 1/9/25-pixel apertures all measured negative depths"
+  }
+}
