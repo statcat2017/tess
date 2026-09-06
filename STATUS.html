@@ -119,7 +119,7 @@
           <div class="card done"><b>✓ Phase 6 · Injection drills</b><br>Artificial blinks are recovered from real development light curves across depth, shape, and epoch-separation regimes.</div>
           <div class="card done"><b>✓ Phase 7 · Blind exam</b><br>Frozen code graded on sealed sector 82: KELT-9 anchor pair associated, rules rank every true pair first.</div>
           <div class="card done"><b>✓ Phase 8 · New worlds</b><br>6,945 stars mined, 2 EBs caught and classified, 10 isolated events audited; no confirmed planets.</div>
-          <div class="card next"><b>→ What's next</b><br>When Sector 106 lands: run the frozen code, vet the shortlist, report candidates — or the honest negative.</div>
+          <div class="card next"><b>→ What's next</b><br>Run Survey A on known planet hosts, then Survey B on eclipsing binaries; Sector 106 remains an independent frozen-code run when files land.</div>
         </div>
         <p>Status: <b>130 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
       </section>
@@ -433,7 +433,52 @@
             <tr><td class="num">S6 ↔ S33</td><td class="num">120</td><td class="num">110</td><td class="num">5</td><td class="num">1 blocked</td><td>Null</td></tr>
           </table>
           <p>TIC 29720146 failed pixel localisation: the difference centroid was 1.85 pixels from the target and all target-centred apertures measured negative depths. TIC 4742204 had a 1.58-pixel offset and target-aperture SNR below 0.6. TIC 29859244 had insufficient clean pixel data for a positive localisation. The batch adds <b>1,200 unique stars</b>, bringing the deduplicated archive total to <b>6,945 unique multi-epoch stars</b>.</p>
-         <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>130 passed</b> with archive warnings only.</p>
+          <h3>Where the next planets are most likely to be hiding</h3>
+          <p>The twenty comparison runs answer one question: can the frozen event-association machinery process sparse, multi-year TESS coverage without promoting the obvious catalogue and binary false positives? Yes. The next question is more important: <b>where should we spend the next unit of compute?</b> A random seven-million-star sweep is not the best answer. Standard BLS/TLS searches have already concentrated on clean, short-period, strictly periodic systems. Our advantage is different: find events first, then associate them even when the orbit is too long, the transit is isolated, or the timing is not strictly periodic.</p>
+          <table>
+            <tr><th>Priority</th><th>Target population</th><th>Approximate scale</th><th>Why this pipeline has an edge</th><th>Status</th></tr>
+            <tr><td class="num">1</td><td><b>Known planet hosts</b></td><td class="num">&lt; 10,000 stars</td><td>Mask known planets, then search every remaining sector for an isolated outer-planet transit or a long-baseline duotransit. The host prior is already favourable, and coplanarity improves the chance that another planet crosses the stellar disc.</td><td><b>Next survey</b></td></tr>
+            <tr><td class="num">2</td><td><b>Known eclipsing binaries</b></td><td class="num">4,584 initially; 20,000+ in newer catalogues</td><td>Circumbinary transits are not strictly periodic because the stars move around their barycentre. A periodic search can discard the exact timing pattern we need; event-first association can retain it.</td><td>High-value design</td></tr>
+            <tr><td class="num">3</td><td><b>K2 ↔ TESS overlap</b></td><td class="num">~30,000–50,000 overlap stars per relevant sector</td><td>A K2 event and a TESS event may be separated by 5–10 years. Neither mission alone supplies a useful period, but their event shapes and negative coverage can constrain a long-period orbit.</td><td>Data-integration track</td></tr>
+            <tr><td class="num">4</td><td><b>Sparse, repeat-observed TESS stars</b></td><td class="num">10<sup>5</sup>–10<sup>6</sup> before strong cuts</td><td>Stars observed in separated sectors, rather than continuously, are structurally hostile to ordinary periodograms and ideal for monotransit association.</td><td>Main blind survey later</td></tr>
+            <tr><td class="num">5</td><td><b>Young and active stars</b></td><td class="num">10,000–100,000</td><td>Spots, flares, rotation, and evolving variability break conventional detrending and periodic searches. A star-specific activity baseline could identify departures that a global transit search suppresses.</td><td>High reward, high false-positive rate</td></tr>
+            <tr><td class="num">6</td><td><b>Nearby faint K/M dwarfs</b></td><td class="num">Potentially 10<sup>5</sup> after cuts</td><td>Small stellar radii make the same planet produce a deeper transit. Restricting to nearby, clean, repeatedly observed dwarfs avoids repeating a generic faint-star sweep.</td><td>Targeted faint extension</td></tr>
+            <tr><td class="num">Side</td><td><b>Published single-transit candidates</b></td><td class="num">Hundreds to thousands</td><td>Search every later TESS sector for a second event. This may establish an orbit quickly, although it is candidate recovery rather than a first discovery.</td><td>Cheap calibration project</td></tr>
+          </table>
+          <h3>Survey A · Known planet systems and outer single transits</h3>
+          <p>This is the best probability-adjusted first search. Build a frozen list of confirmed planets and TESS project candidates, retrieve every available SPOC sector for their hosts, and mask the known transit windows and known stellar variability. Then run the period-free isolated-event path over the remaining light curves. The output is not “another search for the known planet”; it is a queue of events that cannot be explained by the published inner system.</p>
+          <p>The useful discovery unit is <b>known inner planet(s) + one or two isolated outer events</b>. A second event may provide a small set of discrete period aliases; negative observations in the intervening sectors then become evidence rather than empty space. The 2026 Hidden Gems reanalysis demonstrates that low-mass planets can remain hidden in already productive systems, while TOI-1422 and TOI-261 illustrate why an unexplained isolated event around a known host deserves targeted orbital follow-up. This project should search that exact gap rather than compete with another broad short-period catalogue.</p>
+          <h3>Survey B · Circumbinary planets</h3>
+          <p>Start with the 4,584-object TESS eclipsing-binary sample used by the recent <i>mono-cbp</i> search, then extend to newer catalogues containing roughly 20,000 or more systems. For each binary, model or mask the primary and secondary stellar eclipses, retain the binary ephemeris as a timing reference, and search the remaining cadences for transit-like events whose times are allowed to wander with the binary phase.</p>
+          <p>This is a deliberately different association problem. A circumbinary planet can transit one star, the other star, or both; the transit times are not evenly spaced; and a missed event can be geometrically meaningful. The pipeline should therefore rank event sequences by consistency with a circumbinary dynamical window, not reject them for failing a constant-period BLS model. Later TESS sectors omitted from uniform primary-mission searches are an obvious place to extend the baseline. One convincing system would be a high-value result even if the yield is much lower than Survey A.</p>
+          <h3>Survey C · K2 ↔ TESS event matching</h3>
+          <p>K2 supplies a long-baseline partner that TESS cannot manufacture. For the roughly 30,000–50,000 K2/TESS overlap stars in the relevant fields, construct mission-specific event records and compare morphology only after accounting for cadence, detrending, aperture, and passband differences. A K2 monotransit followed by a TESS monotransit five to ten years later is exactly the kind of evidence that a periodic search treats as unrelated.</p>
+          <p>This track requires new archive adapters and provenance rules before it is scientifically comparable with the SPOC-only runs. The acceptance bar should be stricter, not looser: reproduce the signal in the native mission light curves, test nearby sources, preserve both missions' negative coverage, and require an orbit or a small alias set before claiming a system.</p>
+          <h3>Survey D · High-value sparse TESS coverage</h3>
+          <p>The eventual blind survey should use a high-value target list rather than a random catalogue slice:</p>
+          <ul>
+            <li>Tmag &lt; 13.5, with a reliable Gaia solution and low contamination.</li>
+            <li>R★ &lt; 1.3 R☉, then a smaller-dwarf subqueue for deeper radius ratios.</li>
+            <li>At least three TESS sectors and a first-to-last baseline above 700 days.</li>
+            <li>Separated observations rather than continuous coverage, so the target is genuinely period-search disadvantaged.</li>
+            <li>No known planet, binary, or variable explanation unless the target is deliberately routed to Survey A or B.</li>
+          </ul>
+          <p>A pattern such as S4, S31, S58, and S85 is more valuable to this architecture than thirteen contiguous sectors. A 150-day planet might appear as one event in S4 and one event in S58, while S31 and S85 constrain which aliases are impossible. This is where the current event-first machinery should eventually operate at scale.</p>
+          <h3>Specialist queues · young stars, nearby faint dwarfs, and harvested candidates</h3>
+          <p>Young and active stars need an activity-aware baseline before they enter the normal queue. Learn each star's rotation, spot evolution, flare rate, and sector-specific systematics first; then search for departures. This is scientifically attractive, but the false-positive burden is high, so it follows Surveys A–C.</p>
+          <p>For faint stars, use a deliberate cut rather than “all Tmag 13.5–16”: nearby K/M dwarfs, distance &lt; 150 pc, R★ &lt; 0.7 R☉, at least three sectors, a multi-year baseline, good Gaia RUWE, and low contamination. Since transit depth scales as <b>δ ≈ (R<sub>p</sub>/R★)<sup>2</sup></b>, this makes the faint extension scientifically targeted rather than merely larger.</p>
+          <p>A cheap calibration queue should ingest published unresolved single-transit lists, including the 411-event T16 sample, the 73 strong Planet Hunters TESS events, and RAVEN's excluded single-transit signals. Retrieve all later TESS sectors and look for a second event. Establishing an orbit would be valuable even when the original event was not first discovered here, and the queue would exercise the same alias and negative-coverage logic needed by the blind surveys.</p>
+          <div class="panel"><p><b>Deliberate deprioritisation:</b> generic short-period systems, continuously observed CVZ stars, and an undifferentiated faint-star sweep are not the next move. They are scientifically useful validation populations, but they are where existing BLS/TLS and manual-vetting efforts are strongest. The project's comparative advantage is long baselines, sparse events, non-constant timing, and careful rejection of signals that are real but already explained.</p></div>
+          <h3>Recommended order of work</h3>
+          <ol>
+            <li><b>Survey A:</b> known planet hosts, masked known planets, all sectors, isolated and duotransit queue.</li>
+            <li><b>Survey B:</b> eclipsing binaries, binary-aware event windows, then later-sector extension.</li>
+            <li><b>Candidate harvesting:</b> establish a second event for published unresolved single-transit targets and validate the period-alias machinery.</li>
+            <li><b>Survey C:</b> add K2 light curves and run cross-mission event association with mission-specific controls.</li>
+            <li><b>Survey D:</b> scale the sparse, repeat-observed, clean small-star catalogue once the targeted queues have fixed the remaining false-positive modes.</li>
+          </ol>
+          <p class="caption">The objective is not the largest target count. It is the largest number of stars for which an unusual event would be both detectable and scientifically informative.</p>
+          <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>130 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-findings" role="tabpanel">
@@ -570,10 +615,12 @@
           <div class="card done"><b>✓ Injection drills (#7)</b><br>Plant fake blinks of different depths and shapes into real recordings and map detection versus association failures.</div>
           <div class="card done"><b>✓ Blind exam (#8)</b><br>Freeze everything, then grade on sealed sector 82: rules rank all 272 true pairs first, learned matcher trails.</div>
            <div class="card done"><b>✓ Hunt new worlds (#9)</b><br>6,945 unique multi-epoch stars mined; no repeating planetary candidate survives catalog and EB vetting, while ten isolated events have completed in-code auditing.</div>
+           <div class="card next"><b>→ Targeted planet search (#10)</b><br>Start with known planet hosts and outer single/duotransits; follow with circumbinaries, K2 ↔ TESS, then sparse high-value TESS coverage.</div>
         </div>
         <h3>Can't-do list (still true)</h3>
         <ul>
            <li><b>No new planets yet</b> — 6,945 unique multi-epoch stars mined; one blind recovery was later refuted as a blended eclipsing binary and ten isolated events remain unresolved.</li>
+           <li><b>Search strategy pivot</b> — the next surveys target known planet hosts, eclipsing binaries, cross-mission K2/TESS overlaps, and sparse multi-year coverage instead of another undifferentiated short-period sweep.</li>
            <li><b>No high-resolution imaging or spectroscopy yet</b> — TESSCut difference/centroid checks are implemented, but speckle imaging, RVs, alternate reductions, and external photometry remain outstanding.</li>
           <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
         </ul>
