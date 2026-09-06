@@ -296,7 +296,7 @@
         </table>
         <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region — and ranking metrics (AP, burden) beside threshold accuracy, so a model that learns only the base rate cannot hide behind a 1.00 accuracy.</p>
         <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
-        <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>130 passed</b> with two archive warnings.</p>
+         <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>138 passed</b> with two archive warnings.</p>
       </section>
 
       <section class="page" id="page-phase7" role="tabpanel">
@@ -312,7 +312,7 @@
           <tr><td>Exam verdict</td><td><b>PIVOT</b> on 272 sealed positives: the deterministic baseline remains the supported path.</td></tr>
         </table>
         <div class="panel"><p><b>Why this counts as blind:</b> normal code paths still refuse sealed sectors; the sealed run carries its freeze hash, creation and unblinding timestamps, and an access-log entry. Thresholds are byte-identical before and after. No weight, rule, or threshold changed post-unblinding.</p></div>
-        <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>130 passed</b> with two archive warnings.</p>
+         <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>138 passed</b> with two archive warnings.</p>
       </section>
 
       <section class="page" id="page-phase8" role="tabpanel">
@@ -478,7 +478,19 @@
             <li><b>Survey D:</b> scale the sparse, repeat-observed, clean small-star catalogue once the targeted queues have fixed the remaining false-positive modes.</li>
           </ol>
           <p class="caption">The objective is not the largest target count. It is the largest number of stars for which an unusual event would be both detectable and scientifically informative.</p>
-          <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>130 passed</b> with archive warnings only.</p>
+          <h3>Survey A pilot · known planet hosts, known transits masked</h3>
+          <p>The first targeted implementation is now running. A live NASA Exoplanet Archive query returned <b>9,453 deduplicated transit-capable planet records across 8,104 hosts</b>; <b>4,943 hosts</b> have at least two development-sector SPOC recordings. The bounded pilot uses the first 500 hosts in deterministic TIC order, covering <b>2,317 recordings</b> across Sectors 1–79.</p>
+          <table>
+            <tr><th>Measure</th><th>Survey A pilot result</th></tr>
+            <tr><td>Known-planet source</td><td>Confirmed transiting planets from <i>pscomppars</i> plus TOI dispositions CP/PC, merged by host and ephemeris.</td></tr>
+            <tr><td>Known transit masks</td><td><b>17,073</b> transit windows removed before blind event finding across all 500 hosts; mask centers and widths are preserved per host and sector.</td></tr>
+            <tr><td>Archive retrieval</td><td>2,317 of 2,317 recordings downloaded; 0 missing and 0 failed.</td></tr>
+            <tr><td>Blind pair search</td><td>21,384 cross-sector pairs ranked; top 20 reviewed; <b>0 new repeating candidates</b>.</td></tr>
+            <tr><td>Isolated-event queue</td><td>0 promoted; 8 reviewed and blocked by known TOI, contamination, variable-star, or companion-radius checks.</td></tr>
+            <tr><td>Interpretation</td><td>A null from this bounded pilot is not a null for all known hosts. It verifies the masking and fault-isolated execution path; the full 4,943-host development cohort remains the next scale step.</td></tr>
+          </table>
+          <p>The implementation lives in <a href="tools/run_host_search.py"><code>tools/run_host_search.py</code></a>. Its manifest records every host's known planet ephemerides, and its blind replay removes a conservative 1.5-duration window around each known transit before proposing additional events. This prevents the already-known planet from dominating the search while retaining the host's other sectors as negative coverage for possible outer-planet aliases.</p>
+          <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>138 passed</b> with archive warnings only.</p>
       </section>
 
       <section class="page" id="page-findings" role="tabpanel">
@@ -624,7 +636,7 @@
            <li><b>No high-resolution imaging or spectroscopy yet</b> — TESSCut difference/centroid checks are implemented, but speckle imaging, RVs, alternate reductions, and external photometry remain outstanding.</li>
           <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
         </ul>
-        <pre>python3 -m pytest -q            # 130 passed
+         <pre>python3 -m pytest -q            # 138 passed
 PYTHONPATH=src python3 -c "
 from tess_assoc.pipeline import run_tracer, render_report
 from tess_assoc.manifest import load_manifest_file

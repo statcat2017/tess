@@ -28,6 +28,7 @@ from tess_assoc._validate import (
 from tess_assoc.archive import ArchiveUnavailable
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import load_lightcurve, predicted_transits
+from tess_assoc.hosts import KnownPlanet
 from tess_assoc.matcher import REQUIRED_THRESHOLDS, match, match_score
 from tess_assoc.propose import propose_with_detail
 from tess_assoc.pipeline import run_frozen_records
@@ -54,7 +55,7 @@ def _allowed_sectors() -> frozenset[int]:
 
 @dataclass(frozen=True)
 class DiscoverySystem:
-    """Cohort target: early sectors plus Sector 106 (never sealed)."""
+    """Cohort target: development sectors plus optional known host planets."""
 
     name: str
     tic_id: int
@@ -63,6 +64,7 @@ class DiscoverySystem:
     duration_hours: float | None = None
     sectors: tuple[int, ...] = ()
     toi: str = ""
+    known_planets: tuple[KnownPlanet, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
@@ -85,7 +87,20 @@ class DiscoverySystem:
                 )
         if not isinstance(self.toi, str):
             raise ValueError("toi must be a str")
+        if not isinstance(self.known_planets, (list, tuple)):
+            raise ValueError("known_planets must be a list/tuple")
+        known_planets = []
+        for planet in self.known_planets:
+            typed = (
+                planet
+                if isinstance(planet, KnownPlanet)
+                else KnownPlanet.from_host_dict(self.tic_id, planet)
+            )
+            if typed.tic_id != self.tic_id:
+                raise ValueError("known planet TIC does not match host TIC")
+            known_planets.append(typed)
         object.__setattr__(self, "sectors", tuple(self.sectors))
+        object.__setattr__(self, "known_planets", tuple(known_planets))
 
 
 @dataclass(frozen=True)
@@ -157,6 +172,7 @@ def _parse_discovery_manifest(d: dict[str, Any]) -> DiscoveryManifest:
             duration_hours=s.get("duration_hours"),
             sectors=tuple(s["sectors"]),
             toi=s.get("toi", ""),
+            known_planets=tuple(s.get("known_planets", ())),
         )
         for s in d["systems"]
     ]
@@ -255,7 +271,10 @@ def select_cohort(
 
 
 def _vetting_inputs(
-    products: list[dict[str, Any]], tic_id: int, sector: int
+    products: list[dict[str, Any]],
+    tic_id: int,
+    sector: int,
+    excluded_windows: list[tuple[float, float]] | None = None,
 ) -> tuple[list[float], list[float], list[float], float | None]:
     """Reload cached sector curve + detrending for secondary search."""
     from tess_assoc.archive import ArchiveProduct
@@ -272,6 +291,15 @@ def _vetting_inputs(
         cached=True,
     )
     time, flux = load_lightcurve(product)
+    if excluded_windows:
+        keep = [
+            i for i, t in enumerate(time)
+            if not any(start <= t <= end for start, end in excluded_windows)
+        ]
+        time = [time[i] for i in keep]
+        flux = [flux[i] for i in keep]
+    if not time:
+        return [], [], [], None
     _, detrended, sigma = propose_with_detail(time, flux)
     return time, flux, detrended, sigma
 
@@ -284,6 +312,7 @@ def _vet_pair(
     products: list[dict[str, Any]],
     half_span_days: float,
     catalog: dict[str, Any] | None = None,
+    known_transit_masks: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Automated vetting for one ranked pair (catalog queries are live).
 
@@ -308,8 +337,18 @@ def _vet_pair(
         catalog["ctoi"] = cross_match_ctoi(tic_id)
     results: list[dict[str, Any]] = []
     for event in (event_a, event_b):
+        mask_map = known_transit_masks or {}
+        masks = mask_map.get(
+            event["sector"], mask_map.get(str(event["sector"]), [])
+        )
         time_r, _, detrended_r, sigma_r = _vetting_inputs(
-            products, tic_id, event["sector"]
+            products,
+            tic_id,
+            event["sector"],
+            excluded_windows=[
+                (m["t0"] - m["half_width_days"], m["t0"] + m["half_width_days"])
+                for m in masks
+            ],
         )
         if not time_r or not sigma_r:
             continue
@@ -361,6 +400,7 @@ def harvest_system(
             },
             "blind_result": None,
             "pairs": [],
+            "known_transit_masks": {},
         }
     records = _records_of(res)
     windows = {
@@ -379,8 +419,10 @@ def harvest_system(
             "pair_outcome": res["pair_outcome"],
             "n_cross_pairs": len(pairs),
             "n_single_events": len(records),
+            "known_transit_masks": res.get("known_transit_masks", {}),
         },
         "blind_result": res,
+        "known_transit_masks": res.get("known_transit_masks", {}),
         "products": res["products"],
         "pairs": pairs,
         "events": [
@@ -441,6 +483,7 @@ def triage_ranked_pairs(
             system.tic_id, pair["event_a"], pair["event_b"],
             pair["retained_periods"], blind_products, half_span,
             catalog=catalog_cache[system.tic_id],
+            known_transit_masks=harvests[name].get("known_transit_masks", {}),
         )
         promotion = promote_candidate(
             compatible=pair["compatible"],

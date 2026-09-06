@@ -125,7 +125,9 @@ def refine_epoch(
 
 
 def coverage_windows(
-    time: list[float], max_gap_days: float = 0.5
+    time: list[float],
+    max_gap_days: float = 0.5,
+    excluded_windows: list[tuple[float, float]] | None = None,
 ) -> list[tuple[float, float]]:
     """Contiguous observed spans; splits on gaps (real window function).
 
@@ -145,6 +147,21 @@ def coverage_windows(
         prev = t
     if prev > start:
         spans.append((start, prev))
+    if not excluded_windows:
+        return spans
+    for excluded_start, excluded_end in sorted(excluded_windows):
+        if excluded_end <= excluded_start:
+            raise ValueError("excluded window end must be after start")
+        remainder: list[tuple[float, float]] = []
+        for start, end in spans:
+            if excluded_end <= start or excluded_start >= end:
+                remainder.append((start, end))
+                continue
+            if start < excluded_start:
+                remainder.append((start, min(end, excluded_start)))
+            if excluded_end < end:
+                remainder.append((max(start, excluded_end), end))
+        spans = [(start, end) for start, end in remainder if end > start]
     return spans
 
 

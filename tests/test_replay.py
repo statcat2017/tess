@@ -34,6 +34,13 @@ def test_coverage_windows_split_on_gaps():
     assert coverage_windows([7.0]) == []
 
 
+def test_coverage_windows_split_on_known_transit_masks():
+    assert coverage_windows(
+        [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+        excluded_windows=[(0.2, 0.3)],
+    ) == [(0.0, 0.2), (0.3, 0.5)]
+
+
 def test_cache_dir_outside_repo_and_env_override(tmp_path):
     assert not os.path.realpath(cache_dir()).startswith(os.path.realpath(REPO_ROOT))
     os.environ["TESS_ASSOC_CACHE"] = str(tmp_path)

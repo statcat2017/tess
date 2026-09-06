@@ -1,0 +1,30 @@
+{
+  "survey": "A: known planet hosts for additional outer events",
+  "sectors": "1-79 development sectors",
+  "known_planet_records": 9453,
+  "catalogue_queried_utc": "2026-09-06T14:07:18.713799+00:00",
+  "catalogue_sources": [
+    "NASA Exoplanet Archive pscomppars",
+    "NASA Exoplanet Archive TOI"
+  ],
+  "runner_sha256": "21b73d8c2fc6ea74f38bbde90d8cc22e7c63d16bad269f3ac01153475aba3012",
+  "freeze_code_sha": "2b77040b700d71b526c16fa42ae47783644e5d2655a79c66180dedc7806ca29f",
+  "manifest_sha256": "b77ca6fd3bd45dd88a6369528858c54d670ae9e46b9f8049dcb4d208510ccad3",
+  "known_hosts_available": 8104,
+  "hosts_with_at_least_two_sectors": 4943,
+  "pilot_hosts": 500,
+  "recordings": 2317,
+  "downloaded": 2317,
+  "missing": 0,
+  "failed": 0,
+  "known_transit_windows_masked": 17073,
+  "pairs_ranked": 21384,
+  "pair_candidates": 0,
+  "pair_reviewed": 20,
+  "single_candidates": 0,
+  "single_reviewed": 8,
+  "status": "complete",
+  "interpretation": "No new outer-planet candidate survived the bounded pilot. The full development-host cohort remains to be run.",
+  "manifest": "/tmp/known_host_survey_v5/manifest.json",
+  "freeze": "/tmp/known_host_survey_v5/freeze.json"
+}

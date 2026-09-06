@@ -9,6 +9,8 @@ plus skipped-transit and provenance summaries on top of base results.
 from __future__ import annotations
 
 import json
+import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 from dataclasses import fields as _dc_fields
 from typing import Any
@@ -45,6 +47,7 @@ from tess_assoc.propose import (
 
 
 RECALL_TOL_DAYS = 0.15
+KNOWN_TRANSIT_MASK_FACTOR = 1.5
 
 MISS_REASONS: tuple[str, ...] = (
     "proposed-unmeasurable",
@@ -52,6 +55,67 @@ MISS_REASONS: tuple[str, ...] = (
     "fragmented by flagged cadences",
     "below-threshold",
 )
+
+
+def mask_known_transits(
+    time: list[float],
+    flux: list[float],
+    known_planets: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    *,
+    mask_factor: float = KNOWN_TRANSIT_MASK_FACTOR,
+) -> tuple[list[float], list[float], list[dict[str, Any]]]:
+    """Remove cadences around known transits before blind event finding.
+
+    Known transit windows are treated as deliberately unsearchable, not as
+    negative evidence against an outer planet. The returned metadata records
+    the masked centers and half-widths for auditability.
+    """
+    require_positive_finite("mask_factor", mask_factor)
+    if len(time) != len(flux):
+        raise ValueError("time and flux must have equal length")
+    if not time:
+        return [], [], []
+    masks: list[dict[str, Any]] = []
+    for raw_planet in known_planets:
+        planet = (
+            raw_planet.to_dict()
+            if hasattr(raw_planet, "to_dict")
+            else raw_planet
+        )
+        if not isinstance(planet, Mapping):
+            raise ValueError("known planet must be a mapping or KnownPlanet")
+        for key in ("period_days", "t0_bjd_tdb", "duration_days"):
+            if key not in planet:
+                raise ValueError(f"known planet missing key: {key}")
+        try:
+            duration = float(planet["duration_days"])
+            t0_bjd_tdb = float(planet["t0_bjd_tdb"])
+            period_days = float(planet["period_days"])
+        except (TypeError, ValueError) as e:
+            raise ValueError("known planet numeric fields must be finite numbers") from e
+        if not all(map(math.isfinite, (duration, t0_bjd_tdb, period_days))):
+            raise ValueError("known planet numeric fields must be finite numbers")
+        if duration <= 0 or period_days <= 0:
+            raise ValueError("known planet duration and period must be positive")
+        half_width = max(duration * mask_factor / 2.0, 0.05)
+        for center in predicted_transits(
+            t0_bjd_tdb,
+            period_days,
+            time[0],
+            time[-1],
+        ):
+            masks.append(
+                {
+                    "name": str(planet.get("name", "known planet")),
+                    "t0": center,
+                    "half_width_days": half_width,
+                }
+            )
+    kept = [
+        i for i, t in enumerate(time)
+        if not any(abs(t - mask["t0"]) <= mask["half_width_days"] for mask in masks)
+    ]
+    return [time[i] for i in kept], [flux[i] for i in kept], masks
 
 
 @dataclass(frozen=True)
@@ -312,12 +376,21 @@ def replay_blind_system(
     anchor_times: list[float] = []
     sector_curves: dict[int, tuple[list[float], list[float], float]] = {}
     sector_proposals: dict[int, list[Proposal]] = {}
+    known_masks: dict[int, list[dict[str, Any]]] = {}
     for sector in system.sectors:
         product = download_spoc_ffi(system.tic_id, sector, cache_dir)
         products.append(_product_record(sector, product))
         time, flux = load_lightcurve(product)
         if not time:
             raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
+        time, flux, masks = mask_known_transits(
+            time, flux, getattr(system, "known_planets", ())
+        )
+        known_masks[sector] = masks
+        if not time:
+            raise ArchiveUnavailable(
+                f"known-transit masks removed all good cadences in {product.local_path}"
+            )
         if system.t0_bjd_tdb is None or system.period_days is None:
             sector_known = []
         else:
@@ -352,7 +425,18 @@ def replay_blind_system(
             for s in skipped_here
         )
         manifest_sectors.append(
-            ManifestSector(sector=sector, windows=tuple(coverage_windows(time)))
+            ManifestSector(
+                sector=sector,
+                windows=tuple(
+                    coverage_windows(
+                        time,
+                        excluded_windows=[
+                            (m["t0"] - m["half_width_days"], m["t0"] + m["half_width_days"])
+                            for m in masks
+                        ],
+                    )
+                ),
+            )
         )
 
     manifest_events = [
@@ -442,6 +526,7 @@ def replay_blind_system(
                 else 0.0,
             },
             "missed": missed,
+            "known_transit_masks": known_masks,
             "ephemeris_source": replay.ephemeris_source,
         },
     )
@@ -455,6 +540,7 @@ def replay_blind_system(
 
 __all__ = [
     "classify_pair",
+    "mask_known_transits",
     "load_replay_manifest",
     "replay_all",
     "replay_blind_system",

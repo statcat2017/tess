@@ -47,6 +47,14 @@ from tess_assoc.holdout import (
     render_holdout_report,
     run_holdout,
 )
+from tess_assoc.hosts import (
+    KnownPlanet,
+    deduplicate_planets,
+    parse_confirmed_rows,
+    parse_toi_rows,
+    query_known_planets,
+    select_known_host_targets,
+)
 from tess_assoc.inject import (
     inject_transit,
     learned_comparison,
@@ -88,7 +96,7 @@ from tess_assoc.vetting import (
     stellar_radius,
     tic_coords,
 )
-from tess_assoc.replay import load_replay_manifest, replay_all
+from tess_assoc.replay import load_replay_manifest, mask_known_transits, replay_all
 
 __all__ = [
     "EventRecord",
@@ -130,7 +138,9 @@ __all__ = [
     "load_discovery_manifest",
     "load_holdout_manifest",
     "load_replay_manifest",
+    "KnownPlanet",
     "mark_unblinded",
+    "mask_known_transits",
     "measure_centroid",
     "measure_event_shape",
     "measure_flux_channel",
@@ -144,6 +154,10 @@ __all__ = [
     "render_single_event_audit",
     "render_pixel_audit_html",
     "rank_single_transits",
+    "deduplicate_planets",
+    "parse_confirmed_rows",
+    "parse_toi_rows",
+    "query_known_planets",
     "replay_all",
     "resolve_coverage",
     "run_comparison",
@@ -156,6 +170,7 @@ __all__ = [
     "secondary_search",
     "sectors_for_tic",
     "select_cohort",
+    "select_known_host_targets",
     "spoc_ffi_uri",
     "stellar_radius",
     "tic_coords",

@@ -251,7 +251,8 @@ def stellar_radius(tic_id: int) -> float | None:
     from astroquery.mast import Catalogs
 
     try:
-        return float(Catalogs.query_criteria(catalog="Tic", ID=tic_id)["rad"][0])
+        radius = float(Catalogs.query_criteria(catalog="Tic", ID=tic_id)["rad"][0])
+        return radius if math.isfinite(radius) and radius > 0 else None
     except Exception:
         return None
 
@@ -358,7 +359,8 @@ def check_companion_radius(
             rad = float(tab["rad"][0])
         except Exception as e:
             return {"status": "unknown", "reason": f"TIC radius query failed: {e}"}
-    require_positive_finite("rad", rad)
+    if not math.isfinite(rad) or rad <= 0:
+        return {"status": "unknown", "reason": "TIC stellar radius unavailable"}
     companion = depth**0.5 * rad
     stellar = companion > COMPANION_RADIUS_LIMIT_RSUN
     return {

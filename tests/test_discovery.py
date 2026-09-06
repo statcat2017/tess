@@ -63,6 +63,20 @@ def test_discovery_structs_reject_sealed_but_allow_106():
         DiscoverySystem(name="x", tic_id=1, sectors=[80])
     ok = DiscoverySystem(name="x", tic_id=1, sectors=[12, 106])
     assert ok.sectors == (12, 106)
+    host = DiscoverySystem(
+        name="host",
+        tic_id=2,
+        sectors=[12],
+        known_planets=[
+            {
+                "name": "host b",
+                "period_days": 5.0,
+                "t0_bjd_tdb": 2458000.0,
+                "duration_days": 0.1,
+            }
+        ],
+    )
+    assert host.known_planets[0].name == "host b"
     with pytest.raises(ValueError, match="non-empty list"):
         DiscoveryManifest(
             name="x", product="TESS-SPOC FFI", ephemeris_source="e",
@@ -307,6 +321,16 @@ def test_companion_radius_blocks_stellar():
         **base, companion={"status": "unknown", "reason": "no radius"}
     )
     assert not unknown["candidate"]
+
+
+def test_companion_radius_treats_nonfinite_radius_as_unknown():
+    from tess_assoc.vetting import check_companion_radius
+
+    unknown = check_companion_radius(1, 0.01, rad=float("nan"))
+    assert unknown == {
+        "status": "unknown",
+        "reason": "TIC stellar radius unavailable",
+    }
 
 
 def test_variables_gate_promotion():

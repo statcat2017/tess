@@ -103,6 +103,8 @@ def build_survey_manifest(
         for key in ("toi", "period_days", "t0_bjd_tdb", "duration_hours"):
             if target.get(key) is not None:
                 system[key] = target[key]
+        if target.get("known_planets") is not None:
+            system["known_planets"] = [dict(p) for p in target["known_planets"]]
         systems.append(system)
     if not systems:
         raise ValueError("survey needs at least one target system")
@@ -186,6 +188,7 @@ def run_mining_survey(
             "pairs": entry.get("pairs", []),
             "events": entry.get("events", []),
             "windows": entry.get("windows", []),
+            "known_transit_masks": entry.get("known_transit_masks", {}),
         }
         for name, entry in done.items()
     }
@@ -217,6 +220,7 @@ def run_mining_survey(
             "pairs": harvest["pairs"],
             "events": harvest.get("events", []),
             "windows": harvest.get("windows", []),
+            "known_transit_masks": harvest.get("known_transit_masks", {}),
         }
         return system.name, thin
 
