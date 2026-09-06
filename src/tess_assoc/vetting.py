@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from tess_assoc._validate import require_finite, require_positive_finite
+from tess_assoc._validate import is_finite_number, require_finite, require_positive_finite
 from tess_assoc.propose import dip_snr_at
 
 SECONDARY_SNR_THRESHOLD = 4.0
@@ -115,7 +115,11 @@ def check_contamination(
             contratio = float(tab["contratio"][0])
         except Exception as e:
             return {"status": "unknown", "reason": f"TIC query failed: {e}"}
-    require_finite("contratio", contratio)
+    if not is_finite_number(contratio):
+        return {
+            "status": "unknown",
+            "reason": "TIC contamination ratio is non-finite",
+        }
     return {
         "status": "high" if contratio > CONTAMINATION_LIMIT else "low",
         "contratio": contratio,

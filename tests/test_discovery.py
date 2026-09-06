@@ -293,6 +293,11 @@ def test_contamination_and_toi_rules():
     assert low["status"] == "low"
     high = check_contamination(1, contratio=0.5)
     assert high["status"] == "high" and "pixel" in high["reason"]
+    unknown = check_contamination(1, contratio=float("nan"))
+    assert unknown == {
+        "status": "unknown",
+        "reason": "TIC contamination ratio is non-finite",
+    }
     clean = cross_match_toi(1, toi_rows=[])
     assert clean["status"] == "clean"
     known = cross_match_toi(1, toi_rows=[{"toi": "1.01", "disposition": "KP"}])

@@ -1,0 +1,26 @@
+{
+  "survey": "A: known planet hosts for additional outer events",
+  "sectors": "1-79 development sectors",
+  "known_planet_records_queried": 9453,
+  "target_known_planet_records": 5964,
+  "catalogue_sources": [
+    "NASA Exoplanet Archive pscomppars",
+    "NASA Exoplanet Archive TOI"
+  ],
+  "runner_sha256": "21b73d8c2fc6ea74f38bbde90d8cc22e7c63d16bad269f3ac01153475aba3012",
+  "freeze_code_sha": "c5d686adbaa788ee12274561239ddb8b6c69e5fe7cefb773205d1139b29ea0a8",
+  "manifest_sha256": "7816a726fcc2e925a2e9c2d5fed697ec4c6dc4b519d231aabef623bf393e7c",
+  "known_hosts_available": 8104,
+  "hosts_with_at_least_two_sectors": 4943,
+  "hosts_processed": 4943,
+  "recordings": 30139,
+  "download_failures": 0,
+  "failed_systems": 0,
+  "status": "complete",
+  "pairs_ranked": 35936,
+  "pair_candidates": 0,
+  "pair_reviewed": 20,
+  "single_candidates": 0,
+  "single_reviewed": 20,
+  "interpretation": "No new outer-planet candidate survived the full Survey A known-host cohort. No isolated event was promoted for follow-up."
+}
