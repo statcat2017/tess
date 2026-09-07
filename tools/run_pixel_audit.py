@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 from tess_assoc.pixel_audit import (
@@ -66,9 +67,44 @@ CASES = (
 )
 
 
+def _gaia_neighbours(ra_deg: float, dec_deg: float) -> list[dict]:
+    """Return nearby Gaia sources suitable for comparison apertures."""
+    from astroquery.gaia import Gaia
+
+    query = (
+        "SELECT TOP 50 source_id,ra,dec,phot_g_mean_mag,parallax "
+        "FROM gaiadr3.gaia_source WHERE 1=CONTAINS(POINT('ICRS',ra,dec), "
+        f"CIRCLE('ICRS',{ra_deg},{dec_deg},60/3600.0))"
+    )
+    rows = Gaia.launch_job(query).get_results()
+    cos_dec = math.cos(math.radians(dec_deg))
+    neighbours = []
+    for row in rows:
+        ra = float(row["ra"])
+        dec = float(row["dec"])
+        separation = math.hypot((ra - ra_deg) * cos_dec, dec - dec_deg) * 3600.0
+        if separation < 0.5 or separation > 10.0:
+            continue
+        g_mag = float(row["phot_g_mean_mag"])
+        if not math.isfinite(g_mag):
+            continue
+        neighbours.append(
+            {
+                "source_id": int(row["source_id"]),
+                "ra_deg": ra,
+                "dec_deg": dec,
+                "separation_arcsec": separation,
+                "g_mag": g_mag,
+                "parallax_mas": float(row["parallax"]),
+            }
+        )
+    return sorted(neighbours, key=lambda row: row["separation_arcsec"])[:3]
+
+
 def main() -> None:
     reports = []
     for event in CASES:
+        neighbours = _gaia_neighbours(event["ra_deg"], event["dec_deg"])
         path = download_tesscut(
             event["ra_deg"],
             event["dec_deg"],
@@ -88,7 +124,12 @@ def main() -> None:
                     sector=event["sector"],
                     t0=event["t0"],
                     duration_days=event["duration_days"],
+                    comparison_positions={
+                        f"gaia-neighbour-{index}": (row["ra_deg"], row["dec_deg"])
+                        for index, row in enumerate(neighbours, start=1)
+                    },
                 ),
+                "gaia_neighbours": neighbours,
             }
         )
     output = Path("reports")

@@ -6,7 +6,7 @@ import math
 import statistics
 from html import escape
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from tess_assoc.audit import measure_flux_channel
 from tess_assoc._validate import require_finite, require_positive_finite
@@ -147,8 +147,9 @@ def audit_tesscut_file(
     t0: float,
     duration_days: float,
     half_span_days: float = 0.6,
+    comparison_positions: Mapping[str, tuple[float, float]] | None = None,
 ) -> dict[str, Any]:
-    """Run difference-image and aperture checks on a MAST TESSCut FITS file."""
+    """Run target and comparison-position aperture checks on a TESSCut file."""
     try:
         import numpy as np
         from astropy.io import fits
@@ -174,15 +175,106 @@ def audit_tesscut_file(
         "target_pixel": list(target_pixel),
         "difference": difference,
     }
+    result["apertures"] = aperture_depths(
+        time.tolist(), flux, target_pixel, t0, duration_days,
+        quality=quality.tolist(), half_span_days=half_span_days,
+    )
+    result["comparison_apertures"] = {}
+    for label, (comparison_ra, comparison_dec) in (comparison_positions or {}).items():
+        comparison_pixel = tuple(
+            float(v)
+            for v in wcs.world_to_pixel_values(comparison_ra, comparison_dec)
+        )
+        result["comparison_apertures"][label] = {
+            "pixel": list(comparison_pixel),
+            "apertures": aperture_depths(
+                time.tolist(), flux, comparison_pixel, t0, duration_days,
+                quality=quality.tolist(), half_span_days=half_span_days,
+            ),
+        }
     if difference["status"] == "measured":
         result["centroid"] = difference_centroid(
             difference["difference_image"], target_pixel
         )
-        result["apertures"] = aperture_depths(
-            time.tolist(), flux, target_pixel, t0, duration_days,
-            quality=quality.tolist(), half_span_days=half_span_days,
-        )
     return result
+
+
+def flagged_event_diagnostic(
+    path: str | Path,
+    *,
+    ra_deg: float,
+    dec_deg: float,
+    sector: int,
+    t0: float,
+    duration_days: float,
+    half_span_days: float = 0.6,
+    comparison_positions: Mapping[str, tuple[float, float]] | None = None,
+) -> dict[str, Any]:
+    """Compare valid-cadence evidence with an all-cadence diagnostic.
+
+    The all-cadence result is exploratory only. Quality-flagged cadences are
+    not valid evidence for a planet claim, but inspecting them can reveal why
+    an otherwise interesting event was flagged or whether the flux change is
+    spatially coherent.
+    """
+    try:
+        import numpy as np
+        from astropy.io import fits
+        from astropy.wcs import WCS
+    except ImportError as e:
+        raise RuntimeError("pixel diagnostic needs the replay extra") from e
+    with fits.open(path) as handle:
+        data = handle[1].data
+        time = np.asarray(data["TIME"], dtype=float)
+        flux = np.asarray(data["FLUX"], dtype=float)
+        quality = np.asarray(data["QUALITY"], dtype=int)
+        wcs = WCS(handle[2].header).celestial
+        target_pixel = tuple(float(v) for v in wcs.world_to_pixel_values(ra_deg, dec_deg))
+    inside = np.abs(time - t0) <= duration_days / 2.0
+    finite_inside = inside & np.isfinite(time)
+    quality_inside = quality[finite_inside]
+    all_result = difference_image(
+        time.tolist(), flux, t0, duration_days, quality=None,
+        half_span_days=half_span_days,
+    )
+    all_result["apertures"] = aperture_depths(
+        time.tolist(), flux, target_pixel, t0, duration_days,
+        quality=None, half_span_days=half_span_days,
+    )
+    all_result["comparison_apertures"] = {}
+    for label, (comparison_ra, comparison_dec) in (comparison_positions or {}).items():
+        comparison_pixel = tuple(
+            float(v) for v in wcs.world_to_pixel_values(comparison_ra, comparison_dec)
+        )
+        all_result["comparison_apertures"][label] = {
+            "pixel": list(comparison_pixel),
+            "apertures": aperture_depths(
+                time.tolist(), flux, comparison_pixel, t0, duration_days,
+                quality=None, half_span_days=half_span_days,
+            ),
+        }
+    return {
+        "path": Path(path).name,
+        "sector": int(sector),
+        "target_pixel": list(target_pixel),
+        "event_cadences": int(finite_inside.sum()),
+        "event_quality_values": sorted({int(value) for value in quality_inside}),
+        "event_quality_zero": int((quality_inside == 0).sum()),
+        "event_quality_flagged": int((quality_inside != 0).sum()),
+        "event_times": [float(value) for value in time[finite_inside]],
+        "valid_cadence_audit": audit_tesscut_file(
+            path,
+            ra_deg=ra_deg,
+            dec_deg=dec_deg,
+            sector=sector,
+            t0=t0,
+            duration_days=duration_days,
+            half_span_days=half_span_days,
+            comparison_positions=comparison_positions,
+        ),
+        "all_cadence_diagnostic": all_result,
+        "evidence_status": "diagnostic-only-quality-flagged-cadences",
+    }
 
 
 def download_tesscut(
@@ -247,6 +339,22 @@ def render_pixel_audit_html(reports: Sequence[dict[str, Any]]) -> str:
                 f"{aperture.get('snr', float('nan')):.1f}</td></tr>"
             )
         parts.append("</table>")
+        comparisons = pixel.get("comparison_apertures", {})
+        if comparisons:
+            parts.append(
+                "<h3>Target versus Gaia-neighbour apertures</h3>"
+                "<table><tr><th>Position</th><th>Pixel</th><th>1-pixel depth</th>"
+                "<th>1-pixel SNR</th></tr>"
+            )
+            for label, comparison in comparisons.items():
+                one_pixel = comparison["apertures"][0]
+                parts.append(
+                    f"<tr><td>{escape(str(label))}</td><td>"
+                    f"({comparison['pixel'][0]:.2f}, {comparison['pixel'][1]:.2f})</td>"
+                    f"<td>{one_pixel.get('depth', float('nan')):.5f}</td>"
+                    f"<td>{one_pixel.get('snr', float('nan')):.1f}</td></tr>"
+                )
+            parts.append("</table>")
         if pixel["difference"].get("status") != "measured":
             parts.append(
                 '<p class="warn"><b>Pixel difference is inconclusive:</b> '
@@ -297,5 +405,6 @@ __all__ = [
     "difference_centroid",
     "difference_image",
     "download_tesscut",
+    "flagged_event_diagnostic",
     "render_pixel_audit_html",
 ]

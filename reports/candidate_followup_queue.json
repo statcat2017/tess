@@ -1,0 +1,40 @@
+{
+  "queue_version": "followup-v1",
+  "entries": [
+    {
+      "tic_id": 117549174,
+      "priority": 1,
+      "decision": "pixel-inconclusive",
+      "repeat_status": "no-qualifying-repeat",
+      "repeat_count": 0,
+      "compatible_repeat_count": 0,
+      "pixel_status": "insufficient-data",
+      "target_reproduces_event": false,
+      "difference_centroid_offset_pixels": null,
+      "actions": [
+        "reprocess-raw-pixels-or-alternative-reduction",
+        "do-not-promote-as-planet",
+        "obtain-imaging-if-signal-survives-reprocessing"
+      ],
+      "planet_claim": "blocked"
+    },
+    {
+      "tic_id": 137801807,
+      "priority": 2,
+      "decision": "source-localisation-failure",
+      "repeat_status": "no-qualifying-repeat",
+      "repeat_count": 0,
+      "compatible_repeat_count": 0,
+      "pixel_status": "measured",
+      "target_reproduces_event": false,
+      "difference_centroid_offset_pixels": 1.296027761186434,
+      "actions": [
+        "obtain-speckle-imaging",
+        "do-not-schedule-periodic-transit-follow-up",
+        "reconsider-only-after-source-localisation"
+      ],
+      "planet_claim": "blocked"
+    }
+  ],
+  "claim_boundary": "No entry is a confirmed planet; source localisation comes first."
+}

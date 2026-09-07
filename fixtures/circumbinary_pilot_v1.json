@@ -1,0 +1,110 @@
+{
+  "name": "survey-b-tracer-v1",
+  "version": "survey-b-v1",
+  "product": "TESS-SPOC FFI",
+  "source_catalog": "frozen Survey B tracer fixture",
+  "targets": [
+    {
+      "tic_id": 101,
+      "name": "pilot-positive",
+      "period_days": 10.0,
+      "t0_bjd_tdb": 2459000.0,
+      "primary_duration_days": 0.2,
+      "secondary_phase": 0.5,
+      "secondary_duration_days": 0.2,
+      "sectors": [29, 69],
+      "target_class": "circumbinary-positive"
+    },
+    {
+      "tic_id": 202,
+      "name": "ordinary-eb-control",
+      "period_days": 8.0,
+      "t0_bjd_tdb": 2460000.0,
+      "primary_duration_days": 0.25,
+      "secondary_phase": 0.5,
+      "secondary_duration_days": 0.25,
+      "sectors": [30, 70],
+      "target_class": "eclipsing-binary-control"
+    }
+  ],
+  "coverage_windows": {
+    "29": [[2004.0, 2006.0]],
+    "69": [[2014.0, 2016.0]],
+    "30": [[3003.0, 3005.0]],
+    "70": [[3011.0, 3013.0]]
+  },
+  "events": [
+    {
+      "tic_id": 101,
+      "sector": 29,
+      "t0": 2005.0,
+      "local_time": [2004.9, 2005.0, 2005.1],
+      "local_flux": [1.0, 0.88, 1.0],
+      "depth": 0.12,
+      "duration_days": 0.2,
+      "snr": 40.0,
+      "stellar_meta": {},
+      "quality": {"event_id": "positive-eclipse"}
+    },
+    {
+      "tic_id": 101,
+      "sector": 29,
+      "t0": 2005.4,
+      "local_time": [2005.3, 2005.4, 2005.5],
+      "local_flux": [1.0, 0.99, 1.0],
+      "depth": 0.01,
+      "duration_days": 0.1,
+      "snr": 12.0,
+      "stellar_meta": {},
+      "quality": {"event_id": "positive-event-a", "pilot_truth": "same-circumbinary"}
+    },
+    {
+      "tic_id": 101,
+      "sector": 69,
+      "t0": 2014.2,
+      "local_time": [2014.1, 2014.2, 2014.3],
+      "local_flux": [1.0, 0.992, 1.0],
+      "depth": 0.008,
+      "duration_days": 0.08,
+      "snr": 10.0,
+      "stellar_meta": {},
+      "quality": {"event_id": "positive-event-b", "pilot_truth": "same-circumbinary"}
+    },
+    {
+      "tic_id": 202,
+      "sector": 30,
+      "t0": 3004.0,
+      "local_time": [3003.9, 3004.0, 3004.1],
+      "local_flux": [1.0, 0.85, 1.0],
+      "depth": 0.15,
+      "duration_days": 0.25,
+      "snr": 35.0,
+      "stellar_meta": {},
+      "quality": {"event_id": "control-primary"}
+    },
+    {
+      "tic_id": 202,
+      "sector": 30,
+      "t0": 3004.4,
+      "local_time": [3004.3, 3004.4, 3004.5],
+      "local_flux": [1.0, 0.99, 1.0],
+      "depth": 0.01,
+      "duration_days": 0.1,
+      "snr": 11.0,
+      "stellar_meta": {},
+      "quality": {"event_id": "control-event-a"}
+    },
+    {
+      "tic_id": 202,
+      "sector": 70,
+      "t0": 3011.3,
+      "local_time": [3011.2, 3011.3, 3011.4],
+      "local_flux": [1.0, 0.99, 1.0],
+      "depth": 0.01,
+      "duration_days": 0.1,
+      "snr": 9.0,
+      "stellar_meta": {},
+      "quality": {"event_id": "control-event-b"}
+    }
+  ]
+}

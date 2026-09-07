@@ -1,0 +1,234 @@
+{
+  "run_utc": "2026-09-07T10:11:11.651642+00:00",
+  "tic_id": 117549174,
+  "anchor": {
+    "sector": 69,
+    "t0": 3183.133477153529,
+    "duration_days": 0.06944716061070721
+  },
+  "sectors": [
+    2,
+    29,
+    69,
+    70
+  ],
+  "providers_requested": [
+    "QLP",
+    "TARS",
+    "TGLC"
+  ],
+  "thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "providers": [
+    {
+      "provider": "QLP",
+      "status": "anchor-unmeasurable",
+      "products": [
+        {
+          "provider": "QLP",
+          "sector": 2,
+          "data_uri": "mast:HLSP/qlp/s0002/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0002-0000000117549174_tess_v01_llc.fits",
+          "obs_id": "hlsp_qlp_tess_ffi_s0002-0000000117549174_tess_v01_llc"
+        },
+        {
+          "provider": "QLP",
+          "sector": 29,
+          "data_uri": "mast:HLSP/qlp/s0029/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0029-0000000117549174_tess_v01_llc.fits",
+          "obs_id": "hlsp_qlp_tess_ffi_s0029-0000000117549174_tess_v01_llc"
+        },
+        {
+          "provider": "QLP",
+          "sector": 69,
+          "data_uri": "mast:HLSP/qlp/s0069/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0069-0000000117549174_tess_v01_llc.fits",
+          "obs_id": "hlsp_qlp_tess_ffi_s0069-0000000117549174_tess_v01_llc"
+        },
+        {
+          "provider": "QLP",
+          "sector": 70,
+          "data_uri": "mast:HLSP/qlp/s0070/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0070-0000000117549174_tess_v01_llc.fits",
+          "obs_id": "hlsp_qlp_tess_ffi_s0070-0000000117549174_tess_v01_llc"
+        }
+      ],
+      "download_failures": [],
+      "anchor_measurement": {
+        "flux_column": "DET_FLUX",
+        "cadences_total": 10854,
+        "cadences_good": 8477,
+        "quality_flagged": 2377,
+        "event": {
+          "status": "insufficient-data",
+          "n_inside": 0,
+          "n_outside": 0
+        },
+        "shape": {
+          "status": "insufficient-data"
+        }
+      },
+      "sectors": [
+        {
+          "sector": 2,
+          "path": "/tmp/alternative_cache/qlp_s0002_hlsp_qlp_tess_ffi_s0002-0000000117549174_tess_v01_llc.fits",
+          "data_uri": "mast:HLSP/qlp/s0002/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0002-0000000117549174_tess_v01_llc.fits",
+          "flux_column": "SAP_FLUX",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        },
+        {
+          "sector": 29,
+          "path": "/tmp/alternative_cache/qlp_s0029_hlsp_qlp_tess_ffi_s0029-0000000117549174_tess_v01_llc.fits",
+          "data_uri": "mast:HLSP/qlp/s0029/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0029-0000000117549174_tess_v01_llc.fits",
+          "flux_column": "SAP_FLUX",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        },
+        {
+          "sector": 69,
+          "path": "/tmp/alternative_cache/qlp_s0069_hlsp_qlp_tess_ffi_s0069-0000000117549174_tess_v01_llc.fits",
+          "data_uri": "mast:HLSP/qlp/s0069/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0069-0000000117549174_tess_v01_llc.fits",
+          "flux_column": "DET_FLUX",
+          "anchor_measurement": {
+            "flux_column": "DET_FLUX",
+            "cadences_total": 10854,
+            "cadences_good": 8477,
+            "quality_flagged": 2377,
+            "event": {
+              "status": "insufficient-data",
+              "n_inside": 0,
+              "n_outside": 0
+            },
+            "shape": {
+              "status": "insufficient-data"
+            }
+          }
+        },
+        {
+          "sector": 70,
+          "path": "/tmp/alternative_cache/qlp_s0070_hlsp_qlp_tess_ffi_s0070-0000000117549174_tess_v01_llc.fits",
+          "data_uri": "mast:HLSP/qlp/s0070/0000/0001/1754/9174/hlsp_qlp_tess_ffi_s0070-0000000117549174_tess_v01_llc.fits",
+          "flux_column": "DET_FLUX",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        }
+      ],
+      "ranked_repeats": [],
+      "compatible_repeats": []
+    },
+    {
+      "provider": "TARS",
+      "status": "anchor-unmeasurable",
+      "products": [
+        {
+          "provider": "TARS",
+          "sector": 2,
+          "data_uri": "mast:HLSP/tars/sec_2_cam_1_ccd_3/hlsp_tars_tess_ffi_s0002-0000000117549174_tess_v01_lc.fits",
+          "obs_id": "hlsp_tars_tess_ffi_s0002-0000000117549174_tess"
+        },
+        {
+          "provider": "TARS",
+          "sector": 29,
+          "data_uri": "mast:HLSP/tars/sec_29_cam_1_ccd_3/hlsp_tars_tess_ffi_s0029-0000000117549174_tess_v01_lc.fits",
+          "obs_id": "hlsp_tars_tess_ffi_s0029-0000000117549174_tess"
+        },
+        {
+          "provider": "TARS",
+          "sector": 69,
+          "data_uri": "mast:HLSP/tars/sec_69_cam_1_ccd_3/hlsp_tars_tess_ffi_s0069-0000000117549174_tess_v01_lc.fits",
+          "obs_id": "hlsp_tars_tess_ffi_s0069-0000000117549174_tess"
+        },
+        {
+          "provider": "TARS",
+          "sector": 70,
+          "data_uri": "mast:HLSP/tars/sec_70_cam_1_ccd_1/hlsp_tars_tess_ffi_s0070-0000000117549174_tess_v01_lc.fits",
+          "obs_id": "hlsp_tars_tess_ffi_s0070-0000000117549174_tess"
+        }
+      ],
+      "download_failures": [],
+      "anchor_measurement": {
+        "flux_column": "FLUX",
+        "cadences_total": 9070,
+        "cadences_good": 9070,
+        "quality_flagged": 0,
+        "event": {
+          "status": "insufficient-data",
+          "n_inside": 0,
+          "n_outside": 0
+        },
+        "shape": {
+          "status": "insufficient-data"
+        }
+      },
+      "sectors": [
+        {
+          "sector": 2,
+          "path": "/tmp/alternative_cache/tars_s0002_hlsp_tars_tess_ffi_s0002-0000000117549174_tess_v01_lc.fits",
+          "data_uri": "mast:HLSP/tars/sec_2_cam_1_ccd_3/hlsp_tars_tess_ffi_s0002-0000000117549174_tess_v01_lc.fits",
+          "flux_column": "FLUX",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        },
+        {
+          "sector": 29,
+          "path": "/tmp/alternative_cache/tars_s0029_hlsp_tars_tess_ffi_s0029-0000000117549174_tess_v01_lc.fits",
+          "data_uri": "mast:HLSP/tars/sec_29_cam_1_ccd_3/hlsp_tars_tess_ffi_s0029-0000000117549174_tess_v01_lc.fits",
+          "flux_column": "FLUX",
+          "proposals": 1,
+          "events": [],
+          "skipped": [
+            "too few points in/out of transit"
+          ]
+        },
+        {
+          "sector": 69,
+          "path": "/tmp/alternative_cache/tars_s0069_hlsp_tars_tess_ffi_s0069-0000000117549174_tess_v01_lc.fits",
+          "data_uri": "mast:HLSP/tars/sec_69_cam_1_ccd_3/hlsp_tars_tess_ffi_s0069-0000000117549174_tess_v01_lc.fits",
+          "flux_column": "FLUX",
+          "anchor_measurement": {
+            "flux_column": "FLUX",
+            "cadences_total": 9070,
+            "cadences_good": 9070,
+            "quality_flagged": 0,
+            "event": {
+              "status": "insufficient-data",
+              "n_inside": 0,
+              "n_outside": 0
+            },
+            "shape": {
+              "status": "insufficient-data"
+            }
+          }
+        },
+        {
+          "sector": 70,
+          "path": "/tmp/alternative_cache/tars_s0070_hlsp_tars_tess_ffi_s0070-0000000117549174_tess_v01_lc.fits",
+          "data_uri": "mast:HLSP/tars/sec_70_cam_1_ccd_1/hlsp_tars_tess_ffi_s0070-0000000117549174_tess_v01_lc.fits",
+          "flux_column": "FLUX",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        }
+      ],
+      "ranked_repeats": [],
+      "compatible_repeats": []
+    },
+    {
+      "provider": "TGLC",
+      "status": "no-anchor-sector",
+      "products": [
+        {
+          "provider": "TGLC",
+          "sector": 2,
+          "data_uri": "mast:HLSP/tglc/s0002/cam1-ccd3/0024/2081/9528/5422/hlsp_tglc_tess_ffi_gaiaid-2420819528542292224-s0002-cam1-ccd3_tess_v1_llc.fits",
+          "obs_id": "hlsp_tglc_tess_ffi_gaiaid-2420819528542292224-s0002-cam1-ccd3_tess_v1_llc"
+        }
+      ],
+      "download_failures": []
+    }
+  ]
+}

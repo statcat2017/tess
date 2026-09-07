@@ -22,6 +22,7 @@ from tess_assoc.pixel_audit import (
     difference_centroid,
     difference_image,
     download_tesscut,
+    flagged_event_diagnostic,
     render_pixel_audit_html,
 )
 from tess_assoc.event import EventRecord
@@ -129,6 +130,7 @@ __all__ = [
     "difference_centroid",
     "difference_image",
     "download_tesscut",
+    "flagged_event_diagnostic",
     "expected_filename",
     "fetch_one",
     "fetch_tois_box",

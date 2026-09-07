@@ -1,0 +1,155 @@
+{
+  "run_utc": "2026-09-07T09:33:43.201090+00:00",
+  "product": "TESS-SPOC FFI",
+  "thresholds": {
+    "max_rel_depth_diff": 0.25,
+    "max_rel_duration_diff": 0.25,
+    "min_morph_corr": 0.9
+  },
+  "candidates": [
+    {
+      "tic_id": 137801807,
+      "available_sectors": [
+        2,
+        29,
+        69
+      ],
+      "coverage_error": null,
+      "status": "complete",
+      "anchor": {
+        "tic_id": 137801807,
+        "sector": 69,
+        "t0": 3204.418352997779,
+        "depth": 0.05199308885584297,
+        "duration_days": 0.12731087503289018,
+        "snr": 30.817230454719876,
+        "quality": {
+          "role": "isolated-event-anchor",
+          "source": "single_event_audit"
+        }
+      },
+      "sectors": [
+        {
+          "sector": 2,
+          "status": "complete",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        },
+        {
+          "sector": 29,
+          "status": "complete",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        }
+      ],
+      "ranked_repeats": [],
+      "compatible_repeats": [],
+      "fetched": {
+        "downloaded": [],
+        "cached": [
+          {
+            "tic_id": 137801807,
+            "sector": 2,
+            "local_path": "/tmp/long_followup_cache/hlsp_tess-spoc_tess_phot_0000000137801807-s0002_tess_v1_lc.fits",
+            "status": "cached"
+          },
+          {
+            "tic_id": 137801807,
+            "sector": 29,
+            "local_path": "/tmp/long_followup_cache/hlsp_tess-spoc_tess_phot_0000000137801807-s0029_tess_v1_lc.fits",
+            "status": "cached"
+          },
+          {
+            "tic_id": 137801807,
+            "sector": 69,
+            "local_path": "/tmp/long_followup_cache/hlsp_tess-spoc_tess_phot_0000000137801807-s0069_tess_v1_lc.fits",
+            "status": "cached"
+          }
+        ],
+        "missing": [],
+        "failed": []
+      }
+    },
+    {
+      "tic_id": 117549174,
+      "available_sectors": [
+        2,
+        29,
+        69,
+        70
+      ],
+      "coverage_error": null,
+      "status": "complete",
+      "anchor": {
+        "tic_id": 117549174,
+        "sector": 69,
+        "t0": 3183.133477153529,
+        "depth": 0.03180105985232673,
+        "duration_days": 0.06944716061070721,
+        "snr": 11.671593198637387,
+        "quality": {
+          "role": "isolated-event-anchor",
+          "source": "single_event_audit"
+        }
+      },
+      "sectors": [
+        {
+          "sector": 2,
+          "status": "complete",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        },
+        {
+          "sector": 29,
+          "status": "complete",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        },
+        {
+          "sector": 70,
+          "status": "complete",
+          "proposals": 0,
+          "events": [],
+          "skipped": []
+        }
+      ],
+      "ranked_repeats": [],
+      "compatible_repeats": [],
+      "fetched": {
+        "downloaded": [],
+        "cached": [
+          {
+            "tic_id": 117549174,
+            "sector": 2,
+            "local_path": "/tmp/long_followup_cache/hlsp_tess-spoc_tess_phot_0000000117549174-s0002_tess_v1_lc.fits",
+            "status": "cached"
+          },
+          {
+            "tic_id": 117549174,
+            "sector": 29,
+            "local_path": "/tmp/long_followup_cache/hlsp_tess-spoc_tess_phot_0000000117549174-s0029_tess_v1_lc.fits",
+            "status": "cached"
+          },
+          {
+            "tic_id": 117549174,
+            "sector": 69,
+            "local_path": "/tmp/long_followup_cache/hlsp_tess-spoc_tess_phot_0000000117549174-s0069_tess_v1_lc.fits",
+            "status": "cached"
+          },
+          {
+            "tic_id": 117549174,
+            "sector": 70,
+            "local_path": "/tmp/long_followup_cache/hlsp_tess-spoc_tess_phot_0000000117549174-s0070_tess_v1_lc.fits",
+            "status": "cached"
+          }
+        ],
+        "missing": [],
+        "failed": []
+      }
+    }
+  ]
+}

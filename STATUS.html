@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Clickable phase-by-phase demo of our exoplanet-hunting code and how far along it is.">
-  <title>Hunting Distant Planets — Phase-by-Phase Demo</title>
+  <meta name="description" content="Research status for an event-first search for long-period planets in TESS.">
+  <title>Hunting Distant Planets — Research Status</title>
   <style>
     :root {
       color-scheme: dark;
@@ -50,6 +50,7 @@
     main { padding-bottom: 5rem; }
     .page { display: none; }
     .page.active { display: block; }
+    .methodology-archive { display: none !important; }
     p { margin: 0 0 1rem; color: var(--muted); }
     p b, li b, td b { color: var(--ink); }
     ul, ol { color: var(--muted); }
@@ -78,23 +79,16 @@
 <body>
   <header>
     <div class="shell">
-      <p class="eyebrow">Clickable demo — pick a phase</p>
-      <h1>Hunting Distant Planets: What Each Phase Can Do</h1>
-      <p class="lede">NASA's TESS telescope spots planets by catching tiny blinks of starlight. Our project
-        tackles the hard case — planets that blink only once every few years. Each tab below is one
-        development phase: what was built, a real run proving it works, and what's still missing.</p>
-      <nav class="tabs" role="tablist" aria-label="Development phases">
+      <p class="eyebrow">Research status — updated 7 September 2026</p>
+      <h1>Hunting Distant Planets in TESS</h1>
+      <p class="lede">TESS usually sees a star for about 27 days. Our search targets the harder evidence:
+        isolated transit-like events that can be linked across years. The methodology is now frozen;
+        the interesting work is deciding which apparent signals are actually new planets.</p>
+      <nav class="tabs" role="tablist" aria-label="Research sections">
         <button role="tab" aria-selected="true" data-page="overview">Overview</button>
-        <button role="tab" aria-selected="false" data-page="phase0">Phase 0 · Rulebook</button>
-        <button role="tab" aria-selected="false" data-page="phase1">Phase 1 · Practice run</button>
-        <button role="tab" aria-selected="false" data-page="phase2">Phase 2 · Real data</button>
-        <button role="tab" aria-selected="false" data-page="phase3">Phase 3 · Blink-finder</button>
-        <button role="tab" aria-selected="false" data-page="phase4">Phase 4 · Scoreboard</button>
-        <button role="tab" aria-selected="false" data-page="phase5">Phase 5 · Learning</button>
-        <button role="tab" aria-selected="false" data-page="phase6">Phase 6 · Injection drills</button>
-        <button role="tab" aria-selected="false" data-page="phase7">Phase 7 · Blind exam</button>
-        <button role="tab" aria-selected="false" data-page="phase8">Phase 8 · New worlds</button>
-        <button role="tab" aria-selected="false" data-page="findings">Findings · Two binaries</button>
+        <button role="tab" aria-selected="false" data-page="methodology">Methodology</button>
+        <button role="tab" aria-selected="false" data-page="search">Planet search</button>
+        <button role="tab" aria-selected="false" data-page="findings">Candidates &amp; findings</button>
         <button role="tab" aria-selected="false" data-page="roadmap">Roadmap</button>
       </nav>
     </div>
@@ -110,22 +104,42 @@
           the pair becomes real evidence — <i>if</i> you can prove both blinks came from the same planet
           and work out what orbits fit.</p>
         <div class="grid2">
-          <div class="card done"><b>✓ Phase 0 · Rulebook</b><br>Locked definitions, blink records, orbit math. Demonstrated: alias lists, leak guards, 19 checks.</div>
-          <div class="card done"><b>✓ Phase 1 · Practice run</b><br>Full chain on made-up data: match blinks, list orbits, cross off 22 of 33 suspects.</div>
-          <div class="card done"><b>✓ Phase 2 · Real data</b><br>Same chain on genuine TESS recordings of 3 known planets. All true pairs match.</div>
-          <div class="card done"><b>✓ Phase 3 · Blink-finder</b><br>Software that spots blinks itself, no star maps needed — finds 34 of 39 real blinks.</div>
-          <div class="card done"><b>✓ Phase 4 · Scoreboard</b><br>618 true pairs vs 3,037 false alarms ranked — every true pair on top, randoms scoreless.</div>
-          <div class="card done"><b>✓ Phase 5 · Learning</b><br>A small Siamese matcher now runs beside the deterministic baseline with TIC-level holdouts and an explicit stop/go decision.</div>
-          <div class="card done"><b>✓ Phase 6 · Injection drills</b><br>Artificial blinks are recovered from real development light curves across depth, shape, and epoch-separation regimes.</div>
-          <div class="card done"><b>✓ Phase 7 · Blind exam</b><br>Frozen code graded on sealed sector 82: KELT-9 anchor pair associated, rules rank every true pair first.</div>
-          <div class="card done"><b>✓ Phase 8 · New worlds</b><br>6,945 stars mined, 2 EBs caught and classified, 10 isolated events audited; no confirmed planets.</div>
-          <div class="card done"><b>✓ Survey A · Known hosts</b><br>4,943 known-planet hosts and 30,139 recordings searched; 35,936 pairs ranked, with no new candidate surviving vetting.</div>
-          <div class="card next"><b>→ What's next</b><br>Run Survey B on eclipsing binaries; Sector 106 remains an independent frozen-code run when files land.</div>
+          <div class="card done"><b>✓ Methodology frozen</b><br>Event records, deterministic matching, alias/window checks, leakage guards, and the sealed-sector protocol are fixed.</div>
+          <div class="card done"><b>✓ Known-host Survey A</b><br>4,943 hosts, 30,139 recordings, and 35,936 ranked pairs searched. No new candidate survived vetting.</div>
+          <div class="card done"><b>✓ False positives understood</b><br>Two repeat signals were eclipsing binaries; one apparent planet was refuted as a blended background EB.</div>
+          <div class="card done"><b>✓ Isolated events audited</b><br>Ten single-event targets received the available catalogue, contamination, companion-radius, and pixel checks.</div>
+          <div class="card done"><b>✓ Survey B real cohort</b><br>417 usable TEBC binaries and 1,320 public SPOC sector pairs processed with binary-eclipse masking; no planet claim made.</div>
+          <div class="card next"><b>→ Next scientific move</b><br>Calibrate the real-cohort event detector and add circumbinary dynamical-window ranking before candidate vetting.</div>
         </div>
-       <p>Status: <b>138 automated self-checks passing</b> · practice + real replay + injection runs touch <b>zero</b> sealed observations · raw telescope files never enter the code repository.</p>
+       <p>Status: <b>146 tests collected</b>; 55 deterministic/local checks pass in this checkout · archive-dependent checks require network access · no raw telescope files enter the repository.</p>
       </section>
 
-      <section class="page" id="page-phase0" role="tabpanel">
+      <section class="page" id="page-methodology" role="tabpanel">
+        <h2>Methodology · built once, then frozen</h2>
+        <p>The build work is deliberately compressed here. The scientific question is not whether a
+          pipeline can be made elaborate; it is whether individually detected TESS events can be linked
+          across sparse epochs without promoting eclipsing binaries, blends, catalogue recoveries, or noise.
+          The supported hunt path is deterministic because it beat the learned matcher in every operational exam.</p>
+        <h3>The evidence ladder</h3>
+        <table>
+          <tr><th>Layer</th><th>What it does</th><th>Evidence</th></tr>
+          <tr><td><b>Event record</b></td><td>Stores TIC, sector, time, local light-curve window, depth, duration, SNR, stellar metadata, and quality.</td><td>Strict validation and serialization checks.</td></tr>
+          <tr><td><b>Event proposal</b></td><td>Finds unusual dips without a supplied ephemeris; high recall is preferred to premature selection.</td><td>34 of 39 known measurable transits recovered in the blind proposer test.</td></tr>
+          <tr><td><b>Association</b></td><td>Compares depth, duration, morphology, and timing across sectors. TIC IDs group records but never enter the model.</td><td>Rules ranked all 272 sealed true pairs first; every known real-data anchor pair associated.</td></tr>
+          <tr><td><b>Orbit and window checks</b></td><td>Generates <code>P = ΔT / n</code> aliases and rejects aliases contradicted by actual observing coverage.</td><td>Practice fixture crossed off 22 of 33 aliases; sparse real baselines honestly leave some aliases unresolved.</td></tr>
+          <tr><td><b>Physical vetting</b></td><td>Checks secondary eclipses, companion size, contamination, variables, catalogues, and target-pixel localisation.</td><td>Repeat signals were real, but two became eclipsing binaries and one became a blended background EB.</td></tr>
+          <tr><td><b>Sealed validation</b></td><td>Freezes code, thresholds, manifests, and weights before later-sector access.</td><td>Sector 82 run was unchanged after unblinding; ML was pivoted out of the hunt path.</td></tr>
+        </table>
+        <div class="panel">
+          <p><b>What the machine is allowed to claim:</b> an associated event pair with retained orbital aliases and a documented vetting status. It is not a planet confirmation, and a single event has no measured period.</p>
+          <p><b>Current boundary:</b> development uses Sectors 1–79; Sectors 80–105 remain the sealed temporal holdout; Sector 106 is a separate conditional cohort whose telescope files are not yet available.</p>
+        </div>
+        <h3>Why the learned matcher was stopped</h3>
+        <p>The small Siamese model was retained as a benchmark, not forced into production. On sealed sector 82 the deterministic rules achieved AP 1.000 with burden 272, while the learned matcher achieved AP 0.586 with burden 523. The same pattern appeared in development and injection rankings. This is a useful negative result: the simpler morphology-aware baseline is currently the stronger scientific instrument.</p>
+        <p><b>Reproducibility:</b> <b>146 tests are collected</b>; 55 deterministic/local checks pass without archive access. Network-dependent archive checks are separate, and raw telescope files remain outside Git.</p>
+      </section>
+
+      <section class="page methodology-archive" id="page-phase0" role="tabpanel" aria-hidden="true">
         <h2>Phase 0 · The rulebook</h2>
         <p>Before writing science code, we wrote the rules in executable form so every later result stays
           comparable: which observations may be used, what a blink record must contain, how orbit guesses
@@ -142,7 +156,7 @@
         <p><b>What's missing:</b> no blinks, no telescope data, no matching yet — just definitions.</p></div>
       </section>
 
-      <section class="page" id="page-phase1" role="tabpanel">
+      <section class="page methodology-archive" id="page-phase1" role="tabpanel" aria-hidden="true">
         <h2>Phase 1 · The practice run</h2>
         <p>The full chain running on a <b>made-up star</b> with three blinks: two from the same imaginary
           planet 900 days apart, one impostor. Command: <code>run_tracer(load_manifest_file('fixtures/tracer_v1.json'))</code>.</p>
@@ -166,7 +180,7 @@
         <p><b>What it proves:</b> matching, orbit listing, and calendar cross-checking work as one chain with human-readable reasons. <b>Missing:</b> real data — every blink here was invented.</p>
       </section>
 
-      <section class="page" id="page-phase2" role="tabpanel">
+      <section class="page methodology-archive" id="page-phase2" role="tabpanel" aria-hidden="true">
         <h2>Phase 2 · Real telescope data</h2>
         <p>The same chain, now pointed at genuine TESS recordings of three known hot Jupiters, downloaded
           from the space-telescope archive. Starlight is messy — different cameras, gaps, noise — and the
@@ -207,7 +221,7 @@
         </div>
       </section>
 
-      <section class="page" id="page-phase3" role="tabpanel">
+      <section class="page methodology-archive" id="page-phase3" role="tabpanel" aria-hidden="true">
         <h2>Phase 3 · The blink-finder</h2>
         <p>Until now, a human told the code where the blinks were. The new blink-finder works <b>blind</b>:
           it smooths each star's recordings, flags every dip that stands out from the noise, and measures
@@ -239,7 +253,7 @@
         </div>
       </section>
 
-      <section class="page" id="page-phase4" role="tabpanel">
+      <section class="page methodology-archive" id="page-phase4" role="tabpanel" aria-hidden="true">
         <h2>Phase 4 · The scoreboard</h2>
         <p>Matching blinks is easy to claim and hard to prove — so we built an exam. Every pair of blinks
           gets a <b>label</b>: true pairs (same planet, different years) vs false alarms in three flavors
@@ -264,7 +278,7 @@
         </div>
       </section>
 
-      <section class="page" id="page-phase5" role="tabpanel">
+      <section class="page methodology-archive" id="page-phase5" role="tabpanel" aria-hidden="true">
         <h2>Phase 5 · The learning matcher</h2>
         <p>The hand-written matcher now has a learned competitor: a small Siamese 1D-CNN that compares the two local blink shapes and optional scalar features. It sees no TIC identifier, and every star stays wholly inside one train, validation, or test pile.</p>
         <h3>What is measured</h3>
@@ -285,7 +299,7 @@
         <p class="caption">Burden = candidates a human must review to recover every true pair (lower is better). The injection row is the cautionary tale: threshold accuracy says "tie" — ranking says the model learned nothing.</p>
       </section>
 
-      <section class="page" id="page-phase6" role="tabpanel">
+      <section class="page methodology-archive" id="page-phase6" role="tabpanel" aria-hidden="true">
         <h2>Phase 6 · Injection drills</h2>
         <p>We now plant controlled transit-shaped dips into genuine TESS-SPOC FFI light curves from the development manifest, then send both modified sectors through the same blind proposer, event-record extractor, matcher, and alias/window code used elsewhere.</p>
         <h3>The operating grid</h3>
@@ -297,10 +311,10 @@
         </table>
         <p>Every result reports <b>detection recall</b> separately from conditional association recall. Each failure is labelled as a detection failure or association failure. The learned comparison also reports deterministic and learned correctness by depth, shape, and separation region — and ranking metrics (AP, burden) beside threshold accuracy, so a model that learns only the base rate cannot hide behind a 1.00 accuracy.</p>
         <div class="panel"><p><b>Audit trail:</b> injection parameters, archive URI, local cache path, retrieval timestamp, thresholds, and random seed are preserved in the output contract. The run uses only sectors from the development manifest; no sealed-sector measurement or threshold is changed.</p></div>
-         <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository suite reports <b>138 passed</b> with two archive warnings.</p>
+          <p><b>Verification:</b> the real-data integration test exercises all three manifest systems, the full depth × shape grid, leave-one-TIC-out learned scoring, and JSON serialization. The repository now collects <b>146 tests</b>; archive-dependent checks are network-gated.</p>
       </section>
 
-      <section class="page" id="page-phase7" role="tabpanel">
+      <section class="page methodology-archive" id="page-phase7" role="tabpanel" aria-hidden="true">
         <h2>Phase 7 · The blind exam</h2>
         <p>Before touching sealed data, the whole methodology was written down and hashed: source code, thresholds, model settings, proposer parameters, manifest files, star lists, and the trained model weights. Only KELT-9's sealed sector 82 could then be opened — through a gate that refuses without a matching freeze record — and the frozen code ran exactly as developed.</p>
         <h3>Sealed results (KELT-9 b, sectors 55 + 82)</h3>
@@ -313,11 +327,11 @@
           <tr><td>Exam verdict</td><td><b>PIVOT</b> on 272 sealed positives: the deterministic baseline remains the supported path.</td></tr>
         </table>
         <div class="panel"><p><b>Why this counts as blind:</b> normal code paths still refuse sealed sectors; the sealed run carries its freeze hash, creation and unblinding timestamps, and an access-log entry. Thresholds are byte-identical before and after. No weight, rule, or threshold changed post-unblinding.</p></div>
-         <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository suite reports <b>138 passed</b> with two archive warnings.</p>
+         <p><b>Verification:</b> the sealed integration test retrains nothing at exam time, checks the frozen checkpoint hash, and serializes the full result. The repository now collects <b>146 tests</b>; archive-dependent checks are network-gated.</p>
       </section>
 
-      <section class="page" id="page-phase8" role="tabpanel">
-        <h2>Phase 8 · Hunting new worlds</h2>
+      <section class="page" id="page-search" role="tabpanel">
+        <h2>Planet search · what survived contact with the sky</h2>
         <p>Sector 106 finished observing on Aug 9, 2026, but the archive holds <b>zero</b> Sector 106 telescope files — the newest confirmed SPOC recordings currently available are through Sector 85. So the hunt runs on two tracks: the Sector 106 machine stands armed (pilot cohort picked, tripwire test fires when the files land), and <b>archive mining</b> hunts multi-epoch stars available today.</p>
         <h3>First mining results (8 uncatalogued stars, 16 recordings)</h3>        <table>
           <tr><th>Measure</th><th>Result</th></tr>
@@ -491,12 +505,36 @@
             <tr><td>Interpretation</td><td>A null from this bounded pilot is not a null for all known hosts. It verifies the masking and fault-isolated execution path; the full 4,943-host development cohort remains the next scale step.</td></tr>
           </table>
           <p>The implementation lives in <a href="tools/run_host_search.py"><code>tools/run_host_search.py</code></a>. Its manifest records every host's known planet ephemerides, and its blind replay removes a conservative 1.5-duration window around each known transit before proposing additional events. This prevents the already-known planet from dominating the search while retaining the host's other sectors as negative coverage for possible outer-planet aliases.</p>
-          <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository suite reports <b>138 passed</b> with archive warnings only.</p>
-      </section>
+          <p><b>Verification:</b> gate mechanics, vetting rules, shortlist logic, blocked/partial statuses, and the archive-blocked path are all tested. The repository now collects <b>146 tests</b>; archive-dependent checks are network-gated.</p>
+          <h3>Survey A full run · known planet hosts, Sectors 1–79</h3>
+          <p>The bounded pilot was followed by the complete development-sector cohort. Known planet hosts were searched for additional outer events after their catalogued transit windows were masked. This is the first full probability-adjusted planet search in the current archive, not a search for the already-known planets.</p>
+          <table>
+            <tr><th>Measure</th><th>Full Survey A result</th></tr>
+            <tr><td>Hosts processed</td><td class="num"><b>4,943</b> hosts with at least two development-sector recordings</td></tr>
+            <tr><td>Recordings</td><td class="num"><b>30,139</b>; 0 download failures and 0 failed systems</td></tr>
+            <tr><td>Pairs ranked</td><td class="num"><b>35,936</b> cross-sector associations</td></tr>
+            <tr><td>Pair review</td><td class="num">20 reviewed; <b>0</b> new candidate pairs</td></tr>
+            <tr><td>Isolated-event review</td><td class="num">20 reviewed; <b>0</b> promoted events</td></tr>
+            <tr><td>Interpretation</td><td>No new outer-planet candidate survived the full known-host cohort. This is a null result for this search, not evidence that outer planets do not exist around known hosts.</td></tr>
+          </table>
+          <p>The complete result is recorded in <a href="reports/known_host_survey_full.json"><code>reports/known_host_survey_full.json</code></a>. The freeze records the runner, manifest, catalogue sources, and code hashes so the null can be audited rather than remembered as a headline number.</p>
+           <h3>Survey B · real eclipsing-binary cohort</h3>
+           <p>The fixture pilot has now been followed by a bounded real-data run. The source is the published <a href="https://github.com/bdrdavies/mono-cbp/blob/main/catalogues/TEBC_morph_05_P_7.csv">TEBC morphology catalogue</a>: 592 rows, 591 unique TICs, with 417 rows having complete binary ephemerides and at least one development-sector observation. We fetched all <b>1,320</b> available TESS-SPOC FFI light curves for Sectors 1–79, masked catalogued primary and secondary eclipses, and ran the blind event proposer on the remaining cadences.</p>
+           <table>
+             <tr><th>Measure</th><th>Real Survey B result</th></tr>
+             <tr><td>Archive retrieval</td><td class="num"><b>1,320/1,320</b> downloaded successfully</td></tr>
+             <tr><td>Event records</td><td class="num"><b>680</b> retained after eclipse masking and extraction</td></tr>
+             <tr><td>Targets with ranked cross-sector pairs</td><td class="num"><b>25</b></td></tr>
+             <tr><td>Known circumbinary positives</td><td class="num"><b>0</b>; this is an unlabeled EB mining cohort, not a positive-validation sample</td></tr>
+             <tr><td>Interpretation</td><td>Real event candidates now exist for binary-aware follow-up, but no pair is a circumbinary-planet detection. The current run measures pipeline throughput and candidate generation only.</td></tr>
+           </table>
+           <p>The real runner is <a href="tools/run_survey_b_real.py"><code>tools/run_survey_b_real.py</code></a>; the reproducible outputs are <a href="reports/survey_b_real.md"><code>reports/survey_b_real.md</code></a> and <a href="reports/survey_b_real.json"><code>reports/survey_b_real.json</code></a>. The TEBC epoch column is BTJD-scale despite its <code>bjd0</code> name; the runner records the explicit conversion to BJD before applying the binary masks.</p>
+       </section>
 
       <section class="page" id="page-findings" role="tabpanel">
-          <h2>Findings · Two binaries closed, one hypothesis refuted, ten isolated-event targets audited</h2>
-         <p>The scaled survey plus M-dwarf mining produced three promoted pairs. Two resolved into eclipsing binaries (below). The third — thirteen transit-like events on one M dwarf fitting a single ephemeris — was a useful blind recovery, but its planet hypothesis is now <b>refuted</b> by an independent re-analysis recorded on ExoFOP. Period-free passes over the mined cohorts have now produced ten isolated-event targets; all have received the available in-code audit, with none confirmed as planetary. The latest twenty sector comparisons produced no surviving repeating candidate or isolated-event target.</p>
+          <h2>Findings · interesting signals, careful rejections</h2>
+         <p>The current scientific headline is a disciplined null: Survey A searched <b>4,943 known-planet hosts</b> and found no new outer-planet candidate surviving vetting. The archive mining work still produced valuable findings: two genuine repeat signals were eclipsing binaries, one apparent planet was refuted as a blended background EB, and ten isolated events were audited without a planetary confirmation.</p>
+          <p>Survey B is intentionally separate from the primary Survey A result. Its real EB cohort has produced 680 masked-search event records and 25 systems with cross-sector pair candidates, but it has no known circumbinary-planet positives and therefore makes no planet claim.</p>
 
          <h3>Finding 3 (refuted candidate) · TIC 231279823 — P = 5.96848 d transit-like signal</h3>
         <table>
@@ -525,7 +563,35 @@
            <tr><td class="num">TIC 117549174</td><td class="num">S69 @ 3183.133 · depth 3.18% · duration 1.67h · SNR 11.7 · Tmag 12.84 · 0.640 R☉ star</td><td>TOI/CTOI/ASAS-SN/Gaia EB clean · contamination 0.04345 · companion lower bound 0.114 R☉ (~1.1 R<sub>J</sub>) · <b>period unconstrained</b></td></tr>
          </table>
          <p><b>Single-event audit:</b> SAP and PDCSAP agree for both events; conservative centroid tests find no significant movement (0.0049 ± 0.0093 px and 0.0033 ± 0.0081 px). But Gaia DR3 contains a source within <b>2.15″</b> of TIC 137801807 (G = 14.21) and <b>1.21″</b> of TIC 117549174 (G = 13.49), so the event source is not localised. TIC 137801807 is V-shaped; TIC 117549174 is flat-bottomed. Both stars have additional archived sectors (TIC 137801807: 2, 29, 69; TIC 117549174: 2, 29, 69, 70), but the proposer found no second event. The complete machine-readable evidence and checklist are in the <a href="reports/single_event_audit.html">single-event audit</a>.</p>
-         <p><b>TESSCut pixel audit:</b> for TIC 137801807, a 9×9 Sector 69 cutout from <a href="https://mast.stsci.edu/tesscut/">MAST TESSCut</a> has a difference image centred <b>1.30 pixels</b> from the TIC coordinate and target-centred 1/3/5-pixel apertures measure −0.13%, −0.17%, and −1.33% rather than a dimming. This does not reproduce the light-curve event on the target pixels and downgrades the candidate pending a better difference-image/PRF analysis. TIC 117549174 has <b>0 of 30</b> clean event cadences in the TESSCut file because the entire event window is flagged QUALITY=128; its pixel audit is inconclusive, not positive. The cutout evidence is in the <a href="reports/tesscut_pixel_audit.html">TESSCut pixel audit</a>. The depths remain large enough that eclipsing binaries are serious alternatives; spectroscopy or targeted photometry should wait until source localisation is resolved.</p>
+          <p><b>TESSCut pixel audit:</b> for TIC 137801807, a 9×9 Sector 69 cutout from <a href="https://mast.stsci.edu/tesscut/">MAST TESSCut</a> has a difference image centred <b>1.30 pixels</b> from the TIC coordinate and target-centred 1/3/5-pixel apertures measure −0.13%, −0.17%, and −1.33% rather than a dimming. This does not reproduce the light-curve event on the target pixels and downgrades the candidate pending a better difference-image/PRF analysis. TIC 117549174 has <b>0 of 30</b> clean event cadences in the TESSCut file because the entire event window is flagged QUALITY=128; its pixel audit is inconclusive, not positive. The cutout evidence is in the <a href="reports/tesscut_pixel_audit.html">TESSCut pixel audit</a>. The depths remain large enough that eclipsing binaries are serious alternatives; spectroscopy or targeted photometry should wait until source localisation is resolved.</p>
+          <h3>All-sector repeat search · no qualifying repeats found</h3>
+          <p>We reprocessed every available TESS-SPOC FFI sector outside the anchor Sector 69 event with the blind proposer. This is stronger than simply relying on the original isolated-event queue: every proposal was retained for the report, then compared with the anchor using the frozen deterministic matcher.</p>
+          <table>
+            <tr><th>Target</th><th>Other sectors searched</th><th>Proposals</th><th>Repeat pairs</th><th>Conclusion</th></tr>
+            <tr><td class="num">TIC 137801807</td><td class="num">2, 29</td><td class="num">0</td><td class="num">0</td><td>No second event in the available SPOC archive.</td></tr>
+            <tr><td class="num">TIC 117549174</td><td class="num">2, 29, 70</td><td class="num">0</td><td class="num">0</td><td>No second event in the available SPOC archive.</td></tr>
+          </table>
+          <p>The machine-readable result, including cached-file provenance and per-sector status, is <a href="reports/candidate_repeat_search.md"><code>reports/candidate_repeat_search.md</code></a>. The null is limited by the frozen proposer sensitivity and the available SPOC reductions; it does not prove that no lower-SNR or differently reduced event exists.</p>
+          <h3>Executable follow-up decision</h3>
+          <p>The new triage does not leave both targets labelled “candidate.” It turns the evidence into an action queue: TIC 117549174 is <b>pixel-inconclusive</b> and gets reprocessing first; TIC 137801807 is a <b>source-localisation failure</b> and is deprioritised until imaging resolves the nearby Gaia source. Both planet claims are blocked and neither gets period-based transit scheduling.</p>
+          <table>
+            <tr><th>Priority</th><th>Target</th><th>Decision</th><th>Next action</th></tr>
+            <tr><td class="num">1</td><td class="num">TIC 117549174</td><td><b>Pixel inconclusive</b></td><td>Reprocess raw pixels or an alternative reduction; image only if the signal survives.</td></tr>
+            <tr><td class="num">2</td><td class="num">TIC 137801807</td><td><b>Source localisation failure</b></td><td>Obtain speckle imaging; reconsider only after identifying the dimming source.</td></tr>
+          </table>
+          <p>The generated queue is <a href="reports/candidate_followup_queue.md"><code>reports/candidate_followup_queue.md</code></a>. This is the practical lesson from the null repeat search: spend the next compute on data quality and source attribution, not on more confident planet ranking.</p>
+          <h3>TIC 117549174 alternative reductions · no rescue yet</h3>
+          <table>
+            <tr><th>Reduction</th><th>Sector 69 event</th><th>Other sectors</th><th>Interpretation</th></tr>
+            <tr><td><b>QLP</b></td><td>Event time exists, but all event cadences are QUALITY=128; no measurable anchor.</td><td>Sectors 2, 29, 70: 0 proposals.</td><td>Independent reduction agrees that the available event cadences are unusable, not that the signal is absent.</td></tr>
+            <tr><td><b>TARS</b></td><td>Sector 69 starts at BTJD 3184.36, after the event at 3183.13.</td><td>0 usable repeats; one Sector 29 proposal was rejected as too short to extract.</td><td>No independent confirmation.</td></tr>
+            <tr><td><b>TGLC</b></td><td>No Sector 69 product is available.</td><td>Sector 2 only.</td><td>Cannot test the candidate event.</td></tr>
+          </table>
+           <p>The complete provider manifest, MAST URIs, local cache provenance, quality counts, and per-sector proposal results are in <a href="reports/tic117549174_alternative_reductions.md"><code>reports/tic117549174_alternative_reductions.md</code></a>. TIC 117549174 remains <b>inconclusive</b>; it is not promoted and not definitively rejected.</p>
+           <h3>Extended candidate checks · attribution, flagged pixels, sensitivity</h3>
+           <p>The next diagnostic pass does not rescue either target. Gaia-to-TIC attribution found no nearby TIC match for the 2.15″ source beside TIC 137801807. Around TIC 117549174, both Gaia neighbours map only loosely to the same nearest TIC catalogue entry (TIC 610432593, 3.48″ away for the closer Gaia coordinate), so the identity is <b>not secure</b> and should not be treated as a confirmed contaminant.</p>
+           <p>For TIC 117549174, all <b>30/30</b> event cadences are QUALITY=128. The diagnostic-only all-cadence pixel measurement has the opposite sign from a transit: target-centred 1/3/5-pixel apertures measure approximately <b>−0.57%, −1.16%, and −3.08%</b>, and the same values appear at both nearby Gaia positions. This is spatially broad flagged-pixel behaviour, not usable transit localisation. Injection checks at five placements per sector detected a 3.18% event in <b>0/5</b> Sector 2, <b>0/5</b> Sector 29, and <b>0/5</b> Sector 70 trials; 5% injections were recovered in 0/5, 3/5, and 5/5 trials respectively. The result is a sensitivity limitation, not evidence that a repeat is absent.</p>
+           <p>The MAST inventory found QLP, TARS, TGLC, TASOC, T16, and GSFC-ELEANOR-LITE metadata, but only QLP, TARS, and TESS-SPOC provide anchor-sector records; no additional public reduction supplies an independent clean Sector 69 event. Full machine-readable results are in <a href="reports/candidate_extension_findings.md"><code>reports/candidate_extension_findings.md</code></a>.</p>
          <h3>External follow-up plan (requests prepared, observations not yet obtained)</h3>
          <table>
            <tr><th>Priority</th><th>Observation</th><th>Purpose</th><th>Status</th></tr>
@@ -622,32 +688,35 @@
       </section>
 
        <section class="page" id="page-roadmap" role="tabpanel">
-        <h2>Roadmap · what comes next</h2>
+        <h2>Roadmap · where the next planet could hide</h2>
         <div class="grid2">
-          <div class="card done"><b>✓ Learning matcher (#6)</b><br>Head-to-head learned and deterministic scoring with TIC-level holdouts and a written stop/go boundary.</div>
-          <div class="card done"><b>✓ Injection drills (#7)</b><br>Plant fake blinks of different depths and shapes into real recordings and map detection versus association failures.</div>
-          <div class="card done"><b>✓ Blind exam (#8)</b><br>Freeze everything, then grade on sealed sector 82: rules rank all 272 true pairs first, learned matcher trails.</div>
-           <div class="card done"><b>✓ Hunt new worlds (#9)</b><br>6,945 unique multi-epoch stars mined; no repeating planetary candidate survives catalog and EB vetting, while ten isolated events have completed in-code auditing.</div>
-           <div class="card next"><b>→ Targeted planet search (#10)</b><br>Start with known planet hosts and outer single/duotransits; follow with circumbinaries, K2 ↔ TESS, then sparse high-value TESS coverage.</div>
+          <div class="card done"><b>✓ Survey A · known hosts</b><br>Full Sectors 1–79 cohort complete: 35,936 pairs ranked, no new outer-planet candidate survived.</div>
+          <div class="card done"><b>✓ False-positive boundary</b><br>Catalogue, EB, contamination, companion-radius, and pixel checks explain why every promoted signal stopped short of a planet claim.</div>
+          <div class="card done"><b>✓ Survey B real cohort</b><br>417 usable TEBC binaries, 1,320 SPOC light curves, and 680 retained event records processed with binary-eclipse masking.</div>
+          <div class="card next"><b>→ Survey B interpretation</b><br>Calibrate event thresholds, inspect the 25 paired systems, and add circumbinary dynamical-window ranking before any candidate claim.</div>
+          <div class="card next"><b>→ Candidate harvesting</b><br>Revisit published unresolved single-transit candidates for later events, then move to K2 ↔ TESS and sparse clean stars.</div>
         </div>
         <h3>Can't-do list (still true)</h3>
         <ul>
-           <li><b>No new planets yet</b> — 6,945 unique multi-epoch stars mined; one blind recovery was later refuted as a blended eclipsing binary and ten isolated events remain unresolved.</li>
-           <li><b>Search strategy pivot</b> — the next surveys target known planet hosts, eclipsing binaries, cross-mission K2/TESS overlaps, and sparse multi-year coverage instead of another undifferentiated short-period sweep.</li>
+           <li><b>No new planets yet</b> — the full known-host Survey A is null after vetting; the existing archive findings are false positives, known-object recoveries, or unresolved isolated events.</li>
+           <li><b>Survey B has no planet claim yet</b> — the real EB cohort is complete, but it contains no known circumbinary-planet positives and requires candidate-specific vetting.</li>
+           <li><b>Search strategy pivot</b> — the next surveys target eclipsing binaries, published unresolved single transits, K2 ↔ TESS overlaps, and sparse multi-year coverage instead of another undifferentiated short-period sweep.</li>
            <li><b>No high-resolution imaging or spectroscopy yet</b> — TESSCut difference/centroid checks are implemented, but speckle imaging, RVs, alternate reductions, and external photometry remain outstanding.</li>
-          <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
-        </ul>
-         <pre>python3 -m pytest -q            # 138 passed
-PYTHONPATH=src python3 -c "
-from tess_assoc.pipeline import run_tracer, render_report
-from tess_assoc.manifest import load_manifest_file
+           <li><b>No AI in the hunt path</b> — the learned matcher lost all three exams; discovery flies on rules.</li>
+         </ul>
+           <pre>python3 -m pytest --collect-only -q   # 146 tests collected
+  PYTHONPATH=src python3 tools/run_survey_b_real.py # Survey B real EB cohort
+  python3 tools/run_circumbinary_pilot.py # Survey B fixture pilot
+ PYTHONPATH=src python3 -c "
+ from tess_assoc.pipeline import run_tracer, render_report
+ from tess_assoc.manifest import load_manifest_file
 print(render_report(run_tracer(load_manifest_file('fixtures/tracer_v1.json'))))"</pre>
       </section>
     </main>
   </div>
 
   <footer>
-    <div class="shell">4 Sep 2026 — every number above is actual output of the code, explained without jargon.</div>
+    <div class="shell">7 Sep 2026 — every number above is actual output of the code or explicitly labelled as a fixture pilot.</div>
   </footer>
 
   <script>
