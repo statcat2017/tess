@@ -73,7 +73,11 @@ def _stage_results(
                 }
             )
 
-    touched = {s.sector for s in manifest.sectors} | {e.sector for e in manifest.events}
+    touched = (
+        {s.sector for s in manifest.sectors}
+        | {e.sector for e in manifest.events}
+        | {record.sector for record in records}
+    )
     return pair_results, associations, records, touched
 
 
@@ -96,6 +100,13 @@ def _validate_event_inputs(
     record_tics = {record.tic_id for record in records}
     if record_tics and record_tics != {manifest.tic_id}:
         raise ValueError("event records must belong to the manifest TIC")
+    manifest_sectors = {sector.sector for sector in manifest.sectors}
+    undeclared_sectors = {record.sector for record in records} - manifest_sectors
+    if undeclared_sectors:
+        raise ValueError(
+            "event records contain sectors not declared by the manifest: "
+            f"{sorted(undeclared_sectors)}"
+        )
     return records
 
 

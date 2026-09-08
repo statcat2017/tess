@@ -98,7 +98,13 @@ class TracerManifest:
         for key in REQUIRED_THRESHOLDS:
             if key not in self.matcher_thresholds:
                 raise ValueError(f"matcher_thresholds missing key: {key}")
-            require_finite(f"threshold {key}", self.matcher_thresholds[key])
+            threshold = self.matcher_thresholds[key]
+            require_finite(f"threshold {key}", threshold)
+            if key in ("max_rel_depth_diff", "max_rel_duration_diff"):
+                if threshold < 0:
+                    raise ValueError(f"threshold {key} must be >= 0")
+            elif not -1 <= threshold <= 1:
+                raise ValueError(f"threshold {key} must be between -1 and 1")
         if not isinstance(self.sectors, (list, tuple)) or not all(
             isinstance(s, ManifestSector) for s in self.sectors
         ):

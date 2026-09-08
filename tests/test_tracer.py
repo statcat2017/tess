@@ -74,6 +74,17 @@ def test_manifest_rejects_unknown_and_noncanonical_structure():
     with pytest.raises(ValueError, match="unknown matcher thresholds"):
         load_manifest(bad_threshold)
 
+    for key, value in (
+        ("max_rel_depth_diff", -1.0),
+        ("max_rel_duration_diff", -1.0),
+        ("min_morph_corr", -1.1),
+        ("min_morph_corr", 1.1),
+    ):
+        bad_bounds = json.loads(json.dumps(good))
+        bad_bounds["matcher_thresholds"][key] = value
+        with pytest.raises(ValueError, match="threshold"):
+            load_manifest(bad_bounds)
+
     bad_sector = json.loads(json.dumps(good))
     bad_sector["sectors"][0]["unused"] = True
     with pytest.raises(ValueError, match="sector unknown keys"):
@@ -236,7 +247,7 @@ def test_records_reject_sealed_event_records_before_processing():
     events = provide_events(manifest)
     sealed = dataclasses.replace(events["A"], sector=80)
     events["A"] = sealed
-    with pytest.raises(ValueError, match="temporal leak"):
+    with pytest.raises(ValueError, match="not declared by the manifest"):
         run_records(manifest, events)
 
 

@@ -150,6 +150,15 @@ def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
         run_frozen_records(manifest, events, freeze_record=None)
 
 
+def test_frozen_records_reject_undeclared_sealed_sector(tmp_path):
+    manifest = _manifest(sectors=(12, 39))
+    events = {"a": _rec(1, 12, 100.0), "b": _rec(1, 80, 200.0)}
+    _, record = _freeze(tmp_path)
+
+    with pytest.raises(ValueError, match="not declared by the manifest"):
+        run_frozen_records(manifest, events, freeze_record=record)
+
+
 def test_holdout_metrics_ranges():
     entries = [
         {"label": "positive", "score": 0.0},
