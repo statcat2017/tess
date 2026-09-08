@@ -146,6 +146,8 @@ def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
     )
     with pytest.raises(ValueError, match="differ from frozen"):
         run_frozen_records(drifted, events, freeze_record=record)
+    with pytest.raises(ValueError, match="FreezeRecord"):
+        run_frozen_records(manifest, events, freeze_record=None)
 
 
 def test_holdout_metrics_ranges():

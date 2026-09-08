@@ -102,7 +102,6 @@ def _validate_event_inputs(
 def _validate_development_records(
     manifest: TracerManifest, records: list[EventRecord]
 ) -> None:
-    manifest.validate_development()
     _protocol.validate_development_sectors({record.sector for record in records})
 
 
@@ -130,6 +129,7 @@ def run_records(
 ) -> dict[str, Any]:
     """Core stages over prebuilt records (shared by fixture and replay paths)."""
     manifest = _validate_manifest(manifest)
+    manifest.validate_development()
     records = _validate_event_inputs(manifest, events)
     _validate_development_records(manifest, records)
     return _run_validated_records(manifest, events, records)
@@ -149,6 +149,8 @@ def run_frozen_records(
     """
     manifest = _validate_manifest(manifest)
     records = _validate_event_inputs(manifest, events)
+    if not isinstance(freeze_record, _freeze.FreezeRecord):
+        raise ValueError("freeze_record must be a FreezeRecord")
     if dict(manifest.matcher_thresholds) != freeze_record.thresholds:
         raise ValueError("holdout thresholds differ from frozen thresholds")
     if _freeze.source_tree_hash() != freeze_record.code_sha:
@@ -206,6 +208,7 @@ def render_report(results: dict[str, Any]) -> str:
 
 def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
     manifest = _validate_manifest(manifest)
+    manifest.validate_development()
     events = provide_events(manifest)
     records = _validate_event_inputs(manifest, events)
     _validate_development_records(manifest, records)

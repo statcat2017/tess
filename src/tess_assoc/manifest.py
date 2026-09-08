@@ -62,6 +62,8 @@ class ManifestEvent:
         if not isinstance(self.id, str) or not self.id:
             raise ValueError("event id must be a non-empty str")
         require_strict_int("event sector", self.sector, minimum=1)
+        if self.sector not in _protocol.ALL_KNOWN_SECTORS:
+            raise ValueError("event sector must be a known TESS sector (1-106)")
         require_finite("event t0", self.t0)
         require_positive_finite("event depth", self.depth)
         require_positive_finite("event duration_days", self.duration_days)
@@ -148,8 +150,6 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
         if extra_sector:
             raise ValueError(f"sector unknown keys: {extra_sector}")
         sectors.append(ManifestSector(sector=s["sector"], windows=s["windows"]))
-    sector_ids = {s.sector for s in sectors}
-    _protocol.validate_development_sectors(sector_ids)
     by_sector = {s.sector: s for s in sectors}
 
     events = []
@@ -234,6 +234,8 @@ class ReplaySystem:
             raise ValueError("system sectors must be a non-empty list")
         for sector in self.sectors:
             require_strict_int("sector", sector, minimum=1)
+            if sector not in _protocol.ALL_KNOWN_SECTORS:
+                raise ValueError("sector must be a known TESS sector (1-106)")
         if not isinstance(self.toi, str):
             raise ValueError("toi must be a str")
         object.__setattr__(self, "sectors", tuple(self.sectors))
