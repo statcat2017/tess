@@ -20,10 +20,13 @@ from tess_assoc.window import filter_aliases
 
 
 def _stage_results(
-    manifest: TracerManifest, events: dict[str, EventRecord]
+    manifest: TracerManifest,
+    events: dict[str, EventRecord],
+    *,
+    records: list[EventRecord] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[EventRecord], set[int]]:
     """Shared core: pairs → deterministic matches → alias filtering."""
-    records = list(events.values())
+    records = list(events.values()) if records is None else records
     pairs = build_pairs(events)
     thresholds = manifest.matcher_thresholds
 
@@ -102,7 +105,9 @@ def run_records(
 ) -> dict[str, Any]:
     """Core stages over prebuilt records (shared by fixture and replay paths)."""
     records = _validate_development_inputs(manifest, events)
-    pair_results, associations, records, touched = _stage_results(manifest, events)
+    pair_results, associations, records, touched = _stage_results(
+        manifest, events, records=records
+    )
     return {
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
