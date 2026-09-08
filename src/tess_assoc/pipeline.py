@@ -106,6 +106,17 @@ def _validate_event_inputs(
             "event records contain sectors not declared by the manifest: "
             f"{sorted(undeclared_sectors)}"
         )
+    windows_by_sector = {
+        sector.sector: sector.windows for sector in manifest.sectors
+    }
+    for record in records:
+        if not any(
+            start <= record.t0 <= end
+            for start, end in windows_by_sector[record.sector]
+        ):
+            raise ValueError(
+                f"event record t0 outside declared sector {record.sector} windows"
+            )
     return records
 
 

@@ -249,6 +249,11 @@ def extract_events(
                 SkippedTransit(t_pred, "epoch refinement found no usable cadence")
             )
             continue
+        if not any(start <= t_ref <= end for start, end in windows):
+            skipped.append(
+                SkippedTransit(t_pred, "refined epoch outside observing window")
+            )
+            continue
         result = extract_at(
             time,
             flux,

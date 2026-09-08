@@ -269,6 +269,9 @@ def test_run_records_rejects_malformed_public_inputs():
         run_records(None, events)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="event ids"):
         run_records(manifest, {1: next(iter(events.values()))})  # type: ignore[dict-item]
+    outside = dataclasses.replace(next(iter(events.values())), t0=5000.0)
+    with pytest.raises(ValueError, match="outside declared"):
+        run_records(manifest, {"outside": outside})
 
 
 @pytest.mark.parametrize(

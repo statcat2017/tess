@@ -123,6 +123,7 @@ class DiscoveryManifest:
     matcher_thresholds: dict[str, float] = field(default_factory=dict)
     systems: tuple[DiscoverySystem, ...] = ()
     purpose: str = "rehearsal"
+    source_sha256: str | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
@@ -148,6 +149,12 @@ class DiscoveryManifest:
             raise ValueError("mining purpose excludes Sector 106 (that is discovery)")
         if len({s.name for s in self.systems}) != len(self.systems):
             raise ValueError("system names must be unique (results key on name)")
+        if self.source_sha256 is not None and (
+            not isinstance(self.source_sha256, str)
+            or len(self.source_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in self.source_sha256)
+        ):
+            raise ValueError("source_sha256 must be a SHA-256 hex string")
         object.__setattr__(self, "matcher_thresholds", dict(self.matcher_thresholds))
         object.__setattr__(self, "systems", tuple(self.systems))
 
@@ -215,6 +222,7 @@ def load_discovery_manifest(
         manifest = _parse_discovery_manifest(json.load(f))
     if dict(manifest.matcher_thresholds) != record.thresholds:
         raise ValueError("discovery thresholds differ from frozen thresholds")
+    object.__setattr__(manifest, "source_sha256", record.manifests["discovery"]["sha256"])
     return manifest
 
 
@@ -549,6 +557,7 @@ def triage_ranked_pairs(
 def run_discovery(
     manifest: DiscoveryManifest,
     *,
+    manifest_path: str,
     freeze_path: str,
     config,
     cache_dir: str | None = None,
@@ -557,11 +566,11 @@ def run_discovery(
 ) -> dict[str, Any]:
     """Frozen discovery run over the cohort (rehearsal if no Sector 106)."""
     record = _freeze.verify_freeze(freeze_path, config)
-    pinned_manifest = load_discovery_manifest(
-        record.manifests["discovery"]["path"], record, config
+    authenticated_manifest = load_discovery_manifest(
+        manifest_path, record, config
     )
-    if manifest != pinned_manifest:
-        raise ValueError("discovery manifest differs from frozen manifest")
+    if manifest != authenticated_manifest:
+        raise ValueError("discovery manifest differs from authenticated manifest")
     if dict(manifest.matcher_thresholds) != record.thresholds:
         raise ValueError("discovery thresholds differ from frozen thresholds")
     record = _freeze.mark_unblinded(freeze_path)
