@@ -96,7 +96,7 @@ def test_manifest_rejects_unknown_and_noncanonical_structure():
 
     unknown_sector = json.loads(json.dumps(good))
     unknown_sector["sectors"][0]["sector"] = 107
-    with pytest.raises(ValueError, match="non-development sectors"):
+    with pytest.raises(ValueError, match="known TESS sector"):
         load_manifest(unknown_sector)
 
     for key, value in (("sectors", "bad"), ("events", "bad")):
@@ -218,6 +218,17 @@ def test_programmatic_tracer_rejects_sealed_sectors_before_processing():
     )
     with pytest.raises(ValueError, match="temporal leak"):
         run_tracer(bad)
+
+
+def test_manifest_development_validation_rejects_sealed_sectors():
+    manifest = _happy_manifest()
+    sealed = dataclasses.replace(
+        manifest,
+        sectors=manifest.sectors
+        + (dataclasses.replace(manifest.sectors[0], sector=80),),
+    )
+    with pytest.raises(ValueError, match="temporal leak"):
+        sealed.validate_development()
 
 
 def test_records_reject_sealed_event_records_before_processing():

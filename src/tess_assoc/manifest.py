@@ -26,6 +26,8 @@ class ManifestSector:
 
     def __post_init__(self) -> None:
         require_strict_int("sector", self.sector, minimum=1)
+        if self.sector not in _protocol.ALL_KNOWN_SECTORS:
+            raise ValueError("sector must be a known TESS sector (1-106)")
         if not isinstance(self.windows, (list, tuple)) or not self.windows:
             raise ValueError("sector windows must be a non-empty list")
         norm: list[tuple[float, float]] = []
@@ -113,6 +115,12 @@ class TracerManifest:
         if len({e.id for e in self.events}) != len(self.events):
             raise ValueError("event ids must be unique")
 
+    def validate_development(self) -> None:
+        """Reject sealed, discovery, and unknown sectors for fixture runs."""
+        _protocol.validate_development_sectors(
+            {s.sector for s in self.sectors} | {e.sector for e in self.events}
+        )
+
 
 def load_manifest(d: dict[str, Any]) -> TracerManifest:
     if not isinstance(d, dict):
@@ -178,7 +186,7 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
             raise ValueError(f"event {event.id} t0 outside its sector windows")
         events.append(event)
 
-    return TracerManifest(
+    manifest = TracerManifest(
         name=d["name"],
         tic_id=d["tic_id"],
         epoch_match_tol_days=d["epoch_match_tol_days"],
@@ -186,6 +194,8 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
         sectors=tuple(sectors),
         events=tuple(events),
     )
+    manifest.validate_development()
+    return manifest
 
 
 def load_manifest_file(path: str) -> TracerManifest:

@@ -77,11 +77,15 @@ def _stage_results(
     return pair_results, associations, records, touched
 
 
-def _validate_development_inputs(
-    manifest: TracerManifest, events: dict[str, EventRecord]
-) -> list[EventRecord]:
+def _validate_manifest(manifest: TracerManifest) -> TracerManifest:
     if not isinstance(manifest, TracerManifest):
         raise ValueError("manifest must be a TracerManifest")
+    return manifest
+
+
+def _validate_event_inputs(
+    manifest: TracerManifest, events: dict[str, EventRecord]
+) -> list[EventRecord]:
     if not isinstance(events, dict):
         raise ValueError("events must be a dict")
     if any(not isinstance(event_id, str) or not event_id for event_id in events):
@@ -92,19 +96,21 @@ def _validate_development_inputs(
     record_tics = {record.tic_id for record in records}
     if record_tics and record_tics != {manifest.tic_id}:
         raise ValueError("event records must belong to the manifest TIC")
-    _protocol.validate_development_sectors(
-        {s.sector for s in manifest.sectors}
-        | {e.sector for e in manifest.events}
-        | {record.sector for record in records}
-    )
     return records
 
 
-def run_records(
-    manifest: TracerManifest, events: dict[str, EventRecord]
+def _validate_development_records(
+    manifest: TracerManifest, records: list[EventRecord]
+) -> None:
+    manifest.validate_development()
+    _protocol.validate_development_sectors({record.sector for record in records})
+
+
+def _run_validated_records(
+    manifest: TracerManifest,
+    events: dict[str, EventRecord],
+    records: list[EventRecord],
 ) -> dict[str, Any]:
-    """Core stages over prebuilt records (shared by fixture and replay paths)."""
-    records = _validate_development_inputs(manifest, events)
     pair_results, associations, records, touched = _stage_results(
         manifest, events, records=records
     )
@@ -119,6 +125,16 @@ def run_records(
     }
 
 
+def run_records(
+    manifest: TracerManifest, events: dict[str, EventRecord]
+) -> dict[str, Any]:
+    """Core stages over prebuilt records (shared by fixture and replay paths)."""
+    manifest = _validate_manifest(manifest)
+    records = _validate_event_inputs(manifest, events)
+    _validate_development_records(manifest, records)
+    return _run_validated_records(manifest, events, records)
+
+
 def run_frozen_records(
     manifest: TracerManifest,
     events: dict[str, EventRecord],
@@ -131,11 +147,15 @@ def run_frozen_records(
     record verifies (same source tree, same thresholds). The freeze
     evidence lands in the output for audit.
     """
+    manifest = _validate_manifest(manifest)
+    records = _validate_event_inputs(manifest, events)
     if dict(manifest.matcher_thresholds) != freeze_record.thresholds:
         raise ValueError("holdout thresholds differ from frozen thresholds")
     if _freeze.source_tree_hash() != freeze_record.code_sha:
         raise ValueError("source tree changed since freeze")
-    pair_results, associations, records, touched = _stage_results(manifest, events)
+    pair_results, associations, records, touched = _stage_results(
+        manifest, events, records=records
+    )
     return {
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
@@ -185,8 +205,11 @@ def render_report(results: dict[str, Any]) -> str:
 
 
 def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
-    _validate_development_inputs(manifest, {})
-    return run_records(manifest, provide_events(manifest))
+    manifest = _validate_manifest(manifest)
+    events = provide_events(manifest)
+    records = _validate_event_inputs(manifest, events)
+    _validate_development_records(manifest, records)
+    return _run_validated_records(manifest, events, records)
 
 
 def run_tracer_dict(manifest_dict: dict[str, Any]) -> dict[str, Any]:
