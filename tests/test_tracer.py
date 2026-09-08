@@ -7,11 +7,12 @@ from pathlib import Path
 import pytest
 
 from tess_assoc import protocol as P
-from tess_assoc.manifest import load_manifest, load_manifest_file
+from tess_assoc.manifest import ManifestSector, load_manifest, load_manifest_file
 from tess_assoc.matcher import match
 from tess_assoc.pairs import build_pairs
 from tess_assoc.pipeline import render_report, run_records, run_tracer, run_tracer_dict
 from tess_assoc.provider import provide_events
+from tess_assoc.window import filter_aliases
 
 FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "tracer_v1.json"
 HAPPY_FIXTURE = (
@@ -147,6 +148,11 @@ def test_end_to_end_results_and_report():
     assert asc["pair"] == ["A", "B"]
     assert asc["delta_t_days"] == 900.0
     assert asc["aliases_total"] == 33
+    assert asc["aliases_retained"] == len(asc["retained"])
+    assert asc["aliases_rejected"] == len(asc["rejected"])
+    assert asc["aliases_total"] == (
+        asc["aliases_retained"] + asc["aliases_rejected"]
+    )
     kept = {r["period_days"] for r in asc["retained"]}
     cut = {r["period_days"] for r in asc["rejected"]}
     assert 900.0 in kept and 300.0 in kept
@@ -156,7 +162,9 @@ def test_end_to_end_results_and_report():
     json.dumps(results)  # machine-readable
     report = render_report(results)
     assert "A–B" in report and "COMPATIBLE" in report
-    assert "300.0d" in report and "Sealed sectors touched: []" in report
+    assert "300.0d" in report
+    assert "retained" in report and "rejected" in report
+    assert "Sealed sectors touched: []" in report
 
 
 def test_happy_path_is_reproducible_without_contradictions():
@@ -193,3 +201,29 @@ def test_records_reject_sealed_event_records_before_processing():
     events["A"] = sealed
     with pytest.raises(ValueError, match="temporal leak"):
         run_records(manifest, events)
+
+
+@pytest.mark.parametrize(
+    ("window", "expected_epoch"),
+    (("before", 895.0), ("between", 1795.0), ("after", 2695.0)),
+)
+def test_alias_filter_checks_windows_before_between_and_after_anchors(
+    window, expected_epoch
+):
+    base = _happy_manifest()
+    events = provide_events(base)
+    ranges = {
+        "before": (890.0, 900.0),
+        "between": (1790.0, 1800.0),
+        "after": (2690.0, 2700.0),
+    }
+    extra_sector = ManifestSector(sector=50, windows=(ranges[window],))
+    manifest = dataclasses.replace(base, sectors=base.sectors + (extra_sector,))
+
+    verdicts = filter_aliases(
+        events["A"], events["B"], manifest, list(events.values())
+    )
+    alias_two = next(verdict for verdict in verdicts if verdict.n == 2)
+
+    assert alias_two.retained is False
+    assert alias_two.contradicting_epoch == pytest.approx(expected_epoch)

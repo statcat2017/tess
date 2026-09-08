@@ -51,6 +51,8 @@ def _stage_results(
                     "pair": [p.a_id, p.b_id],
                     "delta_t_days": t2 - t1,
                     "aliases_total": len(verdicts),
+                    "aliases_retained": sum(v.retained for v in verdicts),
+                    "aliases_rejected": sum(not v.retained for v in verdicts),
                     "retained": [
                         {"n": v.n, "period_days": v.period_days}
                         for v in verdicts
@@ -151,7 +153,9 @@ def render_report(results: dict[str, Any]) -> str:
     for asc in results["associations"]:
         a, b = asc["pair"]
         lines.append(f"- {a}–{b}: ΔT={asc['delta_t_days']:.1f}d, "
-                     f"{asc['aliases_total']} aliases")
+                     f"{asc['aliases_total']} aliases "
+                     f"({asc['aliases_retained']} retained, "
+                     f"{asc['aliases_rejected']} rejected)")
         kept = ", ".join(f"n={r['n']} P={r['period_days']:.1f}d" for r in asc["retained"])
         cut = ", ".join(
             f"n={r['n']} P={r['period_days']:.1f}d (missing epoch "
