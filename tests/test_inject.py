@@ -153,6 +153,16 @@ def test_run_grid_rejects_sealed_sectors():
         )
 
 
+def test_study_cell_rejects_malformed_thresholds():
+    with pytest.raises(ValueError, match="matcher_thresholds"):
+        study_cell(
+            [1.0, 2.0], [1.0, 1.0], [1.0, 2.0], [1.0, 1.0],
+            tic_id=1, sector_a=12, sector_b=39, t1=1.0, delta_t_days=30.0,
+            depth=0.01, duration_days=0.2, shape="box", thresholds=None,
+            provenance=SOURCE_PROVENANCE,
+        )
+
+
 def test_alias_filter_uses_windows_after_the_pair():
     def event(sector, t0):
         return EventRecord(

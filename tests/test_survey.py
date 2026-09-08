@@ -119,7 +119,7 @@ def test_survey_resume_skips_completed(tmp_path, monkeypatch):
     manifest_path = str(tmp_path / "survey.json")
     Path(manifest_path).write_text(json.dumps(manifest))
     freeze_path = str(tmp_path / "freeze.json")
-    F.create_freeze(
+    record = F.create_freeze(
         REPLAY, manifest_path, CONFIG, output_path=freeze_path,
         cohort_key="discovery",
     )
@@ -134,11 +134,16 @@ def test_survey_resume_skips_completed(tmp_path, monkeypatch):
         "pairs": [],
     }
     with open(str(Path(out_dir) / "harvest.jsonl"), "w") as f:
-        f.write(json.dumps({"system": "TIC 1", **thin}) + "\n")
+        f.write(json.dumps({
+            "system": "TIC 1",
+            "freeze_code_sha": record.code_sha,
+            "manifest_sha256": F.file_hash(manifest_path),
+            **thin,
+        }) + "\n")
 
     calls = []
 
-    def stub(manifest_arg, system, record=None, cache_dir=None):
+    def stub(manifest_arg, system, record=None, config=None, cache_dir=None):
         calls.append(system.name)
         assert system.name == "TIC 2"
         return {**thin, "systems_out": {**thin["systems_out"], "tic_id": 2}}
@@ -171,7 +176,7 @@ def test_survey_isolates_faults(tmp_path, monkeypatch):
         cohort_key="discovery",
     )
 
-    def boom(manifest_arg, system, record=None, cache_dir=None):
+    def boom(manifest_arg, system, record=None, config=None, cache_dir=None):
         raise RuntimeError("synthetic worker failure")
 
     monkeypatch.setattr(S, "harvest_system", boom)

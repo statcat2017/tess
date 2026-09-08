@@ -440,7 +440,7 @@ def test_discovery_blocked_and_partial_statuses(tmp_path, monkeypatch):
 
     monkeypatch.setattr(D, "replay_blind_system", stub)
     results = D.run_discovery(
-        manifest, freeze_path=freeze_path, config=CONFIG,
+        manifest, manifest_path=manifest_path, freeze_path=freeze_path, config=CONFIG,
         cache_dir=str(tmp_path),
     )
     assert results["status"] == "partial"
@@ -508,7 +508,7 @@ def test_live_mining_validation_excludes_known_toi(tmp_path):
     )
     manifest = load_discovery_manifest(validation_path, freeze_path, CONFIG)
     results = run_discovery(
-        manifest, freeze_path=freeze_path, config=CONFIG,
+        manifest, manifest_path=validation_path, freeze_path=freeze_path, config=CONFIG,
         cache_dir=str(tmp_path),
     )
     assert results["purpose"] == "mining"
@@ -538,7 +538,7 @@ def test_live_mining_hunt_reports_cleanly(tmp_path):
     manifest = load_discovery_manifest(hunt_path, freeze_path, CONFIG)
     assert len(manifest.systems) == 8
     results = run_discovery(
-        manifest, freeze_path=freeze_path, config=CONFIG,
+        manifest, manifest_path=hunt_path, freeze_path=freeze_path, config=CONFIG,
         cache_dir=str(tmp_path),
     )
     assert results["purpose"] == "mining"
@@ -597,7 +597,7 @@ def test_live_rehearsal_run_on_dev(tmp_path):
     )
     manifest = load_discovery_manifest(manifest_path, freeze_path, CONFIG)
     results = run_discovery(
-        manifest, freeze_path=freeze_path, config=CONFIG,
+        manifest, manifest_path=manifest_path, freeze_path=freeze_path, config=CONFIG,
         cache_dir=str(tmp_path), log_path=str(tmp_path / "access.jsonl"),
     )
     assert results["is_discovery"] is False

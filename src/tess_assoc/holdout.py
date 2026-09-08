@@ -55,6 +55,7 @@ def build_holdout_systems(
 def run_holdout(
     manifest,
     *,
+    manifest_path: str,
     freeze_path: str,
     checkpoint: dict[str, Any],
     ablation: str,
@@ -64,6 +65,11 @@ def run_holdout(
 ) -> dict[str, Any]:
     """Frozen evaluation on the sealed cohort (gate first, metrics after)."""
     record = _freeze.verify_freeze(freeze_path, config)
+    authenticated_manifest = _freeze.load_holdout_manifest(
+        manifest_path, record, config
+    )
+    if manifest != authenticated_manifest:
+        raise ValueError("holdout manifest differs from authenticated manifest")
     if record.ablation != ablation:
         raise ValueError("holdout ablation differs from frozen ablation")
     if dict(manifest.matcher_thresholds) != record.thresholds:
@@ -75,10 +81,17 @@ def run_holdout(
     record = _freeze.mark_unblinded(freeze_path)
     thresholds = dict(manifest.matcher_thresholds)
 
-    runner = functools.partial(run_frozen_records, freeze_record=record)
+    runner = functools.partial(
+        run_frozen_records, freeze_record=record, config=config, cohort_key="holdout"
+    )
+    def preflight(system) -> None:
+        _freeze.check_frozen_system(
+            record, "holdout", system.tic_id, set(system.sectors)
+        )
+
     blind_results = {
         system.name: replay_blind_system(
-            manifest, system, cache_dir, records_runner=runner
+            manifest, system, cache_dir, records_runner=runner, preflight=preflight
         )
         for system in manifest.systems
     }

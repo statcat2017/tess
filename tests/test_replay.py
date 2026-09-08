@@ -6,6 +6,7 @@ dependencies or MAST are unreachable — and report unavailability clearly.
 
 import json
 import os
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -56,6 +57,19 @@ def test_replay_manifest_declares_spoc_product():
     assert 3 <= len(replay.systems) <= 5
     for system in replay.systems:
         assert len(system.sectors) >= 2
+
+
+def test_replay_manifest_rejects_invalid_matcher_thresholds():
+    replay = load_replay_manifest(str(REPLAY))
+    for key, value in (
+        ("max_rel_depth_diff", -1.0),
+        ("max_rel_duration_diff", -1.0),
+        ("min_morph_corr", 1.1),
+    ):
+        thresholds = dict(replay.matcher_thresholds)
+        thresholds[key] = value
+        with pytest.raises(ValueError, match="threshold"):
+            dataclasses.replace(replay, matcher_thresholds=thresholds)
 
 
 def test_replay_manifest_rejects_wrong_product(tmp_path):

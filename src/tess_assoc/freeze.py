@@ -27,7 +27,37 @@ from tess_assoc._validate import (
     require_positive_finite,
     require_strict_int,
 )
-from tess_assoc.matcher import REQUIRED_THRESHOLDS
+from tess_assoc.matcher import validate_matcher_thresholds
+
+
+class _FrozenDict(dict):
+    """JSON-compatible dict that rejects in-place mutation."""
+
+    def _immutable(self, *args, **kwargs):
+        raise TypeError("freeze record payloads are immutable")
+
+    __delitem__ = __setitem__ = clear = pop = popitem = setdefault = update = _immutable
+    __ior__ = _immutable
+
+
+class _FrozenList(list):
+    """JSON-compatible list that rejects in-place mutation."""
+
+    def _immutable(self, *args, **kwargs):
+        raise TypeError("freeze record payloads are immutable")
+
+    __delitem__ = __iadd__ = __imul__ = __setitem__ = _immutable
+    append = clear = extend = insert = pop = remove = reverse = sort = _immutable
+
+
+def _freeze_payload(value: Any) -> Any:
+    if isinstance(value, dict):
+        return _FrozenDict({key: _freeze_payload(item) for key, item in value.items()})
+    if isinstance(value, list):
+        return _FrozenList(_freeze_payload(item) for item in value)
+    if isinstance(value, tuple):
+        return _FrozenList(_freeze_payload(item) for item in value)
+    return value
 
 
 def source_tree_hash(src_dir: str | None = None) -> str:
@@ -88,6 +118,10 @@ class HoldoutSystem:
             raise ValueError("system sectors must be a non-empty list")
         for sector in self.sectors:
             require_strict_int("sector", sector, minimum=1)
+            if sector not in _protocol.DEV_SECTORS | _protocol.SEALED_SECTORS:
+                raise ValueError("holdout sectors must be development or sealed sectors")
+        if len(set(self.sectors)) != len(self.sectors):
+            raise ValueError("system sectors must be unique")
         if not isinstance(self.toi, str):
             raise ValueError("toi must be a str")
         object.__setattr__(self, "sectors", tuple(self.sectors))
@@ -105,6 +139,7 @@ class HoldoutManifest:
     resample_samples: int
     matcher_thresholds: dict[str, float] = field(default_factory=dict)
     systems: tuple[HoldoutSystem, ...] = ()
+    source_sha256: str | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
@@ -116,16 +151,19 @@ class HoldoutManifest:
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         require_positive_finite("window_half_span_days", self.window_half_span_days)
         require_strict_int("resample_samples", self.resample_samples, minimum=3)
-        if not isinstance(self.matcher_thresholds, dict):
-            raise ValueError("matcher_thresholds must be a dict")
-        for key in REQUIRED_THRESHOLDS:
-            if key not in self.matcher_thresholds:
-                raise ValueError(f"matcher_thresholds missing key: {key}")
-            require_finite(f"threshold {key}", self.matcher_thresholds[key])
+        validate_matcher_thresholds(self.matcher_thresholds)
         if not isinstance(self.systems, (list, tuple)) or not self.systems:
             raise ValueError("systems must be a non-empty list")
         if not all(isinstance(s, HoldoutSystem) for s in self.systems):
             raise ValueError("systems must be HoldoutSystem records")
+        if len({s.name for s in self.systems}) != len(self.systems):
+            raise ValueError("system names must be unique")
+        if self.source_sha256 is not None and (
+            not isinstance(self.source_sha256, str)
+            or len(self.source_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in self.source_sha256)
+        ):
+            raise ValueError("source_sha256 must be a SHA-256 hex string")
         object.__setattr__(self, "matcher_thresholds", dict(self.matcher_thresholds))
         object.__setattr__(self, "systems", tuple(self.systems))
 
@@ -147,6 +185,86 @@ class FreezeRecord:
     systems: dict[str, list[int]]
     checkpoint_sha: str | None
     ephemeris_source: str
+    system_sectors: dict[str, dict[str, list[int]]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in (
+            "protocol_version",
+            "code_sha",
+            "created_utc",
+            "ablation",
+            "ephemeris_source",
+        ):
+            if not isinstance(getattr(self, name), str) or not getattr(self, name):
+                raise ValueError(f"{name} must be a non-empty str")
+        if self.unblinded_utc is not None and not isinstance(self.unblinded_utc, str):
+            raise ValueError("unblinded_utc must be a str or None")
+        if not isinstance(self.thresholds, dict):
+            raise ValueError("thresholds must be a dict")
+        validate_matcher_thresholds(self.thresholds)
+        if not isinstance(self.learn_config, dict):
+            raise ValueError("learn_config must be a dict")
+        if not isinstance(self.injection, dict):
+            raise ValueError("injection must be a dict")
+        if not isinstance(self.manifests, dict):
+            raise ValueError("manifests must be a dict")
+        for key, value in self.manifests.items():
+            if (
+                not isinstance(key, str)
+                or not isinstance(value, dict)
+                or not isinstance(value.get("path"), str)
+                or not value["path"]
+                or not isinstance(value.get("sha256"), str)
+                or len(value["sha256"]) != 64
+                or any(c not in "0123456789abcdef" for c in value["sha256"])
+            ):
+                raise ValueError("manifests must map names to path/hash dicts")
+        if not isinstance(self.systems, dict):
+            raise ValueError("systems must be a dict")
+        for key, sectors in self.systems.items():
+            if not isinstance(key, str) or not isinstance(sectors, (list, tuple)):
+                raise ValueError("systems must map strings to sector lists")
+            for sector in sectors:
+                require_strict_int("system sector", sector, minimum=1)
+        if not isinstance(self.system_sectors, dict):
+            raise ValueError("system_sectors must be a dict")
+        for cohort, mapping in self.system_sectors.items():
+            if not isinstance(cohort, str) or not isinstance(mapping, dict):
+                raise ValueError("system_sectors must map cohorts to TIC maps")
+            for tic, sectors in mapping.items():
+                if not isinstance(tic, str) or not tic.isdigit():
+                    raise ValueError("system_sectors TIC keys must be strings")
+                require_strict_int("system TIC", int(tic), minimum=1)
+                if not isinstance(sectors, (list, tuple)) or not sectors:
+                    raise ValueError("system_sectors must map TICs to sector lists")
+                for sector in sectors:
+                    require_strict_int("system sector", sector, minimum=1)
+                if len(set(sectors)) != len(sectors):
+                    raise ValueError("system_sectors sector lists must be unique")
+        if set(self.system_sectors) != set(self.systems):
+            raise ValueError("system and system_sectors cohort keys differ")
+        if self.checkpoint_sha is not None and not isinstance(
+            self.checkpoint_sha, str
+        ):
+            raise ValueError("checkpoint_sha must be a str or None")
+        require_positive_finite(
+            "proposer_snr_threshold", self.proposer_snr_threshold
+        )
+        try:
+            thresholds = dict(self.thresholds)
+            learn_config = _canonical(self.learn_config)
+            injection = _canonical(self.injection)
+            manifests = _canonical(self.manifests)
+            systems = _canonical(self.systems)
+            system_sectors = _canonical(self.system_sectors)
+        except (TypeError, ValueError) as e:
+            raise ValueError("freeze record payloads must be JSON-compatible") from e
+        object.__setattr__(self, "thresholds", _freeze_payload(thresholds))
+        object.__setattr__(self, "learn_config", _freeze_payload(learn_config))
+        object.__setattr__(self, "injection", _freeze_payload(injection))
+        object.__setattr__(self, "manifests", _freeze_payload(manifests))
+        object.__setattr__(self, "systems", _freeze_payload(systems))
+        object.__setattr__(self, "system_sectors", _freeze_payload(system_sectors))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -161,12 +279,15 @@ class FreezeRecord:
             "injection": _canonical(self.injection),
             "manifests": _canonical(self.manifests),
             "systems": _canonical(self.systems),
+            "system_sectors": _canonical(self.system_sectors),
             "checkpoint_sha": self.checkpoint_sha,
             "ephemeris_source": self.ephemeris_source,
         }
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "FreezeRecord":
+        if not isinstance(d, dict):
+            raise ValueError("freeze record must be a dict")
         for key in (
             "protocol_version", "code_sha", "created_utc", "thresholds",
             "learn_config", "ablation", "proposer_snr_threshold", "injection",
@@ -179,15 +300,16 @@ class FreezeRecord:
             code_sha=d["code_sha"],
             created_utc=d["created_utc"],
             unblinded_utc=d.get("unblinded_utc"),
-            thresholds=dict(d["thresholds"]),
-            learn_config=dict(d["learn_config"]),
+            thresholds=d["thresholds"],
+            learn_config=d["learn_config"],
             ablation=d["ablation"],
             proposer_snr_threshold=d["proposer_snr_threshold"],
-            injection=dict(d["injection"]),
-            manifests={k: dict(v) for k, v in d["manifests"].items()},
-            systems={k: list(v) for k, v in d["systems"].items()},
+            injection=d["injection"],
+            manifests=d["manifests"],
+            systems=d["systems"],
             checkpoint_sha=d.get("checkpoint_sha"),
             ephemeris_source=d["ephemeris_source"],
+            system_sectors=d.get("system_sectors", {}),
         )
 
     def stamped(self, unblinded_utc: str) -> "FreezeRecord":
@@ -205,7 +327,7 @@ def _utcnow() -> str:
 
 def _canonical(obj: Any) -> Any:
     """JSON-normalized copy (tuples → lists) for stable comparisons."""
-    return json.loads(json.dumps(obj))
+    return json.loads(json.dumps(obj, allow_nan=False))
 
 
 def check_manifest_bytes(path: str, record: FreezeRecord, key: str) -> None:
@@ -215,6 +337,43 @@ def check_manifest_bytes(path: str, record: FreezeRecord, key: str) -> None:
         raise ValueError(f"freeze record pins no {key} manifest")
     if file_hash(path) != info["sha256"]:
         raise ValueError(f"{key} manifest bytes differ from frozen manifest")
+
+
+def check_frozen_system(
+    record: FreezeRecord,
+    cohort_key: str,
+    tic_id: int,
+    sectors: set[int],
+) -> None:
+    """Bind one frozen replay to its pinned TIC and sector assignment."""
+    cohort_systems = record.system_sectors.get(cohort_key, {})
+    if not isinstance(cohort_systems, dict):
+        raise ValueError(f"freeze record has no pinned {cohort_key} manifest")
+    pinned_sectors = cohort_systems.get(str(tic_id))
+    if pinned_sectors is None:
+        raise ValueError(f"TIC {tic_id} is not uniquely pinned in {cohort_key}")
+    if not isinstance(pinned_sectors, list):
+        raise ValueError(f"TIC {tic_id} sectors differ from frozen {cohort_key} system")
+    try:
+        unique_sector_count = len(set(pinned_sectors))
+    except TypeError as e:
+        raise ValueError(
+            f"TIC {tic_id} sectors differ from frozen {cohort_key} system"
+        ) from e
+    if len(pinned_sectors) != unique_sector_count:
+        raise ValueError(f"TIC {tic_id} sectors differ from frozen {cohort_key} system")
+    for sector in pinned_sectors:
+        require_strict_int("frozen sector", sector, minimum=1)
+        if sector not in _protocol.ALL_KNOWN_SECTORS:
+            raise ValueError(f"TIC {tic_id} sectors differ from frozen {cohort_key} system")
+    try:
+        sectors_match = set(pinned_sectors) == sectors
+    except TypeError as e:
+        raise ValueError(
+            f"TIC {tic_id} sectors differ from frozen {cohort_key} system"
+        ) from e
+    if not sectors_match:
+        raise ValueError(f"TIC {tic_id} sectors differ from frozen {cohort_key} system")
 
 
 def create_freeze(
@@ -240,12 +399,36 @@ def create_freeze(
     dev = load_replay_manifest(dev_manifest_path)
     with open(cohort_manifest_path) as f:
         cohort_raw = json.load(f)
+    if not isinstance(cohort_raw, dict):
+        raise ValueError("cohort manifest must be a dict")
     if not isinstance(cohort_raw.get("systems"), list) or not cohort_raw["systems"]:
         raise ValueError("cohort manifest must hold a non-empty systems list")
-    try:
-        cohort_systems = [s["tic_id"] for s in cohort_raw["systems"]]
-    except KeyError as e:
-        raise ValueError(f"cohort system missing key: {e}") from e
+    if cohort_key not in ("holdout", "discovery"):
+        raise ValueError("cohort_key must be 'holdout' or 'discovery'")
+    allowed_sectors = (
+        _protocol.DEV_SECTORS | _protocol.SEALED_SECTORS
+        if cohort_key == "holdout"
+        else _protocol.DEV_SECTORS | _protocol.DISCOVERY_SECTORS
+    )
+    cohort_systems = []
+    for system in cohort_raw["systems"]:
+        if not isinstance(system, dict):
+            raise ValueError("cohort systems must be dicts")
+        for key in ("name", "tic_id", "sectors"):
+            if key not in system:
+                raise ValueError(f"cohort system missing key: {key}")
+        require_strict_int("cohort system TIC", system["tic_id"], minimum=1)
+        if not isinstance(system["sectors"], list) or not system["sectors"]:
+            raise ValueError("cohort system sectors must be a non-empty list")
+        for sector in system["sectors"]:
+            require_strict_int("cohort sector", sector, minimum=1)
+            if sector not in allowed_sectors:
+                raise ValueError(f"sector {sector} is not allowed in {cohort_key} cohort")
+        if len(set(system["sectors"])) != len(system["sectors"]):
+            raise ValueError("cohort system sectors must be unique")
+        cohort_systems.append(system["tic_id"])
+    if len(set(cohort_systems)) != len(cohort_systems):
+        raise ValueError("cohort system TICs must be unique")
     record = FreezeRecord(
         protocol_version=_protocol.PROTOCOL_VERSION,
         code_sha=source_tree_hash(),
@@ -275,6 +458,16 @@ def create_freeze(
             "dev": sorted(s.tic_id for s in dev.systems),
             cohort_key: sorted(cohort_systems),
         },
+        system_sectors={
+            "dev": {
+                str(s.tic_id): list(s.sectors)
+                for s in dev.systems
+            },
+            cohort_key: {
+                str(system["tic_id"]): list(system["sectors"])
+                for system in cohort_raw["systems"]
+            },
+        },
         checkpoint_sha=checkpoint_sha,
         ephemeris_source=dev.ephemeris_source,
     )
@@ -285,6 +478,27 @@ def create_freeze(
 def load_freeze_record(path: str) -> FreezeRecord:
     with open(path) as f:
         return FreezeRecord.from_dict(json.load(f))
+
+
+def _manifest_system_sectors(raw: Any) -> dict[str, list[int]]:
+    if not isinstance(raw, dict) or not isinstance(raw.get("systems"), list):
+        raise ValueError("manifest systems are malformed")
+    result: dict[str, list[int]] = {}
+    for system in raw["systems"]:
+        if not isinstance(system, dict):
+            raise ValueError("manifest systems are malformed")
+        tic_id = system.get("tic_id")
+        sectors = system.get("sectors")
+        require_strict_int("system TIC", tic_id, minimum=1)
+        if not isinstance(sectors, list) or not sectors:
+            raise ValueError("manifest systems are malformed")
+        for sector in sectors:
+            require_strict_int("system sector", sector, minimum=1)
+        key = str(tic_id)
+        if key in result or len(set(sectors)) != len(sectors):
+            raise ValueError("manifest systems are malformed")
+        result[key] = list(sectors)
+    return result
 
 
 def verify_freeze(record_or_path: FreezeRecord | str, config) -> FreezeRecord:
@@ -301,25 +515,59 @@ def verify_freeze(record_or_path: FreezeRecord | str, config) -> FreezeRecord:
         )
     if record.code_sha != source_tree_hash():
         problems.append("source tree changed since freeze (code_sha mismatch)")
+    if not record.system_sectors:
+        problems.append("freeze record has no system sector map")
     dev_info = record.manifests.get("dev", {})
-    if not dev_info or file_hash(dev_info["path"]) != dev_info["sha256"]:
-        problems.append("dev manifest changed since freeze")
-    else:
-        from tess_assoc.replay import load_replay_manifest
+    if not dev_info:
+        problems.append("dev manifest not pinned by freeze")
+    elif Path(dev_info["path"]).exists():
+        if file_hash(dev_info["path"]) != dev_info["sha256"]:
+            problems.append("dev manifest changed since freeze")
+        else:
+            from tess_assoc.replay import load_replay_manifest
 
-        dev = load_replay_manifest(dev_info["path"])
-        if dict(dev.matcher_thresholds) != record.thresholds:
-            problems.append("matcher thresholds changed since freeze")
+            dev = load_replay_manifest(dev_info["path"])
+            if dict(dev.matcher_thresholds) != record.thresholds:
+                problems.append("matcher thresholds changed since freeze")
+            actual = _manifest_system_sectors(
+                {"systems": [
+                    {"tic_id": s.tic_id, "sectors": list(s.sectors)}
+                    for s in dev.systems
+                ]}
+            )
+            if actual != record.system_sectors.get("dev"):
+                problems.append("dev system sector map changed since freeze")
+            if sorted(int(tic) for tic in actual) != record.systems.get("dev", []):
+                problems.append("dev system TIC list changed since freeze")
+    else:
+        # The freeze stores the canonical dev map; the source file may move.
+        pass
     cohort_keys = [k for k in record.manifests if k != "dev"]
+    if set(record.systems) != set(record.manifests):
+        problems.append("freeze manifest and system cohort keys differ")
     if not cohort_keys or any(
         "sha256" not in record.manifests[k] for k in cohort_keys
     ):
         problems.append("cohort manifest not pinned by freeze")
     for key in cohort_keys:
         info = record.manifests.get(key, {})
-        if info.get("sha256") and Path(info["path"]).exists():
-            if file_hash(info["path"]) != info["sha256"]:
-                problems.append(f"{key} manifest changed since freeze")
+        if not Path(info["path"]).exists():
+            continue
+        if file_hash(info["path"]) != info["sha256"]:
+            problems.append(f"{key} manifest changed since freeze")
+            continue
+        try:
+            with open(info["path"]) as f:
+                raw = json.load(f)
+            actual_map = _manifest_system_sectors(raw)
+        except (KeyError, OSError, TypeError, ValueError):
+            problems.append(f"{key} manifest systems are malformed")
+        else:
+            actual_systems = sorted(int(tic) for tic in actual_map)
+            if actual_map != record.system_sectors.get(key):
+                problems.append(f"{key} system sector map changed since freeze")
+            if actual_systems != record.systems.get(key, []):
+                problems.append(f"{key} system TIC list changed since freeze")
     if record.learn_config != _canonical(dataclasses.asdict(config)):
         problems.append("learn config changed since freeze")
     if problems:
@@ -328,6 +576,8 @@ def verify_freeze(record_or_path: FreezeRecord | str, config) -> FreezeRecord:
 
 
 def _parse_holdout_manifest(d: dict[str, Any]) -> HoldoutManifest:
+    if not isinstance(d, dict):
+        raise ValueError("holdout manifest must be a dict")
     for key in (
         "name", "product", "ephemeris_source", "epoch_match_tol_days",
         "window_half_span_days", "resample_samples", "matcher_thresholds",
@@ -335,6 +585,21 @@ def _parse_holdout_manifest(d: dict[str, Any]) -> HoldoutManifest:
     ):
         if key not in d:
             raise ValueError(f"holdout manifest missing key: {key}")
+    if not isinstance(d["systems"], list) or not d["systems"]:
+        raise ValueError("holdout systems must be a non-empty list")
+    if not isinstance(d["matcher_thresholds"], dict):
+        raise ValueError("holdout matcher_thresholds must be a dict")
+    required_system_keys = {
+        "name", "tic_id", "period_days", "t0_bjd_tdb", "duration_hours", "sectors"
+    }
+    for system in d["systems"]:
+        if not isinstance(system, dict):
+            raise ValueError("each holdout system must be a dict")
+        missing = required_system_keys - set(system)
+        if missing:
+            raise ValueError(f"holdout system missing key: {sorted(missing)[0]}")
+        if not isinstance(system["sectors"], (list, tuple)):
+            raise ValueError("holdout system sectors must be a list")
     systems = [
         HoldoutSystem(
             name=s["name"],
@@ -373,6 +638,7 @@ def load_holdout_manifest(
         manifest = _parse_holdout_manifest(json.load(f))
     if dict(manifest.matcher_thresholds) != record.thresholds:
         raise ValueError("holdout thresholds differ from frozen thresholds")
+    object.__setattr__(manifest, "source_sha256", record.manifests["holdout"]["sha256"])
     return manifest
 
 
@@ -439,6 +705,7 @@ __all__ = [
     "audit_development",
     "check_manifest_bytes",
     "checkpoint_hash",
+    "check_frozen_system",
     "create_freeze",
     "file_hash",
     "load_freeze_record",

@@ -15,11 +15,12 @@ def is_strict_int(v: Any) -> bool:
 
 
 def is_finite_number(v: Any) -> bool:
-    return (
-        isinstance(v, (int, float))
-        and not isinstance(v, bool)
-        and math.isfinite(float(v))
-    )
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        return False
+    try:
+        return math.isfinite(float(v))
+    except (OverflowError, TypeError, ValueError):
+        return False
 
 
 def require_finite(name: str, v: Any) -> None:

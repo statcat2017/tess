@@ -39,14 +39,19 @@ def _rec(tic, sector, t0, depth=0.01):
     )
 
 
-def _manifest(sectors=(12, 80)):
+def _manifest(sectors=(12, 80), tic_id=99999999):
     return TracerManifest(
-        name="mini", tic_id=1, epoch_match_tol_days=0.3,
+        name="mini", tic_id=tic_id, epoch_match_tol_days=0.3,
         matcher_thresholds=dict(THRESHOLDS),
         sectors=tuple(
-            ManifestSector(sector=s, windows=((100.0, 120.0),)) for s in sectors
+            ManifestSector(
+                sector=s,
+                windows=((100.0, 120.0),) if s == 12 else ((190.0, 210.0),),
+            )
+            for s in sectors
         ),
         events=(),
+        allow_non_development=any(s >= 80 for s in sectors),
     )
 
 
@@ -67,6 +72,20 @@ def test_freeze_round_trip_and_verify(tmp_path):
     assert F.FreezeRecord.from_dict(record.to_dict()) == record
 
 
+def test_freeze_verifies_numeric_tic_order(tmp_path):
+    raw = json.loads(Path(REPLAY).read_text())
+    raw["systems"] = [
+        {**raw["systems"][0], "name": "TIC 2", "tic_id": 2},
+        {**raw["systems"][1], "name": "TIC 10", "tic_id": 10},
+    ]
+    dev_path = tmp_path / "dev.json"
+    dev_path.write_text(json.dumps(raw))
+    freeze_path = str(tmp_path / "freeze.json")
+    F.create_freeze(str(dev_path), MINI, CONFIG, output_path=freeze_path)
+
+    assert F.verify_freeze(freeze_path, CONFIG).systems["dev"] == [2, 10]
+
+
 def test_freeze_rejects_tampering(tmp_path):
     path, record = _freeze(tmp_path)
     bad_sha = dataclasses.replace(record, code_sha="0" * 64)
@@ -81,6 +100,22 @@ def test_freeze_rejects_tampering(tmp_path):
         F.verify_freeze(path, dataclasses.replace(CONFIG, seed=99))
     with pytest.raises(ValueError, match="missing key"):
         F.FreezeRecord.from_dict({"protocol_version": "v1"})
+    malformed = record.to_dict()
+    malformed["thresholds"] = None
+    with pytest.raises(ValueError, match="thresholds"):
+        F.FreezeRecord.from_dict(malformed)
+    malformed = record.to_dict()
+    malformed["manifests"] = {"dev": {}}
+    with pytest.raises(ValueError, match="path/hash"):
+        F.FreezeRecord.from_dict(malformed)
+    bad_systems = dict(record.systems)
+    bad_systems["holdout"] = [1]
+    with pytest.raises(ValueError, match="system TIC list"):
+        F.verify_freeze(dataclasses.replace(record, systems=bad_systems), CONFIG)
+    with pytest.raises(TypeError, match="immutable"):
+        record.thresholds["min_morph_corr"] = 0.5
+    with pytest.raises(TypeError, match="immutable"):
+        record.systems["dev"].append(99)
 
 
 def test_dev_loaders_reject_sealed_holdout_manifests():
@@ -118,6 +153,21 @@ def test_gate_binds_on_bytes_not_location(tmp_path):
         F.load_holdout_manifest(relocated, freeze_path, CONFIG)
 
 
+def test_gate_allows_relocated_manifest_without_original(tmp_path):
+    import shutil
+
+    original = tmp_path / "original_holdout.json"
+    relocated = tmp_path / "relocated_holdout.json"
+    shutil.copy(MINI, original)
+    freeze_path = str(tmp_path / "freeze.json")
+    F.create_freeze(REPLAY, str(original), CONFIG, output_path=freeze_path)
+    shutil.copy(original, relocated)
+    original.unlink()
+
+    manifest = F.load_holdout_manifest(str(relocated), freeze_path, CONFIG)
+    assert manifest.name == "holdout_mini"
+
+
 def test_mark_unblinded_stamps_once(tmp_path):
     path, _ = _freeze(tmp_path)
     first = F.mark_unblinded(path)
@@ -128,24 +178,84 @@ def test_mark_unblinded_stamps_once(tmp_path):
 
 def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
     manifest = _manifest()
-    events = {"a": _rec(1, 12, 100.0), "b": _rec(1, 80, 200.0)}
+    events = {"a": _rec(99999999, 12, 100.0), "b": _rec(99999999, 80, 200.0)}
     with pytest.raises(ValueError, match="temporal leak"):
         run_records(manifest, events)
     path, record = _freeze(tmp_path)
-    out = run_frozen_records(manifest, events, freeze_record=record)
+    out = run_frozen_records(
+        manifest, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
+    )
     assert out["sealed_sectors_touched"] == [80]
     assert out["freeze"]["code_sha"] == record.code_sha
     assert len(out["pairs"]) == 1
     json.dumps(out)
+    bad_events = {
+        "a": _rec(99999999, 12, 500.0),
+        "b": _rec(99999999, 80, 200.0),
+    }
+    with pytest.raises(ValueError, match="outside declared"):
+        run_frozen_records(
+            manifest,
+            bad_events,
+            freeze_record=record,
+            config=CONFIG,
+            cohort_key="holdout",
+        )
     stale = dataclasses.replace(record, code_sha="0" * 64)
     with pytest.raises(ValueError, match="changed since freeze"):
-        run_frozen_records(manifest, events, freeze_record=stale)
+        run_frozen_records(
+            manifest, events, freeze_record=stale, config=CONFIG, cohort_key="holdout"
+        )
     drifted = _manifest()
     object.__setattr__(
         drifted, "matcher_thresholds", {**THRESHOLDS, "min_morph_corr": 0.5}
     )
     with pytest.raises(ValueError, match="differ from frozen"):
-        run_frozen_records(drifted, events, freeze_record=record)
+        run_frozen_records(
+            drifted, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
+        )
+    with pytest.raises(ValueError, match="FreezeRecord"):
+        run_frozen_records(
+            manifest, events, freeze_record=None, config=CONFIG, cohort_key="holdout"
+        )
+
+
+def test_frozen_records_reject_undeclared_sealed_sector(tmp_path):
+    manifest = _manifest(sectors=(12, 39))
+    events = {"a": _rec(99999999, 12, 100.0), "b": _rec(99999999, 80, 200.0)}
+    _, record = _freeze(tmp_path)
+
+    with pytest.raises(ValueError, match="not declared by the manifest"):
+        run_frozen_records(
+            manifest, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
+        )
+
+
+def test_frozen_records_bind_to_pinned_cohort_tic(tmp_path):
+    _, record = _freeze(tmp_path)
+    manifest = _manifest(tic_id=1)
+    events = {"a": _rec(1, 12, 100.0), "b": _rec(1, 80, 200.0)}
+    with pytest.raises(ValueError, match="not uniquely pinned"):
+        run_frozen_records(
+            manifest, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
+        )
+
+
+def test_frozen_records_reject_mixed_cohort_roles(tmp_path):
+    _, record = _freeze(tmp_path)
+    manifest = _manifest(sectors=(80, 106))
+    events = {
+        "a": _rec(99999999, 80, 200.0),
+        "b": _rec(99999999, 106, 200.0),
+    }
+    with pytest.raises(ValueError, match="mix discovery and sealed"):
+        run_frozen_records(
+            manifest,
+            events,
+            freeze_record=record,
+            config=CONFIG,
+            cohort_key="holdout",
+        )
 
 
 def test_holdout_metrics_ranges():
@@ -228,7 +338,7 @@ def test_live_holdout_kelt9(tmp_path):
     assert F.load_freeze_record(freeze_path).unblinded_utc is None
     manifest = F.load_holdout_manifest(HOLDOUT, freeze_path, CONFIG)
     results = run_holdout(
-        manifest, freeze_path=freeze_path, checkpoint=checkpoint,
+        manifest, manifest_path=HOLDOUT, freeze_path=freeze_path, checkpoint=checkpoint,
         ablation="morphology+scalars", config=CONFIG,
         cache_dir=str(tmp_path), log_path=str(tmp_path / "access.jsonl"),
     )

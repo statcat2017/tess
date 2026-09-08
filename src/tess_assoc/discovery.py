@@ -29,7 +29,7 @@ from tess_assoc.archive import ArchiveUnavailable
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import load_lightcurve, predicted_transits
 from tess_assoc.hosts import KnownPlanet
-from tess_assoc.matcher import REQUIRED_THRESHOLDS, match, match_score
+from tess_assoc.matcher import match, match_score, validate_matcher_thresholds
 from tess_assoc.propose import propose_with_detail
 from tess_assoc.pipeline import run_frozen_records
 from tess_assoc.replay import RECALL_TOL_DAYS, replay_blind_system
@@ -85,6 +85,8 @@ class DiscoverySystem:
                     f"sector {sector} not allowed in discovery cohort "
                     "(early sectors + 106 only; sealed sectors excluded)"
                 )
+        if len(set(self.sectors)) != len(self.sectors):
+            raise ValueError("system sectors must be unique")
         if not isinstance(self.toi, str):
             raise ValueError("toi must be a str")
         if not isinstance(self.known_planets, (list, tuple)):
@@ -121,6 +123,7 @@ class DiscoveryManifest:
     matcher_thresholds: dict[str, float] = field(default_factory=dict)
     systems: tuple[DiscoverySystem, ...] = ()
     purpose: str = "rehearsal"
+    source_sha256: str | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
@@ -132,12 +135,7 @@ class DiscoveryManifest:
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         require_positive_finite("window_half_span_days", self.window_half_span_days)
         require_strict_int("resample_samples", self.resample_samples, minimum=3)
-        if not isinstance(self.matcher_thresholds, dict):
-            raise ValueError("matcher_thresholds must be a dict")
-        for key in REQUIRED_THRESHOLDS:
-            if key not in self.matcher_thresholds:
-                raise ValueError(f"matcher_thresholds missing key: {key}")
-            require_finite(f"threshold {key}", self.matcher_thresholds[key])
+        validate_matcher_thresholds(self.matcher_thresholds)
         if not isinstance(self.systems, (list, tuple)) or not self.systems:
             raise ValueError("systems must be a non-empty list")
         if not all(isinstance(s, DiscoverySystem) for s in self.systems):
@@ -151,11 +149,19 @@ class DiscoveryManifest:
             raise ValueError("mining purpose excludes Sector 106 (that is discovery)")
         if len({s.name for s in self.systems}) != len(self.systems):
             raise ValueError("system names must be unique (results key on name)")
+        if self.source_sha256 is not None and (
+            not isinstance(self.source_sha256, str)
+            or len(self.source_sha256) != 64
+            or any(c not in "0123456789abcdef" for c in self.source_sha256)
+        ):
+            raise ValueError("source_sha256 must be a SHA-256 hex string")
         object.__setattr__(self, "matcher_thresholds", dict(self.matcher_thresholds))
         object.__setattr__(self, "systems", tuple(self.systems))
 
 
 def _parse_discovery_manifest(d: dict[str, Any]) -> DiscoveryManifest:
+    if not isinstance(d, dict):
+        raise ValueError("discovery manifest must be a dict")
     for key in (
         "name", "product", "ephemeris_source", "epoch_match_tol_days",
         "window_half_span_days", "resample_samples", "matcher_thresholds",
@@ -163,6 +169,23 @@ def _parse_discovery_manifest(d: dict[str, Any]) -> DiscoveryManifest:
     ):
         if key not in d:
             raise ValueError(f"discovery manifest missing key: {key}")
+    if not isinstance(d["systems"], list) or not d["systems"]:
+        raise ValueError("discovery systems must be a non-empty list")
+    if not isinstance(d["matcher_thresholds"], dict):
+        raise ValueError("discovery matcher_thresholds must be a dict")
+    required_system_keys = {"name", "tic_id", "sectors"}
+    for system in d["systems"]:
+        if not isinstance(system, dict):
+            raise ValueError("each discovery system must be a dict")
+        missing = required_system_keys - set(system)
+        if missing:
+            raise ValueError(f"discovery system missing key: {sorted(missing)[0]}")
+        if not isinstance(system["sectors"], (list, tuple)):
+            raise ValueError("discovery system sectors must be a list")
+        if "known_planets" in system and not isinstance(
+            system["known_planets"], (list, tuple)
+        ):
+            raise ValueError("discovery system known_planets must be a list")
     systems = [
         DiscoverySystem(
             name=s["name"],
@@ -199,6 +222,7 @@ def load_discovery_manifest(
         manifest = _parse_discovery_manifest(json.load(f))
     if dict(manifest.matcher_thresholds) != record.thresholds:
         raise ValueError("discovery thresholds differ from frozen thresholds")
+    object.__setattr__(manifest, "source_sha256", record.manifests["discovery"]["sha256"])
     return manifest
 
 
@@ -379,6 +403,7 @@ def harvest_system(
     system: DiscoverySystem,
     *,
     record,
+    config,
     cache_dir: str | None = None,
 ) -> dict[str, Any]:
     """Blind replay + cross-epoch pairs for one cohort system.
@@ -386,7 +411,13 @@ def harvest_system(
     Fault-isolated unit: ArchiveUnavailable becomes a blocked payload,
     never an exception. Shared by run_discovery and the survey runner.
     """
-    runner = functools.partial(run_frozen_records, freeze_record=record)
+    _freeze.verify_freeze(record, config)
+    _freeze.check_frozen_system(
+        record, "discovery", system.tic_id, set(system.sectors)
+    )
+    runner = functools.partial(
+        run_frozen_records, freeze_record=record, config=config, cohort_key="discovery"
+    )
     try:
         res = replay_blind_system(manifest, system, cache_dir, records_runner=runner)
     except ArchiveUnavailable as e:
@@ -526,6 +557,7 @@ def triage_ranked_pairs(
 def run_discovery(
     manifest: DiscoveryManifest,
     *,
+    manifest_path: str,
     freeze_path: str,
     config,
     cache_dir: str | None = None,
@@ -534,6 +566,11 @@ def run_discovery(
 ) -> dict[str, Any]:
     """Frozen discovery run over the cohort (rehearsal if no Sector 106)."""
     record = _freeze.verify_freeze(freeze_path, config)
+    authenticated_manifest = load_discovery_manifest(
+        manifest_path, record, config
+    )
+    if manifest != authenticated_manifest:
+        raise ValueError("discovery manifest differs from authenticated manifest")
     if dict(manifest.matcher_thresholds) != record.thresholds:
         raise ValueError("discovery thresholds differ from frozen thresholds")
     record = _freeze.mark_unblinded(freeze_path)
@@ -543,7 +580,9 @@ def run_discovery(
     blocked: list[str] = []
     harvests: dict[str, dict[str, Any]] = {}
     for system in manifest.systems:
-        harvest = harvest_system(manifest, system, record=record, cache_dir=cache_dir)
+        harvest = harvest_system(
+            manifest, system, record=record, config=config, cache_dir=cache_dir
+        )
         systems_out[system.name] = harvest["systems_out"]
         if harvest["status"] == "blocked-on-archive":
             blocked.append(system.name)
@@ -642,6 +681,7 @@ def _cross_epoch_pairs(
             for s, w in sorted(windows.items())
         ),
         events=tuple(),
+        allow_non_development=True,
     )
     all_records = list(records.values())
     pairs = []

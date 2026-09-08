@@ -76,6 +76,13 @@ def test_rejects_mismatched_and_nonpositive():
             EventRecord(**kw)
 
 
+def test_rejects_unrepresentably_large_numbers_as_value_errors():
+    kw = _valid_kwargs()
+    kw["depth"] = 10**10000
+    with pytest.raises(ValueError):
+        EventRecord(**kw)
+
+
 def test_rejects_bool_ids_and_unknown_sector():
     kw = _valid_kwargs()
     kw["tic_id"] = True

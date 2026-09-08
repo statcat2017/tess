@@ -20,10 +20,13 @@ from tess_assoc.window import filter_aliases
 
 
 def _stage_results(
-    manifest: TracerManifest, events: dict[str, EventRecord]
+    manifest: TracerManifest,
+    events: dict[str, EventRecord],
+    *,
+    records: list[EventRecord] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[EventRecord], set[int]]:
     """Shared core: pairs → deterministic matches → alias filtering."""
-    records = list(events.values())
+    records = list(events.values()) if records is None else records
     pairs = build_pairs(events)
     thresholds = manifest.matcher_thresholds
 
@@ -51,6 +54,8 @@ def _stage_results(
                     "pair": [p.a_id, p.b_id],
                     "delta_t_days": t2 - t1,
                     "aliases_total": len(verdicts),
+                    "aliases_retained": sum(v.retained for v in verdicts),
+                    "aliases_rejected": sum(not v.retained for v in verdicts),
                     "retained": [
                         {"n": v.n, "period_days": v.period_days}
                         for v in verdicts
@@ -68,16 +73,65 @@ def _stage_results(
                 }
             )
 
-    touched = {s.sector for s in manifest.sectors} | {e.sector for e in manifest.events}
+    touched = (
+        {s.sector for s in manifest.sectors}
+        | {e.sector for e in manifest.events}
+    )
     return pair_results, associations, records, touched
 
 
-def run_records(
+def _validate_manifest(manifest: TracerManifest) -> TracerManifest:
+    if not isinstance(manifest, TracerManifest):
+        raise ValueError("manifest must be a TracerManifest")
+    return manifest
+
+
+def _validate_event_inputs(
     manifest: TracerManifest, events: dict[str, EventRecord]
+) -> list[EventRecord]:
+    if not isinstance(events, dict):
+        raise ValueError("events must be a dict")
+    if any(not isinstance(event_id, str) or not event_id for event_id in events):
+        raise ValueError("event ids must be non-empty strings")
+    records = list(events.values())
+    if not all(isinstance(record, EventRecord) for record in records):
+        raise ValueError("events must map ids to EventRecords")
+    record_tics = {record.tic_id for record in records}
+    if record_tics and record_tics != {manifest.tic_id}:
+        raise ValueError("event records must belong to the manifest TIC")
+    manifest_sectors = {sector.sector for sector in manifest.sectors}
+    undeclared_sectors = {record.sector for record in records} - manifest_sectors
+    if undeclared_sectors:
+        raise ValueError(
+            "event records contain sectors not declared by the manifest: "
+            f"{sorted(undeclared_sectors)}"
+        )
+    windows_by_sector = {
+        sector.sector: sector.windows for sector in manifest.sectors
+    }
+    for record in records:
+        if not any(
+            start <= record.t0 <= end
+            for start, end in windows_by_sector[record.sector]
+        ):
+            raise ValueError(
+                f"event record t0 outside declared sector {record.sector} windows"
+            )
+    return records
+
+
+def _validate_development_records(records: list[EventRecord]) -> None:
+    _protocol.validate_development_sectors({record.sector for record in records})
+
+
+def _run_validated_records(
+    manifest: TracerManifest,
+    events: dict[str, EventRecord],
+    records: list[EventRecord],
 ) -> dict[str, Any]:
-    """Core stages over prebuilt records (shared by fixture and replay paths)."""
-    pair_results, associations, records, touched = _stage_results(manifest, events)
-    _protocol.validate_no_temporal_leak(touched)
+    pair_results, associations, records, touched = _stage_results(
+        manifest, events, records=records
+    )
     return {
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
@@ -89,11 +143,24 @@ def run_records(
     }
 
 
+def run_records(
+    manifest: TracerManifest, events: dict[str, EventRecord]
+) -> dict[str, Any]:
+    """Core stages over prebuilt records (shared by fixture and replay paths)."""
+    manifest = _validate_manifest(manifest)
+    manifest.validate_development()
+    records = _validate_event_inputs(manifest, events)
+    _validate_development_records(records)
+    return _run_validated_records(manifest, events, records)
+
+
 def run_frozen_records(
     manifest: TracerManifest,
     events: dict[str, EventRecord],
     *,
     freeze_record,
+    config,
+    cohort_key: str,
 ) -> dict[str, Any]:
     """Same core stages over gated data — verified freeze required.
 
@@ -101,11 +168,33 @@ def run_frozen_records(
     record verifies (same source tree, same thresholds). The freeze
     evidence lands in the output for audit.
     """
+    manifest = _validate_manifest(manifest)
+    records = _validate_event_inputs(manifest, events)
+    if not isinstance(freeze_record, _freeze.FreezeRecord):
+        raise ValueError("freeze_record must be a FreezeRecord")
+    if config is None:
+        raise ValueError("config is required to verify the freeze record")
+    if cohort_key not in ("holdout", "discovery"):
+        raise ValueError("cohort_key must be 'holdout' or 'discovery'")
+    _freeze.verify_freeze(freeze_record, config)
+    if not manifest.allow_non_development:
+        _protocol.validate_development_sectors(
+            {s.sector for s in manifest.sectors}
+            | {e.sector for e in manifest.events}
+        )
+    sectors = {s.sector for s in manifest.sectors} | {
+        e.sector for e in manifest.events
+    }
+    if sectors & set(_protocol.DISCOVERY_SECTORS) and sectors & set(
+        _protocol.SEALED_SECTORS
+    ):
+        raise ValueError("frozen manifest cannot mix discovery and sealed sectors")
+    _freeze.check_frozen_system(freeze_record, cohort_key, manifest.tic_id, sectors)
     if dict(manifest.matcher_thresholds) != freeze_record.thresholds:
         raise ValueError("holdout thresholds differ from frozen thresholds")
-    if _freeze.source_tree_hash() != freeze_record.code_sha:
-        raise ValueError("source tree changed since freeze")
-    pair_results, associations, records, touched = _stage_results(manifest, events)
+    pair_results, associations, records, touched = _stage_results(
+        manifest, events, records=records
+    )
     return {
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
@@ -139,7 +228,9 @@ def render_report(results: dict[str, Any]) -> str:
     for asc in results["associations"]:
         a, b = asc["pair"]
         lines.append(f"- {a}–{b}: ΔT={asc['delta_t_days']:.1f}d, "
-                     f"{asc['aliases_total']} aliases")
+                     f"{asc['aliases_total']} aliases "
+                     f"({asc['aliases_retained']} retained, "
+                     f"{asc['aliases_rejected']} rejected)")
         kept = ", ".join(f"n={r['n']} P={r['period_days']:.1f}d" for r in asc["retained"])
         cut = ", ".join(
             f"n={r['n']} P={r['period_days']:.1f}d (missing epoch "
@@ -153,7 +244,10 @@ def render_report(results: dict[str, Any]) -> str:
 
 
 def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
-    return run_records(manifest, provide_events(manifest))
+    manifest = _validate_manifest(manifest)
+    manifest.validate_development()
+    events = provide_events(manifest)
+    return run_records(manifest, events)
 
 
 def run_tracer_dict(manifest_dict: dict[str, Any]) -> dict[str, Any]:

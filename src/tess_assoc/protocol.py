@@ -72,6 +72,22 @@ def validate_no_temporal_leak(dev_sectors_used: Collection[int]) -> None:
         raise ValueError(f"temporal leak: sealed sectors in dev inputs: {sorted(leak)}")
 
 
+def validate_development_sectors(sectors: Collection[int]) -> None:
+    """Raise if a fixture or development run names a non-development sector."""
+    if not isinstance(sectors, Collection):
+        raise ValueError("sectors must be a collection")
+    invalid = [
+        sector
+        for sector in sectors
+        if not is_strict_int(sector) or sector not in DEV_SECTORS
+    ]
+    if invalid:
+        raise ValueError(
+            "temporal leak: development inputs contain non-development sectors: "
+            f"{sorted(invalid, key=repr)}"
+        )
+
+
 def validate_tic_partition(*partitions: Collection[int]) -> None:
     """Raise if any TIC appears in more than one partition."""
     seen: set[int] = set()

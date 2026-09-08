@@ -16,7 +16,7 @@ from typing import Any
 
 from tess_assoc import protocol as _protocol
 from tess_assoc._validate import require_finite, require_positive_finite, require_strict_int
-from tess_assoc.matcher import REQUIRED_THRESHOLDS
+from tess_assoc.matcher import validate_matcher_thresholds
 
 
 @dataclass(frozen=True)
@@ -26,6 +26,8 @@ class ManifestSector:
 
     def __post_init__(self) -> None:
         require_strict_int("sector", self.sector, minimum=1)
+        if self.sector not in _protocol.ALL_KNOWN_SECTORS:
+            raise ValueError("sector must be a known TESS sector (1-106)")
         if not isinstance(self.windows, (list, tuple)) or not self.windows:
             raise ValueError("sector windows must be a non-empty list")
         norm: list[tuple[float, float]] = []
@@ -60,6 +62,8 @@ class ManifestEvent:
         if not isinstance(self.id, str) or not self.id:
             raise ValueError("event id must be a non-empty str")
         require_strict_int("event sector", self.sector, minimum=1)
+        if self.sector not in _protocol.ALL_KNOWN_SECTORS:
+            raise ValueError("event sector must be a known TESS sector (1-106)")
         require_finite("event t0", self.t0)
         require_positive_finite("event depth", self.depth)
         require_positive_finite("event duration_days", self.duration_days)
@@ -78,14 +82,16 @@ class TracerManifest:
     matcher_thresholds: dict[str, float] = field(default_factory=dict)
     sectors: tuple[ManifestSector, ...] = ()
     events: tuple[ManifestEvent, ...] = ()
+    allow_non_development: bool = field(default=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
             raise ValueError("manifest name must be a non-empty str")
         require_strict_int("tic_id", self.tic_id, minimum=1)
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
-        if not isinstance(self.matcher_thresholds, dict):
-            raise ValueError("matcher_thresholds must be a dict")
+        validate_matcher_thresholds(self.matcher_thresholds)
+        if not isinstance(self.allow_non_development, bool):
+            raise ValueError("allow_non_development must be a bool")
         if not isinstance(self.sectors, (list, tuple)) or not all(
             isinstance(s, ManifestSector) for s in self.sectors
         ):
@@ -99,90 +105,90 @@ class TracerManifest:
         )
         object.__setattr__(self, "sectors", tuple(self.sectors))
         object.__setattr__(self, "events", tuple(self.events))
+        if len({s.sector for s in self.sectors}) != len(self.sectors):
+            raise ValueError("sector ids must be unique")
         if len({e.id for e in self.events}) != len(self.events):
             raise ValueError("event ids must be unique")
 
-
-def _windows(value: Any) -> tuple[tuple[float, float], ...]:
-    if not isinstance(value, (list, tuple)) or not value:
-        raise ValueError("sector windows must be a non-empty list")
-    out: list[tuple[float, float]] = []
-    for w in value:
-        if not isinstance(w, (list, tuple)) or len(w) != 2:
-            raise ValueError("each window must be a [start, end] pair")
-        require_finite("window start", w[0])
-        require_finite("window end", w[1])
-        if w[1] <= w[0]:
-            raise ValueError("window end must be after start")
-        out.append((w[0], w[1]))
-    return tuple(sorted(out))
+    def validate_development(self) -> None:
+        """Reject sealed, discovery, and unknown sectors for fixture runs."""
+        _protocol.validate_development_sectors(
+            {s.sector for s in self.sectors} | {e.sector for e in self.events}
+        )
 
 
 def load_manifest(d: dict[str, Any]) -> TracerManifest:
     if not isinstance(d, dict):
         raise ValueError("manifest must be a dict")
-    for key in ("name", "tic_id", "sectors", "events", "matcher_thresholds", "epoch_match_tol_days"):
+    required = (
+        "name", "tic_id", "sectors", "events", "matcher_thresholds",
+        "epoch_match_tol_days",
+    )
+    for key in required:
         if key not in d:
             raise ValueError(f"manifest missing key: {key}")
-    if not isinstance(d["name"], str) or not d["name"]:
-        raise ValueError("manifest name must be a non-empty str")
-    require_strict_int("tic_id", d["tic_id"], minimum=1)
-    tol = d["epoch_match_tol_days"]
-    require_positive_finite("epoch_match_tol_days", tol)
-    thresholds = d["matcher_thresholds"]
-    if not isinstance(thresholds, dict):
-        raise ValueError("matcher_thresholds must be a dict")
-    for key in REQUIRED_THRESHOLDS:
-        if key not in thresholds:
-            raise ValueError(f"matcher_thresholds missing key: {key}")
-        require_finite(f"threshold {key}", thresholds[key])
+    extra = [key for key in d if key not in required]
+    if extra:
+        raise ValueError(f"manifest unknown keys: {extra}")
+    if not isinstance(d["sectors"], (list, tuple)):
+        raise ValueError("sectors must be a list")
+    if not isinstance(d["events"], (list, tuple)):
+        raise ValueError("events must be a list")
 
     sectors: list[ManifestSector] = []
     for s in d["sectors"]:
         if not isinstance(s, dict) or "sector" not in s or "windows" not in s:
             raise ValueError("each sector needs 'sector' and 'windows'")
-        sectors.append(
-            ManifestSector(sector=s["sector"], windows=_windows(s["windows"]))
-        )
-    sector_ids = {s.sector for s in sectors}
-    _protocol.validate_no_temporal_leak(sector_ids)
+        extra_sector = [key for key in s if key not in {"sector", "windows"}]
+        if extra_sector:
+            raise ValueError(f"sector unknown keys: {extra_sector}")
+        sectors.append(ManifestSector(sector=s["sector"], windows=s["windows"]))
     by_sector = {s.sector: s for s in sectors}
 
     events = []
     for e in d["events"]:
         if not isinstance(e, dict):
             raise ValueError("each event must be a dict")
-        for key in ("id", "sector", "t0", "depth", "duration_days", "snr"):
+        allowed_event_keys = {
+            "id", "sector", "t0", "depth", "duration_days", "snr",
+            "shape", "origin",
+        }
+        extra_event = [key for key in e if key not in allowed_event_keys]
+        if extra_event:
+            raise ValueError(f"event unknown keys: {extra_event}")
+        for key in (
+            "id", "sector", "t0", "depth", "duration_days", "snr",
+            "shape", "origin",
+        ):
             if key not in e:
                 raise ValueError(f"event missing key: {key}")
-        require_strict_int("event sector", e["sector"], minimum=1)
-        require_finite("event t0", e["t0"])
-        if e["sector"] not in by_sector:
-            raise ValueError(f"event sector {e['sector']} has no observing window")
-        windows = by_sector[e["sector"]].windows
-        if not any(s <= e["t0"] <= en for s, en in windows):
-            raise ValueError(f"event {e.get('id')} t0 outside its sector windows")
-        events.append(
-            ManifestEvent(
-                id=e["id"],
-                sector=e["sector"],
-                t0=e["t0"],
-                depth=e["depth"],
-                duration_days=e["duration_days"],
-                snr=e["snr"],
-                shape=e.get("shape", "box"),
-                origin=e.get("origin", "ephemeris"),
-            )
+        event = ManifestEvent(
+            id=e["id"],
+            sector=e["sector"],
+            t0=e["t0"],
+            depth=e["depth"],
+            duration_days=e["duration_days"],
+            snr=e["snr"],
+            shape=e["shape"],
+            origin=e["origin"],
         )
+        if event.sector not in by_sector:
+            raise ValueError(f"event sector {event.sector} has no observing window")
+        windows = by_sector[event.sector].windows
+        if not any(start <= event.t0 <= end for start, end in windows):
+            raise ValueError(f"event {event.id} t0 outside its sector windows")
+        events.append(event)
 
-    return TracerManifest(
+    manifest = TracerManifest(
         name=d["name"],
         tic_id=d["tic_id"],
-        epoch_match_tol_days=tol,
-        matcher_thresholds=dict(thresholds),
+        epoch_match_tol_days=d["epoch_match_tol_days"],
+        matcher_thresholds=d["matcher_thresholds"],
         sectors=tuple(sectors),
         events=tuple(events),
     )
+    manifest.validate_development()
+    return manifest
 
 
 def load_manifest_file(path: str) -> TracerManifest:
@@ -221,6 +227,10 @@ class ReplaySystem:
             raise ValueError("system sectors must be a non-empty list")
         for sector in self.sectors:
             require_strict_int("sector", sector, minimum=1)
+            if sector not in _protocol.ALL_KNOWN_SECTORS:
+                raise ValueError("sector must be a known TESS sector (1-106)")
+        if len(set(self.sectors)) != len(self.sectors):
+            raise ValueError("system sectors must be unique")
         if not isinstance(self.toi, str):
             raise ValueError("toi must be a str")
         object.__setattr__(self, "sectors", tuple(self.sectors))
@@ -248,12 +258,7 @@ class ReplayManifest:
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         require_positive_finite("window_half_span_days", self.window_half_span_days)
         require_strict_int("resample_samples", self.resample_samples, minimum=3)
-        if not isinstance(self.matcher_thresholds, dict):
-            raise ValueError("matcher_thresholds must be a dict")
-        for key in REQUIRED_THRESHOLDS:
-            if key not in self.matcher_thresholds:
-                raise ValueError(f"matcher_thresholds missing key: {key}")
-            require_finite(f"threshold {key}", self.matcher_thresholds[key])
+        validate_matcher_thresholds(self.matcher_thresholds)
         if not isinstance(self.systems, (list, tuple)) or not self.systems:
             raise ValueError("systems must be a non-empty list")
         if not all(isinstance(s, ReplaySystem) for s in self.systems):

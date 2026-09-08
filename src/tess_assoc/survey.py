@@ -174,10 +174,16 @@ def run_mining_survey(
     manifest = load_discovery_manifest(manifest_path, freeze_path, config)
     record = _freeze.load_freeze_record(freeze_path)
     record = _freeze.mark_unblinded(freeze_path)
+    manifest_sha = _freeze.file_hash(manifest_path)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     state_path = str(out / "harvest.jsonl")
-    done = _read_state(state_path)
+    done = {
+        name: entry
+        for name, entry in _read_state(state_path).items()
+        if entry.get("freeze_code_sha") == record.code_sha
+        and entry.get("manifest_sha256") == manifest_sha
+    }
 
     todo = [s for s in manifest.systems if s.name not in done]
     harvests: dict[str, dict[str, Any]] = {
@@ -196,7 +202,7 @@ def run_mining_survey(
     def harvest_one(system) -> tuple[str, dict[str, Any]]:
         try:
             harvest = harvest_system(
-                manifest, system, record=record, cache_dir=cache_dir
+                manifest, system, record=record, config=config, cache_dir=cache_dir
             )
         except Exception as e:  # noqa: BLE001 — one bad star never kills a survey
             import traceback
@@ -226,7 +232,17 @@ def run_mining_survey(
 
     def append_state(name: str, thin: dict[str, Any]) -> None:
         with open(state_path, "a") as f:
-            f.write(json.dumps({"system": name, **thin}) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "system": name,
+                        "freeze_code_sha": record.code_sha,
+                        "manifest_sha256": manifest_sha,
+                        **thin,
+                    }
+                )
+                + "\n"
+            )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(harvest_one, s): s for s in todo}
