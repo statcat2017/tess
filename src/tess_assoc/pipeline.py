@@ -99,9 +99,7 @@ def _validate_event_inputs(
     return records
 
 
-def _validate_development_records(
-    manifest: TracerManifest, records: list[EventRecord]
-) -> None:
+def _validate_development_records(records: list[EventRecord]) -> None:
     _protocol.validate_development_sectors({record.sector for record in records})
 
 
@@ -131,7 +129,7 @@ def run_records(
     manifest = _validate_manifest(manifest)
     manifest.validate_development()
     records = _validate_event_inputs(manifest, events)
-    _validate_development_records(manifest, records)
+    _validate_development_records(records)
     return _run_validated_records(manifest, events, records)
 
 
@@ -211,7 +209,7 @@ def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
     manifest.validate_development()
     events = provide_events(manifest)
     records = _validate_event_inputs(manifest, events)
-    _validate_development_records(manifest, records)
+    _validate_development_records(records)
     return _run_validated_records(manifest, events, records)
 
 
