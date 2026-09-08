@@ -138,7 +138,8 @@ def test_matcher_compatible_only_true_repeat():
 
 def test_end_to_end_results_and_report():
     results = run_tracer_dict(json.loads(FIXTURE.read_text()))
-    assert results == run_tracer(_manifest())
+    repeat = run_tracer(_manifest())
+    assert results == repeat
     assert results["sealed_sectors_touched"] == []
     assert results["protocol_version"] == "v1"
     assert len(results["pairs"]) == 3
@@ -157,7 +158,7 @@ def test_end_to_end_results_and_report():
     cut = {r["period_days"] for r in asc["rejected"]}
     assert 900.0 in kept and 300.0 in kept
     assert 450.0 in cut and 225.0 in cut
-    assert asc["rejected"][0]["contradicting_epoch"] is not None
+    assert all(row["contradicting_epoch"] is not None for row in asc["rejected"])
 
     json.dumps(results)  # machine-readable
     report = render_report(results)
@@ -165,6 +166,26 @@ def test_end_to_end_results_and_report():
     assert "300.0d" in report
     assert "retained" in report and "rejected" in report
     assert "Sealed sectors touched: []" in report
+    counts = (
+        f"{asc['aliases_total']} aliases ({asc['aliases_retained']} retained, "
+        f"{asc['aliases_rejected']} rejected)"
+    )
+    assert counts in report
+    for row in asc["retained"]:
+        assert f"n={row['n']} P={row['period_days']:.1f}d" in report
+    for row in asc["rejected"]:
+        assert (
+            f"n={row['n']} P={row['period_days']:.1f}d "
+            f"(missing epoch {row['contradicting_epoch']:.1f})"
+        ) in report
+
+
+def test_rejecting_fixture_is_reproducible():
+    manifest = _manifest()
+    first = run_tracer(manifest)
+    second = run_tracer(manifest)
+
+    assert first == second
 
 
 def test_happy_path_is_reproducible_without_contradictions():
