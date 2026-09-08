@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tess_assoc._validate import require_finite
 from tess_assoc.event import EventRecord
 from tess_assoc.orbit import generate_aliases
 
@@ -38,6 +39,25 @@ REQUIRED_THRESHOLDS: tuple[str, ...] = (
     "max_rel_duration_diff",
     "min_morph_corr",
 )
+
+
+def validate_matcher_thresholds(thresholds: dict[str, float]) -> None:
+    """Validate the shared deterministic-matcher threshold contract."""
+    if not isinstance(thresholds, dict):
+        raise ValueError("matcher_thresholds must be a dict")
+    extra = [key for key in thresholds if key not in REQUIRED_THRESHOLDS]
+    if extra:
+        raise ValueError(f"unknown matcher thresholds: {extra}")
+    for key in REQUIRED_THRESHOLDS:
+        if key not in thresholds:
+            raise ValueError(f"matcher_thresholds missing key: {key}")
+        threshold = thresholds[key]
+        require_finite(f"threshold {key}", threshold)
+        if key in ("max_rel_depth_diff", "max_rel_duration_diff"):
+            if threshold < 0:
+                raise ValueError(f"threshold {key} must be >= 0")
+        elif not -1 <= threshold <= 1:
+            raise ValueError(f"threshold {key} must be between -1 and 1")
 
 
 def _rel_diff(a: float, b: float) -> float:
@@ -79,11 +99,7 @@ def timing_plausible(a: EventRecord, b: EventRecord) -> bool:
 
 
 def match(a: EventRecord, b: EventRecord, thresholds: dict[str, float]) -> MatchDecision:
-    if not isinstance(thresholds, dict):
-        raise ValueError("thresholds must be a dict")
-    for key in REQUIRED_THRESHOLDS:
-        if key not in thresholds:
-            raise ValueError(f"thresholds missing key: {key}")
+    validate_matcher_thresholds(thresholds)
     depth_diff = _rel_diff(a.depth, b.depth)
     duration_diff = _rel_diff(a.duration_days, b.duration_days)
     corr = morphology_corr(a, b)

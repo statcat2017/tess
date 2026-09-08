@@ -27,7 +27,7 @@ from tess_assoc._validate import (
     require_positive_finite,
     require_strict_int,
 )
-from tess_assoc.matcher import REQUIRED_THRESHOLDS
+from tess_assoc.matcher import validate_matcher_thresholds
 
 
 def source_tree_hash(src_dir: str | None = None) -> str:
@@ -116,12 +116,7 @@ class HoldoutManifest:
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         require_positive_finite("window_half_span_days", self.window_half_span_days)
         require_strict_int("resample_samples", self.resample_samples, minimum=3)
-        if not isinstance(self.matcher_thresholds, dict):
-            raise ValueError("matcher_thresholds must be a dict")
-        for key in REQUIRED_THRESHOLDS:
-            if key not in self.matcher_thresholds:
-                raise ValueError(f"matcher_thresholds missing key: {key}")
-            require_finite(f"threshold {key}", self.matcher_thresholds[key])
+        validate_matcher_thresholds(self.matcher_thresholds)
         if not isinstance(self.systems, (list, tuple)) or not self.systems:
             raise ValueError("systems must be a non-empty list")
         if not all(isinstance(s, HoldoutSystem) for s in self.systems):

@@ -16,7 +16,7 @@ from typing import Any
 
 from tess_assoc import protocol as _protocol
 from tess_assoc._validate import require_finite, require_positive_finite, require_strict_int
-from tess_assoc.matcher import REQUIRED_THRESHOLDS
+from tess_assoc.matcher import validate_matcher_thresholds
 
 
 @dataclass(frozen=True)
@@ -88,23 +88,7 @@ class TracerManifest:
             raise ValueError("manifest name must be a non-empty str")
         require_strict_int("tic_id", self.tic_id, minimum=1)
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
-        if not isinstance(self.matcher_thresholds, dict):
-            raise ValueError("matcher_thresholds must be a dict")
-        extra_thresholds = [
-            key for key in self.matcher_thresholds if key not in REQUIRED_THRESHOLDS
-        ]
-        if extra_thresholds:
-            raise ValueError(f"unknown matcher thresholds: {extra_thresholds}")
-        for key in REQUIRED_THRESHOLDS:
-            if key not in self.matcher_thresholds:
-                raise ValueError(f"matcher_thresholds missing key: {key}")
-            threshold = self.matcher_thresholds[key]
-            require_finite(f"threshold {key}", threshold)
-            if key in ("max_rel_depth_diff", "max_rel_duration_diff"):
-                if threshold < 0:
-                    raise ValueError(f"threshold {key} must be >= 0")
-            elif not -1 <= threshold <= 1:
-                raise ValueError(f"threshold {key} must be between -1 and 1")
+        validate_matcher_thresholds(self.matcher_thresholds)
         if not isinstance(self.sectors, (list, tuple)) or not all(
             isinstance(s, ManifestSector) for s in self.sectors
         ):
@@ -269,12 +253,7 @@ class ReplayManifest:
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         require_positive_finite("window_half_span_days", self.window_half_span_days)
         require_strict_int("resample_samples", self.resample_samples, minimum=3)
-        if not isinstance(self.matcher_thresholds, dict):
-            raise ValueError("matcher_thresholds must be a dict")
-        for key in REQUIRED_THRESHOLDS:
-            if key not in self.matcher_thresholds:
-                raise ValueError(f"matcher_thresholds missing key: {key}")
-            require_finite(f"threshold {key}", self.matcher_thresholds[key])
+        validate_matcher_thresholds(self.matcher_thresholds)
         if not isinstance(self.systems, (list, tuple)) or not self.systems:
             raise ValueError("systems must be a non-empty list")
         if not all(isinstance(s, ReplaySystem) for s in self.systems):

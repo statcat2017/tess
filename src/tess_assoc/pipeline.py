@@ -76,7 +76,6 @@ def _stage_results(
     touched = (
         {s.sector for s in manifest.sectors}
         | {e.sector for e in manifest.events}
-        | {record.sector for record in records}
     )
     return pair_results, associations, records, touched
 

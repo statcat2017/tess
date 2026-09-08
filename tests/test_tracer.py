@@ -75,6 +75,16 @@ def test_manifest_rejects_unknown_and_noncanonical_structure():
         load_manifest(bad_threshold)
 
     for key, value in (
+        ("max_rel_depth_diff", 0.0),
+        ("max_rel_duration_diff", 0.0),
+        ("min_morph_corr", -1.0),
+        ("min_morph_corr", 1.0),
+    ):
+        valid_bounds = json.loads(json.dumps(good))
+        valid_bounds["matcher_thresholds"][key] = value
+        load_manifest(valid_bounds)
+
+    for key, value in (
         ("max_rel_depth_diff", -1.0),
         ("max_rel_duration_diff", -1.0),
         ("min_morph_corr", -1.1),
