@@ -94,6 +94,11 @@ def test_manifest_rejects_unknown_and_noncanonical_structure():
     with pytest.raises(ValueError, match="sector ids"):
         load_manifest(duplicate_sector)
 
+    unknown_sector = json.loads(json.dumps(good))
+    unknown_sector["sectors"][0]["sector"] = 107
+    with pytest.raises(ValueError, match="non-development sectors"):
+        load_manifest(unknown_sector)
+
     for key, value in (("sectors", "bad"), ("events", "bad")):
         malformed = json.loads(json.dumps(good))
         malformed[key] = value
@@ -222,6 +227,15 @@ def test_records_reject_sealed_event_records_before_processing():
     events["A"] = sealed
     with pytest.raises(ValueError, match="temporal leak"):
         run_records(manifest, events)
+
+
+def test_run_records_rejects_malformed_public_inputs():
+    manifest = _happy_manifest()
+    events = provide_events(manifest)
+    with pytest.raises(ValueError, match="manifest"):
+        run_records(None, events)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="event ids"):
+        run_records(manifest, {1: next(iter(events.values()))})  # type: ignore[dict-item]
 
 
 @pytest.mark.parametrize(

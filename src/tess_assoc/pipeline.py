@@ -74,23 +74,34 @@ def _stage_results(
     return pair_results, associations, records, touched
 
 
-def run_records(
+def _validate_development_inputs(
     manifest: TracerManifest, events: dict[str, EventRecord]
-) -> dict[str, Any]:
-    """Core stages over prebuilt records (shared by fixture and replay paths)."""
+) -> list[EventRecord]:
+    if not isinstance(manifest, TracerManifest):
+        raise ValueError("manifest must be a TracerManifest")
     if not isinstance(events, dict):
         raise ValueError("events must be a dict")
+    if any(not isinstance(event_id, str) or not event_id for event_id in events):
+        raise ValueError("event ids must be non-empty strings")
     records = list(events.values())
     if not all(isinstance(record, EventRecord) for record in records):
         raise ValueError("events must map ids to EventRecords")
     record_tics = {record.tic_id for record in records}
     if record_tics and record_tics != {manifest.tic_id}:
         raise ValueError("event records must belong to the manifest TIC")
-    _protocol.validate_no_temporal_leak(
+    _protocol.validate_development_sectors(
         {s.sector for s in manifest.sectors}
         | {e.sector for e in manifest.events}
         | {record.sector for record in records}
     )
+    return records
+
+
+def run_records(
+    manifest: TracerManifest, events: dict[str, EventRecord]
+) -> dict[str, Any]:
+    """Core stages over prebuilt records (shared by fixture and replay paths)."""
+    records = _validate_development_inputs(manifest, events)
     pair_results, associations, records, touched = _stage_results(manifest, events)
     return {
         "fixture": manifest.name,
@@ -169,9 +180,7 @@ def render_report(results: dict[str, Any]) -> str:
 
 
 def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
-    _protocol.validate_no_temporal_leak(
-        {s.sector for s in manifest.sectors} | {e.sector for e in manifest.events}
-    )
+    _validate_development_inputs(manifest, {})
     return run_records(manifest, provide_events(manifest))
 
 

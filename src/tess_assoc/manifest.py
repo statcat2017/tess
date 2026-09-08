@@ -114,21 +114,6 @@ class TracerManifest:
             raise ValueError("event ids must be unique")
 
 
-def _windows(value: Any) -> tuple[tuple[float, float], ...]:
-    if not isinstance(value, (list, tuple)) or not value:
-        raise ValueError("sector windows must be a non-empty list")
-    out: list[tuple[float, float]] = []
-    for w in value:
-        if not isinstance(w, (list, tuple)) or len(w) != 2:
-            raise ValueError("each window must be a [start, end] pair")
-        require_finite("window start", w[0])
-        require_finite("window end", w[1])
-        if w[1] <= w[0]:
-            raise ValueError("window end must be after start")
-        out.append((w[0], w[1]))
-    return tuple(out)
-
-
 def load_manifest(d: dict[str, Any]) -> TracerManifest:
     if not isinstance(d, dict):
         raise ValueError("manifest must be a dict")
@@ -142,21 +127,6 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
     extra = [key for key in d if key not in required]
     if extra:
         raise ValueError(f"manifest unknown keys: {extra}")
-    if not isinstance(d["name"], str) or not d["name"]:
-        raise ValueError("manifest name must be a non-empty str")
-    require_strict_int("tic_id", d["tic_id"], minimum=1)
-    tol = d["epoch_match_tol_days"]
-    require_positive_finite("epoch_match_tol_days", tol)
-    thresholds = d["matcher_thresholds"]
-    if not isinstance(thresholds, dict):
-        raise ValueError("matcher_thresholds must be a dict")
-    for key in REQUIRED_THRESHOLDS:
-        if key not in thresholds:
-            raise ValueError(f"matcher_thresholds missing key: {key}")
-        require_finite(f"threshold {key}", thresholds[key])
-    extra_thresholds = [key for key in thresholds if key not in REQUIRED_THRESHOLDS]
-    if extra_thresholds:
-        raise ValueError(f"unknown matcher thresholds: {extra_thresholds}")
     if not isinstance(d["sectors"], (list, tuple)):
         raise ValueError("sectors must be a list")
     if not isinstance(d["events"], (list, tuple)):
@@ -169,11 +139,9 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
         extra_sector = [key for key in s if key not in {"sector", "windows"}]
         if extra_sector:
             raise ValueError(f"sector unknown keys: {extra_sector}")
-        sectors.append(
-            ManifestSector(sector=s["sector"], windows=_windows(s["windows"]))
-        )
+        sectors.append(ManifestSector(sector=s["sector"], windows=s["windows"]))
     sector_ids = {s.sector for s in sectors}
-    _protocol.validate_no_temporal_leak(sector_ids)
+    _protocol.validate_development_sectors(sector_ids)
     by_sector = {s.sector: s for s in sectors}
 
     events = []
@@ -193,31 +161,28 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
         ):
             if key not in e:
                 raise ValueError(f"event missing key: {key}")
-        require_strict_int("event sector", e["sector"], minimum=1)
-        require_finite("event t0", e["t0"])
-        if e["sector"] not in by_sector:
-            raise ValueError(f"event sector {e['sector']} has no observing window")
-        windows = by_sector[e["sector"]].windows
-        if not any(s <= e["t0"] <= en for s, en in windows):
-            raise ValueError(f"event {e.get('id')} t0 outside its sector windows")
-        events.append(
-            ManifestEvent(
-                id=e["id"],
-                sector=e["sector"],
-                t0=e["t0"],
-                depth=e["depth"],
-                duration_days=e["duration_days"],
-                snr=e["snr"],
-                shape=e["shape"],
-                origin=e["origin"],
-            )
+        event = ManifestEvent(
+            id=e["id"],
+            sector=e["sector"],
+            t0=e["t0"],
+            depth=e["depth"],
+            duration_days=e["duration_days"],
+            snr=e["snr"],
+            shape=e["shape"],
+            origin=e["origin"],
         )
+        if event.sector not in by_sector:
+            raise ValueError(f"event sector {event.sector} has no observing window")
+        windows = by_sector[event.sector].windows
+        if not any(start <= event.t0 <= end for start, end in windows):
+            raise ValueError(f"event {event.id} t0 outside its sector windows")
+        events.append(event)
 
     return TracerManifest(
         name=d["name"],
         tic_id=d["tic_id"],
-        epoch_match_tol_days=tol,
-        matcher_thresholds=dict(thresholds),
+        epoch_match_tol_days=d["epoch_match_tol_days"],
+        matcher_thresholds=d["matcher_thresholds"],
         sectors=tuple(sectors),
         events=tuple(events),
     )

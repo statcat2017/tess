@@ -40,6 +40,14 @@ def test_temporal_leak_guard():
         P.validate_no_temporal_leak({106})
 
 
+def test_development_sector_guard_rejects_unknown_and_later_sectors():
+    P.validate_development_sectors({1, 79})
+    with pytest.raises(ValueError, match="non-development sectors"):
+        P.validate_development_sectors({80})
+    with pytest.raises(ValueError, match="non-development sectors"):
+        P.validate_development_sectors({107})
+
+
 def test_tic_partition_guard():
     P.validate_tic_partition({1, 2}, {3, 4}, {5})
     with pytest.raises(ValueError, match="TIC partition leak"):
