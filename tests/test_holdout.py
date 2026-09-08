@@ -72,6 +72,20 @@ def test_freeze_round_trip_and_verify(tmp_path):
     assert F.FreezeRecord.from_dict(record.to_dict()) == record
 
 
+def test_freeze_verifies_numeric_tic_order(tmp_path):
+    raw = json.loads(Path(REPLAY).read_text())
+    raw["systems"] = [
+        {**raw["systems"][0], "name": "TIC 2", "tic_id": 2},
+        {**raw["systems"][1], "name": "TIC 10", "tic_id": 10},
+    ]
+    dev_path = tmp_path / "dev.json"
+    dev_path.write_text(json.dumps(raw))
+    freeze_path = str(tmp_path / "freeze.json")
+    F.create_freeze(str(dev_path), MINI, CONFIG, output_path=freeze_path)
+
+    assert F.verify_freeze(freeze_path, CONFIG).systems["dev"] == [2, 10]
+
+
 def test_freeze_rejects_tampering(tmp_path):
     path, record = _freeze(tmp_path)
     bad_sha = dataclasses.replace(record, code_sha="0" * 64)

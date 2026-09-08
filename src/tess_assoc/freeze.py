@@ -537,7 +537,7 @@ def verify_freeze(record_or_path: FreezeRecord | str, config) -> FreezeRecord:
             )
             if actual != record.system_sectors.get("dev"):
                 problems.append("dev system sector map changed since freeze")
-            if sorted(actual) != [str(tic) for tic in record.systems.get("dev", [])]:
+            if sorted(int(tic) for tic in actual) != record.systems.get("dev", []):
                 problems.append("dev system TIC list changed since freeze")
     else:
         # The freeze stores the canonical dev map; the source file may move.
