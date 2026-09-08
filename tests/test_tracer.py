@@ -14,10 +14,17 @@ from tess_assoc.pipeline import render_report, run_tracer, run_tracer_dict
 from tess_assoc.provider import provide_events
 
 FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "tracer_v1.json"
+HAPPY_FIXTURE = (
+    Path(__file__).resolve().parent.parent / "fixtures" / "tracer_happy_v1.json"
+)
 
 
 def _manifest():
     return load_manifest_file(str(FIXTURE))
+
+
+def _happy_manifest():
+    return load_manifest_file(str(HAPPY_FIXTURE))
 
 
 def test_manifest_rejects_sealed_sectors():
@@ -48,6 +55,34 @@ def test_manifest_rejects_coerced_types():
     bad_sector["events"][0]["sector"] = 12.0
     with pytest.raises(ValueError):
         load_manifest(bad_sector)
+
+
+def test_manifest_rejects_unknown_and_noncanonical_structure():
+    good = json.loads(FIXTURE.read_text())
+
+    with pytest.raises(ValueError, match="unknown keys"):
+        load_manifest({**good, "unexpected": True})
+
+    bad_event = json.loads(json.dumps(good))
+    bad_event["events"][0]["unexpected"] = True
+    with pytest.raises(ValueError, match="event unknown keys"):
+        load_manifest(bad_event)
+
+    bad_windows = json.loads(json.dumps(good))
+    bad_windows["sectors"][0]["windows"] = [[1340.0, 1358.0], [1330.0, 1335.0]]
+    with pytest.raises(ValueError, match="sorted"):
+        load_manifest(bad_windows)
+
+    duplicate_sector = json.loads(json.dumps(good))
+    duplicate_sector["sectors"].append(duplicate_sector["sectors"][0])
+    with pytest.raises(ValueError, match="sector ids"):
+        load_manifest(duplicate_sector)
+
+    for key, value in (("sectors", "bad"), ("events", "bad")):
+        malformed = json.loads(json.dumps(good))
+        malformed[key] = value
+        with pytest.raises(ValueError, match="must be a list"):
+            load_manifest(malformed)
 
 
 def test_pairs_unique_no_self():
@@ -107,3 +142,30 @@ def test_end_to_end_results_and_report():
     report = render_report(results)
     assert "A–B" in report and "COMPATIBLE" in report
     assert "300.0d" in report and "Sealed sectors touched: []" in report
+
+
+def test_happy_path_is_reproducible_without_contradictions():
+    manifest = _happy_manifest()
+    first = run_tracer(manifest)
+    second = run_tracer(manifest)
+
+    assert first == second
+    assert first["sealed_sectors_touched"] == []
+    assert len(first["events"]) == 2
+    assert len(first["pairs"]) == 1
+    assert first["pairs"][0]["compatible"] is True
+    assert len(first["associations"]) == 1
+    association = first["associations"][0]
+    assert association["rejected"] == []
+    assert association["retained"]
+
+
+def test_programmatic_tracer_rejects_sealed_sectors_before_processing():
+    manifest = _happy_manifest()
+    bad = dataclasses.replace(
+        manifest,
+        sectors=manifest.sectors
+        + (dataclasses.replace(manifest.sectors[0], sector=80),),
+    )
+    with pytest.raises(ValueError, match="temporal leak"):
+        run_tracer(bad)

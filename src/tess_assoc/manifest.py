@@ -86,6 +86,10 @@ class TracerManifest:
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         if not isinstance(self.matcher_thresholds, dict):
             raise ValueError("matcher_thresholds must be a dict")
+        for key in REQUIRED_THRESHOLDS:
+            if key not in self.matcher_thresholds:
+                raise ValueError(f"matcher_thresholds missing key: {key}")
+            require_finite(f"threshold {key}", self.matcher_thresholds[key])
         if not isinstance(self.sectors, (list, tuple)) or not all(
             isinstance(s, ManifestSector) for s in self.sectors
         ):
@@ -99,6 +103,8 @@ class TracerManifest:
         )
         object.__setattr__(self, "sectors", tuple(self.sectors))
         object.__setattr__(self, "events", tuple(self.events))
+        if len({s.sector for s in self.sectors}) != len(self.sectors):
+            raise ValueError("sector ids must be unique")
         if len({e.id for e in self.events}) != len(self.events):
             raise ValueError("event ids must be unique")
 
@@ -115,15 +121,22 @@ def _windows(value: Any) -> tuple[tuple[float, float], ...]:
         if w[1] <= w[0]:
             raise ValueError("window end must be after start")
         out.append((w[0], w[1]))
-    return tuple(sorted(out))
+    return tuple(out)
 
 
 def load_manifest(d: dict[str, Any]) -> TracerManifest:
     if not isinstance(d, dict):
         raise ValueError("manifest must be a dict")
-    for key in ("name", "tic_id", "sectors", "events", "matcher_thresholds", "epoch_match_tol_days"):
+    required = (
+        "name", "tic_id", "sectors", "events", "matcher_thresholds",
+        "epoch_match_tol_days",
+    )
+    for key in required:
         if key not in d:
             raise ValueError(f"manifest missing key: {key}")
+    extra = [key for key in d if key not in required]
+    if extra:
+        raise ValueError(f"manifest unknown keys: {extra}")
     if not isinstance(d["name"], str) or not d["name"]:
         raise ValueError("manifest name must be a non-empty str")
     require_strict_int("tic_id", d["tic_id"], minimum=1)
@@ -136,6 +149,10 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
         if key not in thresholds:
             raise ValueError(f"matcher_thresholds missing key: {key}")
         require_finite(f"threshold {key}", thresholds[key])
+    if not isinstance(d["sectors"], (list, tuple)):
+        raise ValueError("sectors must be a list")
+    if not isinstance(d["events"], (list, tuple)):
+        raise ValueError("events must be a list")
 
     sectors: list[ManifestSector] = []
     for s in d["sectors"]:
@@ -152,6 +169,13 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
     for e in d["events"]:
         if not isinstance(e, dict):
             raise ValueError("each event must be a dict")
+        allowed_event_keys = {
+            "id", "sector", "t0", "depth", "duration_days", "snr",
+            "shape", "origin",
+        }
+        extra_event = [key for key in e if key not in allowed_event_keys]
+        if extra_event:
+            raise ValueError(f"event unknown keys: {extra_event}")
         for key in ("id", "sector", "t0", "depth", "duration_days", "snr"):
             if key not in e:
                 raise ValueError(f"event missing key: {key}")

@@ -76,8 +76,10 @@ def run_records(
     manifest: TracerManifest, events: dict[str, EventRecord]
 ) -> dict[str, Any]:
     """Core stages over prebuilt records (shared by fixture and replay paths)."""
+    _protocol.validate_no_temporal_leak(
+        {s.sector for s in manifest.sectors} | {e.sector for e in manifest.events}
+    )
     pair_results, associations, records, touched = _stage_results(manifest, events)
-    _protocol.validate_no_temporal_leak(touched)
     return {
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
@@ -153,6 +155,9 @@ def render_report(results: dict[str, Any]) -> str:
 
 
 def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
+    _protocol.validate_no_temporal_leak(
+        {s.sector for s in manifest.sectors} | {e.sector for e in manifest.events}
+    )
     return run_records(manifest, provide_events(manifest))
 
 
