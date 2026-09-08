@@ -76,8 +76,18 @@ def run_records(
     manifest: TracerManifest, events: dict[str, EventRecord]
 ) -> dict[str, Any]:
     """Core stages over prebuilt records (shared by fixture and replay paths)."""
+    if not isinstance(events, dict):
+        raise ValueError("events must be a dict")
+    records = list(events.values())
+    if not all(isinstance(record, EventRecord) for record in records):
+        raise ValueError("events must map ids to EventRecords")
+    record_tics = {record.tic_id for record in records}
+    if record_tics and record_tics != {manifest.tic_id}:
+        raise ValueError("event records must belong to the manifest TIC")
     _protocol.validate_no_temporal_leak(
-        {s.sector for s in manifest.sectors} | {e.sector for e in manifest.events}
+        {s.sector for s in manifest.sectors}
+        | {e.sector for e in manifest.events}
+        | {record.sector for record in records}
     )
     pair_results, associations, records, touched = _stage_results(manifest, events)
     return {

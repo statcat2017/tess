@@ -10,7 +10,7 @@ from tess_assoc import protocol as P
 from tess_assoc.manifest import load_manifest, load_manifest_file
 from tess_assoc.matcher import match
 from tess_assoc.pairs import build_pairs
-from tess_assoc.pipeline import render_report, run_tracer, run_tracer_dict
+from tess_assoc.pipeline import render_report, run_records, run_tracer, run_tracer_dict
 from tess_assoc.provider import provide_events
 
 FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "tracer_v1.json"
@@ -67,6 +67,21 @@ def test_manifest_rejects_unknown_and_noncanonical_structure():
     bad_event["events"][0]["unexpected"] = True
     with pytest.raises(ValueError, match="event unknown keys"):
         load_manifest(bad_event)
+
+    bad_threshold = json.loads(json.dumps(good))
+    bad_threshold["matcher_thresholds"]["unused"] = 1.0
+    with pytest.raises(ValueError, match="unknown matcher thresholds"):
+        load_manifest(bad_threshold)
+
+    bad_sector = json.loads(json.dumps(good))
+    bad_sector["sectors"][0]["unused"] = True
+    with pytest.raises(ValueError, match="sector unknown keys"):
+        load_manifest(bad_sector)
+
+    missing_provenance = json.loads(json.dumps(good))
+    del missing_provenance["events"][0]["origin"]
+    with pytest.raises(ValueError, match="event missing key: origin"):
+        load_manifest(missing_provenance)
 
     bad_windows = json.loads(json.dumps(good))
     bad_windows["sectors"][0]["windows"] = [[1340.0, 1358.0], [1330.0, 1335.0]]
@@ -169,3 +184,12 @@ def test_programmatic_tracer_rejects_sealed_sectors_before_processing():
     )
     with pytest.raises(ValueError, match="temporal leak"):
         run_tracer(bad)
+
+
+def test_records_reject_sealed_event_records_before_processing():
+    manifest = _happy_manifest()
+    events = provide_events(manifest)
+    sealed = dataclasses.replace(events["A"], sector=80)
+    events["A"] = sealed
+    with pytest.raises(ValueError, match="temporal leak"):
+        run_records(manifest, events)

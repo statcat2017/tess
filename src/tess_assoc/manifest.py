@@ -86,6 +86,11 @@ class TracerManifest:
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         if not isinstance(self.matcher_thresholds, dict):
             raise ValueError("matcher_thresholds must be a dict")
+        extra_thresholds = [
+            key for key in self.matcher_thresholds if key not in REQUIRED_THRESHOLDS
+        ]
+        if extra_thresholds:
+            raise ValueError(f"unknown matcher thresholds: {extra_thresholds}")
         for key in REQUIRED_THRESHOLDS:
             if key not in self.matcher_thresholds:
                 raise ValueError(f"matcher_thresholds missing key: {key}")
@@ -149,6 +154,9 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
         if key not in thresholds:
             raise ValueError(f"matcher_thresholds missing key: {key}")
         require_finite(f"threshold {key}", thresholds[key])
+    extra_thresholds = [key for key in thresholds if key not in REQUIRED_THRESHOLDS]
+    if extra_thresholds:
+        raise ValueError(f"unknown matcher thresholds: {extra_thresholds}")
     if not isinstance(d["sectors"], (list, tuple)):
         raise ValueError("sectors must be a list")
     if not isinstance(d["events"], (list, tuple)):
@@ -158,6 +166,9 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
     for s in d["sectors"]:
         if not isinstance(s, dict) or "sector" not in s or "windows" not in s:
             raise ValueError("each sector needs 'sector' and 'windows'")
+        extra_sector = [key for key in s if key not in {"sector", "windows"}]
+        if extra_sector:
+            raise ValueError(f"sector unknown keys: {extra_sector}")
         sectors.append(
             ManifestSector(sector=s["sector"], windows=_windows(s["windows"]))
         )
@@ -176,7 +187,10 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
         extra_event = [key for key in e if key not in allowed_event_keys]
         if extra_event:
             raise ValueError(f"event unknown keys: {extra_event}")
-        for key in ("id", "sector", "t0", "depth", "duration_days", "snr"):
+        for key in (
+            "id", "sector", "t0", "depth", "duration_days", "snr",
+            "shape", "origin",
+        ):
             if key not in e:
                 raise ValueError(f"event missing key: {key}")
         require_strict_int("event sector", e["sector"], minimum=1)
@@ -194,8 +208,8 @@ def load_manifest(d: dict[str, Any]) -> TracerManifest:
                 depth=e["depth"],
                 duration_days=e["duration_days"],
                 snr=e["snr"],
-                shape=e.get("shape", "box"),
-                origin=e.get("origin", "ephemeris"),
+                shape=e["shape"],
+                origin=e["origin"],
             )
         )
 
