@@ -148,6 +148,8 @@ def run_frozen_records(
     events: dict[str, EventRecord],
     *,
     freeze_record,
+    config,
+    cohort_key: str,
 ) -> dict[str, Any]:
     """Same core stages over gated data — verified freeze required.
 
@@ -159,10 +161,26 @@ def run_frozen_records(
     records = _validate_event_inputs(manifest, events)
     if not isinstance(freeze_record, _freeze.FreezeRecord):
         raise ValueError("freeze_record must be a FreezeRecord")
+    if config is None:
+        raise ValueError("config is required to verify the freeze record")
+    if cohort_key not in ("holdout", "discovery"):
+        raise ValueError("cohort_key must be 'holdout' or 'discovery'")
+    _freeze.verify_freeze(freeze_record, config)
+    if not manifest.allow_non_development:
+        _protocol.validate_development_sectors(
+            {s.sector for s in manifest.sectors}
+            | {e.sector for e in manifest.events}
+        )
+    sectors = {s.sector for s in manifest.sectors} | {
+        e.sector for e in manifest.events
+    }
+    if sectors & set(_protocol.DISCOVERY_SECTORS) and sectors & set(
+        _protocol.SEALED_SECTORS
+    ):
+        raise ValueError("frozen manifest cannot mix discovery and sealed sectors")
+    _freeze.check_frozen_system(freeze_record, cohort_key, manifest.tic_id, sectors)
     if dict(manifest.matcher_thresholds) != freeze_record.thresholds:
         raise ValueError("holdout thresholds differ from frozen thresholds")
-    if _freeze.source_tree_hash() != freeze_record.code_sha:
-        raise ValueError("source tree changed since freeze")
     pair_results, associations, records, touched = _stage_results(
         manifest, events, records=records
     )
@@ -218,9 +236,7 @@ def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
     manifest = _validate_manifest(manifest)
     manifest.validate_development()
     events = provide_events(manifest)
-    records = _validate_event_inputs(manifest, events)
-    _validate_development_records(records)
-    return _run_validated_records(manifest, events, records)
+    return run_records(manifest, events)
 
 
 def run_tracer_dict(manifest_dict: dict[str, Any]) -> dict[str, Any]:

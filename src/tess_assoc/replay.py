@@ -246,6 +246,7 @@ def _finish(
         matcher_thresholds=dict(thresholds),
         sectors=tuple(manifest_sectors),
         events=tuple(manifest_events),
+        allow_non_development=records_runner is not None,
     )
     results = (records_runner or run_records)(manifest, records)
     results["anchors"] = list(anchors)
@@ -359,9 +360,11 @@ def classify_pair(
 
 def replay_blind_system(
     replay: ReplayManifest, system: ReplaySystem, cache_dir: str | None = None,
-    records_runner=None,
+    records_runner=None, preflight=None,
 ) -> dict[str, Any]:
     """Blind proposer path: no period, no ephemeris until recall scoring."""
+    if preflight is not None:
+        preflight(system)
     tol = replay.epoch_match_tol_days
     thresholds = dict(replay.matcher_thresholds)
     half_span = replay.window_half_span_days

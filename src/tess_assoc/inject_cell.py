@@ -16,7 +16,7 @@ from tess_assoc.event import EventRecord
 from tess_assoc.extract import coverage_windows
 from tess_assoc.inject_geometry import SHAPES
 from tess_assoc.manifest import ManifestSector, TracerManifest
-from tess_assoc.matcher import REQUIRED_THRESHOLDS, match, match_score
+from tess_assoc.matcher import match, match_score, validate_matcher_thresholds
 from tess_assoc.orbit import generate_aliases
 from tess_assoc.pairs import build_pairs
 from tess_assoc.propose import (
@@ -183,9 +183,7 @@ def study_cell(
     """
     require_positive_finite("delta_t_days", delta_t_days)
     validate_no_temporal_leak((sector_a, sector_b))
-    for key in REQUIRED_THRESHOLDS:
-        if key not in thresholds:
-            raise ValueError(f"thresholds missing key: {key}")
+    validate_matcher_thresholds(thresholds)
     base_provenance = _require_source_provenance(provenance)
     if all_sector_times is not None:
         validate_no_temporal_leak(all_sector_times)

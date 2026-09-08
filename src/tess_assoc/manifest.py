@@ -82,6 +82,7 @@ class TracerManifest:
     matcher_thresholds: dict[str, float] = field(default_factory=dict)
     sectors: tuple[ManifestSector, ...] = ()
     events: tuple[ManifestEvent, ...] = ()
+    allow_non_development: bool = field(default=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
@@ -89,6 +90,8 @@ class TracerManifest:
         require_strict_int("tic_id", self.tic_id, minimum=1)
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         validate_matcher_thresholds(self.matcher_thresholds)
+        if not isinstance(self.allow_non_development, bool):
+            raise ValueError("allow_non_development must be a bool")
         if not isinstance(self.sectors, (list, tuple)) or not all(
             isinstance(s, ManifestSector) for s in self.sectors
         ):
@@ -226,6 +229,8 @@ class ReplaySystem:
             require_strict_int("sector", sector, minimum=1)
             if sector not in _protocol.ALL_KNOWN_SECTORS:
                 raise ValueError("sector must be a known TESS sector (1-106)")
+        if len(set(self.sectors)) != len(self.sectors):
+            raise ValueError("system sectors must be unique")
         if not isinstance(self.toi, str):
             raise ValueError("toi must be a str")
         object.__setattr__(self, "sectors", tuple(self.sectors))

@@ -85,6 +85,8 @@ class DiscoverySystem:
                     f"sector {sector} not allowed in discovery cohort "
                     "(early sectors + 106 only; sealed sectors excluded)"
                 )
+        if len(set(self.sectors)) != len(self.sectors):
+            raise ValueError("system sectors must be unique")
         if not isinstance(self.toi, str):
             raise ValueError("toi must be a str")
         if not isinstance(self.known_planets, (list, tuple)):
@@ -151,6 +153,8 @@ class DiscoveryManifest:
 
 
 def _parse_discovery_manifest(d: dict[str, Any]) -> DiscoveryManifest:
+    if not isinstance(d, dict):
+        raise ValueError("discovery manifest must be a dict")
     for key in (
         "name", "product", "ephemeris_source", "epoch_match_tol_days",
         "window_half_span_days", "resample_samples", "matcher_thresholds",
@@ -158,6 +162,23 @@ def _parse_discovery_manifest(d: dict[str, Any]) -> DiscoveryManifest:
     ):
         if key not in d:
             raise ValueError(f"discovery manifest missing key: {key}")
+    if not isinstance(d["systems"], list) or not d["systems"]:
+        raise ValueError("discovery systems must be a non-empty list")
+    if not isinstance(d["matcher_thresholds"], dict):
+        raise ValueError("discovery matcher_thresholds must be a dict")
+    required_system_keys = {"name", "tic_id", "sectors"}
+    for system in d["systems"]:
+        if not isinstance(system, dict):
+            raise ValueError("each discovery system must be a dict")
+        missing = required_system_keys - set(system)
+        if missing:
+            raise ValueError(f"discovery system missing key: {sorted(missing)[0]}")
+        if not isinstance(system["sectors"], (list, tuple)):
+            raise ValueError("discovery system sectors must be a list")
+        if "known_planets" in system and not isinstance(
+            system["known_planets"], (list, tuple)
+        ):
+            raise ValueError("discovery system known_planets must be a list")
     systems = [
         DiscoverySystem(
             name=s["name"],
@@ -374,6 +395,7 @@ def harvest_system(
     system: DiscoverySystem,
     *,
     record,
+    config,
     cache_dir: str | None = None,
 ) -> dict[str, Any]:
     """Blind replay + cross-epoch pairs for one cohort system.
@@ -381,7 +403,13 @@ def harvest_system(
     Fault-isolated unit: ArchiveUnavailable becomes a blocked payload,
     never an exception. Shared by run_discovery and the survey runner.
     """
-    runner = functools.partial(run_frozen_records, freeze_record=record)
+    _freeze.verify_freeze(record, config)
+    _freeze.check_frozen_system(
+        record, "discovery", system.tic_id, set(system.sectors)
+    )
+    runner = functools.partial(
+        run_frozen_records, freeze_record=record, config=config, cohort_key="discovery"
+    )
     try:
         res = replay_blind_system(manifest, system, cache_dir, records_runner=runner)
     except ArchiveUnavailable as e:
@@ -529,6 +557,11 @@ def run_discovery(
 ) -> dict[str, Any]:
     """Frozen discovery run over the cohort (rehearsal if no Sector 106)."""
     record = _freeze.verify_freeze(freeze_path, config)
+    pinned_manifest = load_discovery_manifest(
+        record.manifests["discovery"]["path"], record, config
+    )
+    if manifest != pinned_manifest:
+        raise ValueError("discovery manifest differs from frozen manifest")
     if dict(manifest.matcher_thresholds) != record.thresholds:
         raise ValueError("discovery thresholds differ from frozen thresholds")
     record = _freeze.mark_unblinded(freeze_path)
@@ -538,7 +571,9 @@ def run_discovery(
     blocked: list[str] = []
     harvests: dict[str, dict[str, Any]] = {}
     for system in manifest.systems:
-        harvest = harvest_system(manifest, system, record=record, cache_dir=cache_dir)
+        harvest = harvest_system(
+            manifest, system, record=record, config=config, cache_dir=cache_dir
+        )
         systems_out[system.name] = harvest["systems_out"]
         if harvest["status"] == "blocked-on-archive":
             blocked.append(system.name)
@@ -637,6 +672,7 @@ def _cross_epoch_pairs(
             for s, w in sorted(windows.items())
         ),
         events=tuple(),
+        allow_non_development=True,
     )
     all_records = list(records.values())
     pairs = []
