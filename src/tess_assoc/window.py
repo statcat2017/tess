@@ -19,6 +19,17 @@ from tess_assoc.manifest import TracerManifest
 from tess_assoc.orbit import generate_aliases
 
 
+def samples_in_windows(
+    samples: list[float] | tuple[float, ...],
+    windows: list[tuple[float, float]] | tuple[tuple[float, float], ...],
+) -> bool:
+    """Return whether every sample lies in one declared observing window."""
+    return all(
+        any(start <= sample <= end for start, end in windows)
+        for sample in samples
+    )
+
+
 @dataclass(frozen=True)
 class AliasVerdict:
     n: int

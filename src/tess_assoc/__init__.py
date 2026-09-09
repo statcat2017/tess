@@ -26,6 +26,7 @@ from tess_assoc.pixel_audit import (
     render_pixel_audit_html,
 )
 from tess_assoc.event import EventRecord
+from tess_assoc.freeze_context import FrozenRunContext
 from tess_assoc.discovery import (
     DISCOVERY_SECTOR,
     cone_tics,
@@ -38,10 +39,8 @@ from tess_assoc.discovery import (
 from tess_assoc.freeze import (
     FreezeRecord,
     audit_development,
-    check_manifest_bytes,
     create_freeze,
     load_holdout_manifest,
-    mark_unblinded,
     verify_freeze,
 )
 from tess_assoc.holdout import (
@@ -103,6 +102,7 @@ __all__ = [
     "EventRecord",
     "DISCOVERY_SECTOR",
     "FreezeRecord",
+    "FrozenRunContext",
     "SectorRole",
     "assign_partitions",
     "audit_development",
@@ -116,7 +116,6 @@ __all__ = [
     "bulk_fetch",
     "check_companion_radius",
     "check_contamination",
-    "check_manifest_bytes",
     "check_variables",
     "combine_secondary_searches",
     "cone_tics",
@@ -141,7 +140,6 @@ __all__ = [
     "load_holdout_manifest",
     "load_replay_manifest",
     "KnownPlanet",
-    "mark_unblinded",
     "mask_known_transits",
     "measure_centroid",
     "measure_event_shape",

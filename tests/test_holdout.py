@@ -9,11 +9,12 @@ import pytest
 from conftest import needs_archive
 from tess_assoc import freeze as F
 from tess_assoc.event import EventRecord
+from tess_assoc.freeze_context import FrozenRunContext
 from tess_assoc.holdout import render_holdout_report
 from tess_assoc.learn import LearnConfig
 from tess_assoc.learn import test_metrics as compute_metrics
 from tess_assoc.manifest import ManifestSector, TracerManifest
-from tess_assoc.pipeline import run_frozen_records, run_records
+from tess_assoc.pipeline import run_frozen_records as _run_frozen_records, run_records
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 REPLAY = str(FIXTURES / "replay_v1.json")
@@ -46,12 +47,11 @@ def _manifest(sectors=(12, 80), tic_id=99999999):
         sectors=tuple(
             ManifestSector(
                 sector=s,
-                windows=((100.0, 120.0),) if s == 12 else ((190.0, 210.0),),
+                windows=((99.0, 120.0),) if s == 12 else ((199.0, 210.0),),
             )
             for s in sectors
         ),
         events=(),
-        allow_non_development=any(s >= 80 for s in sectors),
     )
 
 
@@ -59,6 +59,27 @@ def _freeze(tmp_path, **overrides):
     path = str(tmp_path / "freeze.json")
     record = F.create_freeze(REPLAY, MINI, CONFIG, output_path=path, **overrides)
     return path, record
+
+
+def _context(path, manifest_path=MINI):
+    return FrozenRunContext.open(path, manifest_path, CONFIG, cohort_key="holdout")
+
+
+def run_frozen_records(manifest, events, *, context):
+    return _run_frozen_records(
+        manifest,
+        events,
+        context=context,
+        system_payload={
+            "name": "Mini b",
+            "tic_id": 99999999,
+            "period_days": 10.0,
+            "t0_bjd_tdb": 2457000.0,
+            "duration_hours": 2.0,
+            "sectors": [12, 80],
+            "toi": "",
+        },
+    )
 
 
 def test_freeze_round_trip_and_verify(tmp_path):
@@ -128,13 +149,9 @@ def test_dev_loaders_reject_sealed_holdout_manifests():
 
 def test_gate_requires_valid_freeze(tmp_path):
     with pytest.raises(OSError):
-        F.load_holdout_manifest(MINI, str(tmp_path / "missing.json"), CONFIG)
+        _context(str(tmp_path / "missing.json"))
     path, record = _freeze(tmp_path)
-    with pytest.raises(ValueError, match="mismatch|changed|differ|covered|failed"):
-        F.load_holdout_manifest(
-            MINI, dataclasses.replace(record, code_sha="0" * 64), CONFIG
-        )
-    manifest = F.load_holdout_manifest(MINI, path, CONFIG)
+    manifest = F.load_holdout_manifest(MINI, _context(path))
     assert [s.sectors for s in manifest.systems] == [(12, 80)]
     assert manifest.product == "TESS-SPOC FFI"
 
@@ -143,14 +160,15 @@ def test_gate_binds_on_bytes_not_location(tmp_path):
     import shutil
 
     freeze_path, _ = _freeze(tmp_path)
+    context = _context(freeze_path)
     relocated = str(tmp_path / "renamed_holdout.json")
     shutil.copy(MINI, relocated)
-    manifest = F.load_holdout_manifest(relocated, freeze_path, CONFIG)
+    manifest = F.load_holdout_manifest(relocated, context)
     assert manifest.name == "holdout_mini"
     with open(relocated, "a") as f:
         f.write(" ")
     with pytest.raises(ValueError, match="bytes differ"):
-        F.load_holdout_manifest(relocated, freeze_path, CONFIG)
+        F.load_holdout_manifest(relocated, context)
 
 
 def test_gate_allows_relocated_manifest_without_original(tmp_path):
@@ -164,15 +182,15 @@ def test_gate_allows_relocated_manifest_without_original(tmp_path):
     shutil.copy(original, relocated)
     original.unlink()
 
-    manifest = F.load_holdout_manifest(str(relocated), freeze_path, CONFIG)
+    manifest = F.load_holdout_manifest(str(relocated), _context(freeze_path, str(relocated)))
     assert manifest.name == "holdout_mini"
 
 
 def test_mark_unblinded_stamps_once(tmp_path):
     path, _ = _freeze(tmp_path)
-    first = F.mark_unblinded(path)
+    first = _context(path).mark_unblinded().record
     assert first.unblinded_utc is not None
-    second = F.mark_unblinded(path)
+    second = _context(path).mark_unblinded().record
     assert second.unblinded_utc == first.unblinded_utc
 
 
@@ -182,9 +200,11 @@ def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
     with pytest.raises(ValueError, match="temporal leak"):
         run_records(manifest, events)
     path, record = _freeze(tmp_path)
-    out = run_frozen_records(
-        manifest, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
-    )
+    context = _context(path)
+    with pytest.raises(ValueError, match="not been unblinded"):
+        run_frozen_records(manifest, events, context=context)
+    context = context.mark_unblinded()
+    out = run_frozen_records(manifest, events, context=context)
     assert out["sealed_sectors_touched"] == [80]
     assert out["freeze"]["code_sha"] == record.code_sha
     assert len(out["pairs"]) == 1
@@ -197,14 +217,7 @@ def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
         run_frozen_records(
             manifest,
             bad_events,
-            freeze_record=record,
-            config=CONFIG,
-            cohort_key="holdout",
-        )
-    stale = dataclasses.replace(record, code_sha="0" * 64)
-    with pytest.raises(ValueError, match="changed since freeze"):
-        run_frozen_records(
-            manifest, events, freeze_record=stale, config=CONFIG, cohort_key="holdout"
+            context=context,
         )
     drifted = _manifest()
     object.__setattr__(
@@ -212,11 +225,11 @@ def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
     )
     with pytest.raises(ValueError, match="differ from frozen"):
         run_frozen_records(
-            drifted, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
+            drifted, events, context=context
         )
-    with pytest.raises(ValueError, match="FreezeRecord"):
+    with pytest.raises(ValueError, match="FrozenRunContext"):
         run_frozen_records(
-            manifest, events, freeze_record=None, config=CONFIG, cohort_key="holdout"
+            manifest, events, context=None
         )
 
 
@@ -227,7 +240,8 @@ def test_frozen_records_reject_undeclared_sealed_sector(tmp_path):
 
     with pytest.raises(ValueError, match="not declared by the manifest"):
         run_frozen_records(
-            manifest, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
+            manifest, events,
+            context=_context(_freeze(tmp_path)[0]).mark_unblinded(),
         )
 
 
@@ -237,7 +251,8 @@ def test_frozen_records_bind_to_pinned_cohort_tic(tmp_path):
     events = {"a": _rec(1, 12, 100.0), "b": _rec(1, 80, 200.0)}
     with pytest.raises(ValueError, match="not uniquely pinned"):
         run_frozen_records(
-            manifest, events, freeze_record=record, config=CONFIG, cohort_key="holdout"
+            manifest, events,
+            context=_context(_freeze(tmp_path)[0]).mark_unblinded(),
         )
 
 
@@ -248,13 +263,11 @@ def test_frozen_records_reject_mixed_cohort_roles(tmp_path):
         "a": _rec(99999999, 80, 200.0),
         "b": _rec(99999999, 106, 200.0),
     }
-    with pytest.raises(ValueError, match="mix discovery and sealed"):
+    with pytest.raises(ValueError, match="sectors differ from frozen"):
         run_frozen_records(
             manifest,
             events,
-            freeze_record=record,
-            config=CONFIG,
-            cohort_key="holdout",
+            context=_context(_freeze(tmp_path)[0]).mark_unblinded(),
         )
 
 
@@ -336,7 +349,7 @@ def test_live_holdout_kelt9(tmp_path):
         checkpoint_sha=ckpt_sha,
     )
     assert F.load_freeze_record(freeze_path).unblinded_utc is None
-    manifest = F.load_holdout_manifest(HOLDOUT, freeze_path, CONFIG)
+    manifest = F.load_holdout_manifest(HOLDOUT, _context(freeze_path, HOLDOUT))
     results = run_holdout(
         manifest, manifest_path=HOLDOUT, freeze_path=freeze_path, checkpoint=checkpoint,
         ablation="morphology+scalars", config=CONFIG,

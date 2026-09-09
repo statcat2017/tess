@@ -11,9 +11,11 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
+from statistics import median
 
 from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable
 from tess_assoc.event import EventRecord
+from tess_assoc.window import samples_in_windows
 from tess_assoc._validate import require_positive_finite
 from tess_assoc.manifest import ReplaySystem
 
@@ -126,7 +128,7 @@ def refine_epoch(
 
 def coverage_windows(
     time: list[float],
-    max_gap_days: float = 0.5,
+    max_gap_days: float | None = None,
     excluded_windows: list[tuple[float, float]] | None = None,
 ) -> list[tuple[float, float]]:
     """Contiguous observed spans; splits on gaps (real window function).
@@ -137,6 +139,14 @@ def coverage_windows(
     """
     if not time:
         return []
+    if max_gap_days is None:
+        gaps = sorted(b - a for a, b in zip(time, time[1:]) if b > a)
+        if not gaps:
+            return []
+        cadence = median(gaps[: max(1, (len(gaps) + 1) // 2)])
+        max_gap_days = cadence * 5.0
+    else:
+        require_positive_finite("max_gap_days", max_gap_days)
     spans: list[tuple[float, float]] = []
     start = prev = time[0]
     for t in time[1:]:
@@ -271,6 +281,10 @@ def extract_events(
         )
         if isinstance(result, SkippedTransit):
             skipped.append(SkippedTransit(t_pred, result.reason))
+        elif not samples_in_windows(result.local_time, windows):
+            skipped.append(
+                SkippedTransit(t_pred, "insufficient full observing window coverage")
+            )
         else:
             extracted.append(
                 ExtractedEvent(

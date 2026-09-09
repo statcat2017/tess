@@ -143,7 +143,7 @@ def test_survey_resume_skips_completed(tmp_path, monkeypatch):
 
     calls = []
 
-    def stub(manifest_arg, system, record=None, config=None, cache_dir=None):
+    def stub(manifest_arg, system, context=None, cache_dir=None):
         calls.append(system.name)
         assert system.name == "TIC 2"
         return {**thin, "systems_out": {**thin["systems_out"], "tic_id": 2}}
@@ -176,7 +176,7 @@ def test_survey_isolates_faults(tmp_path, monkeypatch):
         cohort_key="discovery",
     )
 
-    def boom(manifest_arg, system, record=None, config=None, cache_dir=None):
+    def boom(manifest_arg, system, context=None, cache_dir=None):
         raise RuntimeError("synthetic worker failure")
 
     monkeypatch.setattr(S, "harvest_system", boom)
