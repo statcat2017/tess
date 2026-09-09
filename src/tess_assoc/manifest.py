@@ -82,16 +82,12 @@ class TracerManifest:
     matcher_thresholds: dict[str, float] = field(default_factory=dict)
     sectors: tuple[ManifestSector, ...] = ()
     events: tuple[ManifestEvent, ...] = ()
-    allow_non_development: bool = field(default=False, repr=False, compare=False)
-
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
             raise ValueError("manifest name must be a non-empty str")
         require_strict_int("tic_id", self.tic_id, minimum=1)
         require_positive_finite("epoch_match_tol_days", self.epoch_match_tol_days)
         validate_matcher_thresholds(self.matcher_thresholds)
-        if not isinstance(self.allow_non_development, bool):
-            raise ValueError("allow_non_development must be a bool")
         if not isinstance(self.sectors, (list, tuple)) or not all(
             isinstance(s, ManifestSector) for s in self.sectors
         ):
@@ -236,6 +232,17 @@ class ReplaySystem:
         object.__setattr__(self, "sectors", tuple(self.sectors))
         _protocol.validate_no_temporal_leak(set(self.sectors))
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "tic_id": self.tic_id,
+            "period_days": self.period_days,
+            "t0_bjd_tdb": self.t0_bjd_tdb,
+            "duration_hours": self.duration_hours,
+            "sectors": list(self.sectors),
+            "toi": self.toi,
+        }
+
 
 @dataclass(frozen=True)
 class ReplayManifest:
@@ -267,3 +274,9 @@ class ReplayManifest:
             self, "matcher_thresholds", dict(self.matcher_thresholds)
         )
         object.__setattr__(self, "systems", tuple(self.systems))
+        names = [system.name for system in self.systems]
+        if len(set(names)) != len(names):
+            raise ValueError("system names must be unique")
+        tics = [system.tic_id for system in self.systems]
+        if len(set(tics)) != len(tics):
+            raise ValueError("system TIC ids must be unique")

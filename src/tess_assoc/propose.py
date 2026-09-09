@@ -11,7 +11,8 @@ from dataclasses import dataclass
 
 from tess_assoc._validate import require_finite, require_positive_finite
 from tess_assoc.event import EventRecord
-from tess_assoc.extract import SkippedTransit, extract_at
+from tess_assoc.extract import SkippedTransit, coverage_windows, extract_at
+from tess_assoc.window import samples_in_windows
 
 
 PROPOSER_SNR_THRESHOLD = 4.0
@@ -172,11 +173,13 @@ def records_from_proposals(
     half_span_days: float = 0.6,
     resample_samples: int = 61,
     quality_base: dict | None = None,
+    observing_windows: list[tuple[float, float]] | None = None,
 ) -> tuple[dict[str, EventRecord], list[SkippedTransit]]:
     """Measure proposal windows through the shared extract_at core."""
     records: dict[str, EventRecord] = {}
     skipped: list[SkippedTransit] = []
     base = dict(quality_base or {})
+    windows = coverage_windows(time) if observing_windows is None else observing_windows
     for i, p in enumerate(proposals):
         t_center = center_on_minimum(time, flux, p.t0_guess, p.duration_guess_days)
         result = extract_at(
@@ -197,6 +200,12 @@ def records_from_proposals(
         )
         if isinstance(result, SkippedTransit):
             skipped.append(result)
+        elif not samples_in_windows(result.local_time, windows):
+            skipped.append(
+                SkippedTransit(
+                    p.t0_guess, "insufficient full observing window coverage"
+                )
+            )
         else:
             records[f"S{sector}-{i:03d}"] = result
     return records, skipped

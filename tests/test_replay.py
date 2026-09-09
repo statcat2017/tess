@@ -72,6 +72,17 @@ def test_replay_manifest_rejects_invalid_matcher_thresholds():
             dataclasses.replace(replay, matcher_thresholds=thresholds)
 
 
+def test_replay_manifest_rejects_duplicate_system_identity():
+    replay = load_replay_manifest(str(REPLAY))
+    with pytest.raises(ValueError, match="system names"):
+        dataclasses.replace(replay, systems=(replay.systems[0], replay.systems[0]))
+    duplicate_tic = dataclasses.replace(
+        replay.systems[1], name="duplicate name", tic_id=replay.systems[0].tic_id
+    )
+    with pytest.raises(ValueError, match="TIC ids"):
+        dataclasses.replace(replay, systems=(replay.systems[0], duplicate_tic))
+
+
 def test_replay_manifest_rejects_wrong_product(tmp_path):
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps({"name": "x"}))

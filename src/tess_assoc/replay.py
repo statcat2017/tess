@@ -36,7 +36,9 @@ from tess_assoc.manifest import (
     SYSTEM_REQUIRED_KEYS,
     TracerManifest,
 )
-from tess_assoc.pipeline import run_records
+from tess_assoc.freeze_context import FrozenRunContext
+from tess_assoc import protocol as _protocol
+from tess_assoc.pipeline import run_frozen_records, run_records
 from tess_assoc.propose import (
     PROPOSER_SNR_THRESHOLD,
     Proposal,
@@ -232,12 +234,13 @@ def _finish(
     products: list[dict[str, Any]],
     anchors: list[str],
     extra: dict[str, Any] | None = None,
-    records_runner=None,
+    frozen_context: FrozenRunContext | None = None,
+    system_payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Shared tail: manifest build → stages → shaped results (one copy).
 
-    records_runner defaults to the dev-gated run_records; the sealed
-    holdout passes its freeze-gated runner instead. Same stages either way.
+    Development runs use run_records; frozen runs carry an authenticated
+    context that selects the same stages without a callback escape hatch.
     """
     manifest = TracerManifest(
         name=name,
@@ -246,9 +249,18 @@ def _finish(
         matcher_thresholds=dict(thresholds),
         sectors=tuple(manifest_sectors),
         events=tuple(manifest_events),
-        allow_non_development=records_runner is not None,
     )
-    results = (records_runner or run_records)(manifest, records)
+    if frozen_context is None:
+        results = run_records(manifest, records)
+    else:
+        if system_payload is None:
+            raise ValueError("frozen replay requires the authenticated system payload")
+        results = run_frozen_records(
+            manifest,
+            records,
+            context=frozen_context,
+            system_payload=system_payload,
+        )
     results["anchors"] = list(anchors)
     results["skipped"] = list(skipped)
     results["products"] = list(products)
@@ -360,11 +372,21 @@ def classify_pair(
 
 def replay_blind_system(
     replay: ReplayManifest, system: ReplaySystem, cache_dir: str | None = None,
-    records_runner=None, preflight=None,
+    frozen_context: FrozenRunContext | None = None,
 ) -> dict[str, Any]:
     """Blind proposer path: no period, no ephemeris until recall scoring."""
-    if preflight is not None:
-        preflight(system)
+    if frozen_context is not None and not isinstance(
+        frozen_context, FrozenRunContext
+    ):
+        raise ValueError("frozen replay requires a FrozenRunContext")
+    if frozen_context is not None:
+        frozen_context.check_system(
+            system.tic_id,
+            set(system.sectors),
+            payload=system.to_dict(),
+        )
+    else:
+        _protocol.validate_development_sectors(set(system.sectors))
     tol = replay.epoch_match_tol_days
     thresholds = dict(replay.matcher_thresholds)
     half_span = replay.window_half_span_days
@@ -378,6 +400,7 @@ def replay_blind_system(
     known: list[tuple[int, float]] = []
     anchor_times: list[float] = []
     sector_curves: dict[int, tuple[list[float], list[float], float]] = {}
+    sector_windows: dict[int, list[tuple[float, float]]] = {}
     sector_proposals: dict[int, list[Proposal]] = {}
     known_masks: dict[int, list[dict[str, Any]]] = {}
     for sector in system.sectors:
@@ -386,6 +409,7 @@ def replay_blind_system(
         time, flux = load_lightcurve(product)
         if not time:
             raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
+        raw_time = time
         time, flux, masks = mask_known_transits(
             time, flux, getattr(system, "known_planets", ())
         )
@@ -394,6 +418,14 @@ def replay_blind_system(
             raise ArchiveUnavailable(
                 f"known-transit masks removed all good cadences in {product.local_path}"
             )
+        excluded_windows = [
+            (m["t0"] - m["half_width_days"], m["t0"] + m["half_width_days"])
+            for m in masks
+        ]
+        effective_windows = coverage_windows(
+            raw_time, excluded_windows=excluded_windows
+        )
+        sector_windows[sector] = effective_windows
         if system.t0_bjd_tdb is None or system.period_days is None:
             sector_known = []
         else:
@@ -404,7 +436,10 @@ def replay_blind_system(
         coverable = [
             t
             for t in sector_known
-            if t - half_span >= time[0] and t + half_span <= time[-1]
+            if any(
+                start <= t - half_span and t + half_span <= end
+                for start, end in effective_windows
+            )
         ]
         if coverable:
             anchor_times.append(coverable[0])
@@ -421,6 +456,7 @@ def replay_blind_system(
             half_span_days=half_span,
             resample_samples=n_samples,
             quality_base={"ephemeris_source": replay.ephemeris_source},
+            observing_windows=effective_windows,
         )
         records.update(recs)
         skipped.extend(
@@ -431,13 +467,7 @@ def replay_blind_system(
             ManifestSector(
                 sector=sector,
                 windows=tuple(
-                    coverage_windows(
-                        time,
-                        excluded_windows=[
-                            (m["t0"] - m["half_width_days"], m["t0"] + m["half_width_days"])
-                            for m in masks
-                        ],
-                    )
+                    effective_windows
                 ),
             )
         )
@@ -460,9 +490,9 @@ def replay_blind_system(
         for _, t in known
     ]
     coverable = [
-        bool(
-            t - half_span >= sector_curves[sec][0][0]
-            and t + half_span <= sector_curves[sec][0][-1]
+        any(
+            start <= t - half_span and t + half_span <= end
+            for start, end in sector_windows[sec]
         )
         for sec, t in known
     ]
@@ -515,7 +545,8 @@ def replay_blind_system(
         skipped=skipped,
         products=products,
         anchors=[],
-        records_runner=records_runner,
+        frozen_context=frozen_context,
+        system_payload=system.to_dict(),
         extra={
             "n_proposals": n_proposals,
             "recall": {

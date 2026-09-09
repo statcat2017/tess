@@ -272,7 +272,6 @@ def _filter_with_windows(a, b, sector_windows, tol_days, thresholds, events):
             for s in sector_windows
         ),
         events=tuple(),
-        allow_non_development=True,
     )
     return filter_aliases(a, b, manifest, events)
 

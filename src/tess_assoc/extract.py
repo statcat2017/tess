@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable
 from tess_assoc.event import EventRecord
+from tess_assoc.window import samples_in_windows
 from tess_assoc._validate import require_positive_finite
 from tess_assoc.manifest import ReplaySystem
 
@@ -271,6 +272,10 @@ def extract_events(
         )
         if isinstance(result, SkippedTransit):
             skipped.append(SkippedTransit(t_pred, result.reason))
+        elif not samples_in_windows(result.local_time, windows):
+            skipped.append(
+                SkippedTransit(t_pred, "insufficient full observing window coverage")
+            )
         else:
             extracted.append(
                 ExtractedEvent(

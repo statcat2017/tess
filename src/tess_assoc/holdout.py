@@ -10,16 +10,15 @@ byte is read, and the verification evidence is embedded in the results.
 
 from __future__ import annotations
 
-import functools
 import json
 from typing import Any
 
 from tess_assoc import freeze as _freeze
+from tess_assoc.freeze_context import FrozenRunContext
 from tess_assoc.benchmark import build_benchmark
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import predicted_transits
 from tess_assoc.learn import decide, prepare_split, predict_proba, test_metrics
-from tess_assoc.pipeline import run_frozen_records
 from tess_assoc.replay import replay_blind_system
 
 
@@ -64,12 +63,13 @@ def run_holdout(
     log_path: str | None = None,
 ) -> dict[str, Any]:
     """Frozen evaluation on the sealed cohort (gate first, metrics after)."""
-    record = _freeze.verify_freeze(freeze_path, config)
-    authenticated_manifest = _freeze.load_holdout_manifest(
-        manifest_path, record, config
+    context = FrozenRunContext.open(
+        freeze_path, manifest_path, config, cohort_key="holdout"
     )
+    authenticated_manifest = _freeze.load_holdout_manifest(manifest_path, context)
     if manifest != authenticated_manifest:
         raise ValueError("holdout manifest differs from authenticated manifest")
+    record = context.record
     if record.ablation != ablation:
         raise ValueError("holdout ablation differs from frozen ablation")
     if dict(manifest.matcher_thresholds) != record.thresholds:
@@ -78,20 +78,13 @@ def run_holdout(
         raise ValueError("freeze record holds no checkpoint hash")
     if _freeze.checkpoint_hash(checkpoint) != record.checkpoint_sha:
         raise ValueError("checkpoint weights differ from frozen checkpoint")
-    record = _freeze.mark_unblinded(freeze_path)
+    context = context.mark_unblinded()
+    record = context.record
     thresholds = dict(manifest.matcher_thresholds)
-
-    runner = functools.partial(
-        run_frozen_records, freeze_record=record, config=config, cohort_key="holdout"
-    )
-    def preflight(system) -> None:
-        _freeze.check_frozen_system(
-            record, "holdout", system.tic_id, set(system.sectors)
-        )
 
     blind_results = {
         system.name: replay_blind_system(
-            manifest, system, cache_dir, records_runner=runner, preflight=preflight
+            manifest, system, cache_dir, frozen_context=context
         )
         for system in manifest.systems
     }

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from tess_assoc import freeze as _freeze
+from tess_assoc.freeze_context import FrozenRunContext
 from tess_assoc._validate import require_positive_finite, require_strict_int
 from tess_assoc.archive import ArchiveUnavailable
 from tess_assoc.discovery import (
@@ -171,9 +172,12 @@ def run_mining_survey(
     """Threaded survey: harvest per star (resume), triage globally once."""
     require_strict_int("shortlist_k", shortlist_k, minimum=1)
     require_positive_finite("max_workers", max_workers)
-    manifest = load_discovery_manifest(manifest_path, freeze_path, config)
-    record = _freeze.load_freeze_record(freeze_path)
-    record = _freeze.mark_unblinded(freeze_path)
+    context = FrozenRunContext.open(
+        freeze_path, manifest_path, config, cohort_key="discovery"
+    )
+    manifest = load_discovery_manifest(manifest_path, context)
+    context = context.mark_unblinded()
+    record = context.record
     manifest_sha = _freeze.file_hash(manifest_path)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -202,7 +206,7 @@ def run_mining_survey(
     def harvest_one(system) -> tuple[str, dict[str, Any]]:
         try:
             harvest = harvest_system(
-                manifest, system, record=record, config=config, cache_dir=cache_dir
+                manifest, system, context=context, cache_dir=cache_dir
             )
         except Exception as e:  # noqa: BLE001 — one bad star never kills a survey
             import traceback

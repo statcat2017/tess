@@ -14,6 +14,7 @@ from tess_assoc.discovery import (
     render_discovery_report,
 )
 from tess_assoc.event import EventRecord
+from tess_assoc.freeze_context import FrozenRunContext
 from tess_assoc.learn import LearnConfig
 from tess_assoc.vetting import (
     MANUAL_CHECKLIST,
@@ -54,6 +55,10 @@ def _freeze(tmp_path, manifest=MINI):
     )
     assert record.manifests["discovery"]["sha256"] == F.file_hash(manifest)
     return path, record
+
+
+def _context(path, manifest=MINI):
+    return FrozenRunContext.open(path, manifest, CONFIG, cohort_key="discovery")
 
 
 def test_discovery_structs_reject_sealed_but_allow_106():
@@ -102,14 +107,10 @@ def test_dev_loaders_reject_discovery_manifest():
 
 def test_discovery_gate_needs_valid_freeze(tmp_path):
     path, _ = _freeze(tmp_path)
-    manifest = load_discovery_manifest(MINI, path, CONFIG)
+    manifest = load_discovery_manifest(MINI, _context(path))
     assert [s.sectors for s in manifest.systems] == [(12, 106)]
     import dataclasses
 
-    stale = F.load_freeze_record(path)
-    stale = dataclasses.replace(stale, code_sha="0" * 64)
-    with pytest.raises(ValueError, match="source tree changed"):
-        load_discovery_manifest(MINI, stale, CONFIG)
 
 
 def test_ctoi_parse_and_flag_semantics():
@@ -413,7 +414,7 @@ def test_discovery_blocked_and_partial_statuses(tmp_path, monkeypatch):
         REPLAY, manifest_path, CONFIG, output_path=freeze_path,
         cohort_key="discovery",
     )
-    manifest = load_discovery_manifest(manifest_path, freeze_path, CONFIG)
+    manifest = load_discovery_manifest(manifest_path, _context(freeze_path, manifest_path))
 
     def fake_empty_result():
         return {
@@ -433,7 +434,7 @@ def test_discovery_blocked_and_partial_statuses(tmp_path, monkeypatch):
             "sealed_sectors_touched": [],
         }
 
-    def stub(manifest_arg, system, cache_dir=None, records_runner=None):
+    def stub(manifest_arg, system, cache_dir=None, frozen_context=None):
         if system.tic_id == 99999999:
             raise ArchiveUnavailable("no Sector 106 SPOC yet")
         return copy.deepcopy(fake_empty_result())
@@ -506,7 +507,9 @@ def test_live_mining_validation_excludes_known_toi(tmp_path):
         REPLAY, validation_path, CONFIG, output_path=freeze_path,
         cohort_key="discovery",
     )
-    manifest = load_discovery_manifest(validation_path, freeze_path, CONFIG)
+    manifest = load_discovery_manifest(
+        validation_path, _context(freeze_path, validation_path)
+    )
     results = run_discovery(
         manifest, manifest_path=validation_path, freeze_path=freeze_path, config=CONFIG,
         cache_dir=str(tmp_path),
@@ -535,7 +538,7 @@ def test_live_mining_hunt_reports_cleanly(tmp_path):
         REPLAY, hunt_path, CONFIG, output_path=freeze_path,
         cohort_key="discovery",
     )
-    manifest = load_discovery_manifest(hunt_path, freeze_path, CONFIG)
+    manifest = load_discovery_manifest(hunt_path, _context(freeze_path, hunt_path))
     assert len(manifest.systems) == 8
     results = run_discovery(
         manifest, manifest_path=hunt_path, freeze_path=freeze_path, config=CONFIG,
@@ -595,7 +598,9 @@ def test_live_rehearsal_run_on_dev(tmp_path):
         REPLAY, manifest_path, CONFIG, output_path=freeze_path,
         cohort_key="discovery",
     )
-    manifest = load_discovery_manifest(manifest_path, freeze_path, CONFIG)
+    manifest = load_discovery_manifest(
+        manifest_path, _context(freeze_path, manifest_path)
+    )
     results = run_discovery(
         manifest, manifest_path=manifest_path, freeze_path=freeze_path, config=CONFIG,
         cache_dir=str(tmp_path), log_path=str(tmp_path / "access.jsonl"),

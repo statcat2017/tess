@@ -272,6 +272,13 @@ def test_run_records_rejects_malformed_public_inputs():
     outside = dataclasses.replace(next(iter(events.values())), t0=5000.0)
     with pytest.raises(ValueError, match="outside declared"):
         run_records(manifest, {"outside": outside})
+    first = next(iter(events.values()))
+    samples_outside = dataclasses.replace(
+        first,
+        local_time=tuple(t - 100.0 for t in first.local_time),
+    )
+    with pytest.raises(ValueError, match="samples outside"):
+        run_records(manifest, {"outside": samples_outside})
 
 
 @pytest.mark.parametrize(

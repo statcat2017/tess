@@ -11,22 +11,20 @@ from typing import Any
 
 from tess_assoc import protocol as _protocol
 from tess_assoc.event import EventRecord
-from tess_assoc import freeze as _freeze
+from tess_assoc.freeze_context import FrozenRunContext
 from tess_assoc.manifest import TracerManifest, load_manifest
 from tess_assoc.matcher import match
 from tess_assoc.pairs import build_pairs
 from tess_assoc.provider import provide_events
-from tess_assoc.window import filter_aliases
+from tess_assoc.window import filter_aliases, samples_in_windows
 
 
 def _stage_results(
     manifest: TracerManifest,
     events: dict[str, EventRecord],
-    *,
-    records: list[EventRecord] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[EventRecord], set[int]]:
     """Shared core: pairs → deterministic matches → alias filtering."""
-    records = list(events.values()) if records is None else records
+    records = list(events.values())
     pairs = build_pairs(events)
     thresholds = manifest.matcher_thresholds
 
@@ -117,6 +115,10 @@ def _validate_event_inputs(
             raise ValueError(
                 f"event record t0 outside declared sector {record.sector} windows"
             )
+        if not samples_in_windows(record.local_time, windows_by_sector[record.sector]):
+            raise ValueError(
+                f"event record samples outside declared sector {record.sector} windows"
+            )
     return records
 
 
@@ -127,11 +129,8 @@ def _validate_development_records(records: list[EventRecord]) -> None:
 def _run_validated_records(
     manifest: TracerManifest,
     events: dict[str, EventRecord],
-    records: list[EventRecord],
 ) -> dict[str, Any]:
-    pair_results, associations, records, touched = _stage_results(
-        manifest, events, records=records
-    )
+    pair_results, associations, records, touched = _stage_results(manifest, events)
     return {
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
@@ -149,18 +148,16 @@ def run_records(
     """Core stages over prebuilt records (shared by fixture and replay paths)."""
     manifest = _validate_manifest(manifest)
     manifest.validate_development()
-    records = _validate_event_inputs(manifest, events)
-    _validate_development_records(records)
-    return _run_validated_records(manifest, events, records)
+    _validate_development_records(_validate_event_inputs(manifest, events))
+    return _run_validated_records(manifest, events)
 
 
 def run_frozen_records(
     manifest: TracerManifest,
     events: dict[str, EventRecord],
     *,
-    freeze_record,
-    config,
-    cohort_key: str,
+    context: FrozenRunContext,
+    system_payload: dict[str, Any],
 ) -> dict[str, Any]:
     """Same core stages over gated data — verified freeze required.
 
@@ -168,33 +165,16 @@ def run_frozen_records(
     record verifies (same source tree, same thresholds). The freeze
     evidence lands in the output for audit.
     """
+    if not isinstance(context, FrozenRunContext):
+        raise ValueError("run_frozen_records requires a FrozenRunContext")
     manifest = _validate_manifest(manifest)
-    records = _validate_event_inputs(manifest, events)
-    if not isinstance(freeze_record, _freeze.FreezeRecord):
-        raise ValueError("freeze_record must be a FreezeRecord")
-    if config is None:
-        raise ValueError("config is required to verify the freeze record")
-    if cohort_key not in ("holdout", "discovery"):
-        raise ValueError("cohort_key must be 'holdout' or 'discovery'")
-    _freeze.verify_freeze(freeze_record, config)
-    if not manifest.allow_non_development:
-        _protocol.validate_development_sectors(
-            {s.sector for s in manifest.sectors}
-            | {e.sector for e in manifest.events}
-        )
+    _validate_event_inputs(manifest, events)
     sectors = {s.sector for s in manifest.sectors} | {
         e.sector for e in manifest.events
     }
-    if sectors & set(_protocol.DISCOVERY_SECTORS) and sectors & set(
-        _protocol.SEALED_SECTORS
-    ):
-        raise ValueError("frozen manifest cannot mix discovery and sealed sectors")
-    _freeze.check_frozen_system(freeze_record, cohort_key, manifest.tic_id, sectors)
-    if dict(manifest.matcher_thresholds) != freeze_record.thresholds:
-        raise ValueError("holdout thresholds differ from frozen thresholds")
-    pair_results, associations, records, touched = _stage_results(
-        manifest, events, records=records
-    )
+    context.check_system(manifest.tic_id, sectors, payload=system_payload)
+    context.check_thresholds(dict(manifest.matcher_thresholds), "frozen")
+    pair_results, associations, records, touched = _stage_results(manifest, events)
     return {
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
@@ -203,11 +183,7 @@ def run_frozen_records(
         "pairs": pair_results,
         "associations": associations,
         "sealed_sectors_touched": sorted(touched & set(_protocol.SEALED_SECTORS)),
-        "freeze": {
-            "code_sha": freeze_record.code_sha,
-            "created_utc": freeze_record.created_utc,
-            "unblinded_utc": freeze_record.unblinded_utc,
-        },
+        "freeze": context.evidence(),
     }
 
 
@@ -247,7 +223,8 @@ def run_tracer(manifest: TracerManifest) -> dict[str, Any]:
     manifest = _validate_manifest(manifest)
     manifest.validate_development()
     events = provide_events(manifest)
-    return run_records(manifest, events)
+    _validate_development_records(_validate_event_inputs(manifest, events))
+    return _run_validated_records(manifest, events)
 
 
 def run_tracer_dict(manifest_dict: dict[str, Any]) -> dict[str, Any]:
