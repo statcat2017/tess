@@ -39,6 +39,7 @@ EVENT_REQUIRED_FIELDS: tuple[str, ...] = (
     "snr",
     "stellar_meta",
     "quality",
+    "observability",
 )
 
 

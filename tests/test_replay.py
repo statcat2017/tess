@@ -20,6 +20,7 @@ from tess_assoc.extract import (
     predicted_transits,
 )
 from tess_assoc.manifest import ReplaySystem
+from tess_assoc.observability import CadenceEvidence
 from tess_assoc.replay import MISS_REASONS, load_replay_manifest, replay_all, replay_system
 
 REPLAY = Path(__file__).resolve().parent.parent / "fixtures" / "replay_v1.json"
@@ -44,6 +45,27 @@ def test_coverage_windows_split_on_gaps():
 def test_coverage_windows_split_short_quality_gap():
     time = [i * 0.02 for i in range(11)] + [0.42 + i * 0.02 for i in range(11)]
     assert coverage_windows(time) == [(0.0, 0.2), (0.42, 0.62)]
+
+
+def test_cadence_evidence_preserves_quality_gaps_and_roundtrips():
+    evidence = CadenceEvidence(
+        time=(0.0, 0.1, 0.2, 0.5, 0.6),
+        usable=(True, True, False, True, True),
+        quality_flags=(0, 0, 4, 0, 0),
+    )
+    assert evidence.observing_windows == ((0.0, 0.1), (0.5, 0.6))
+    assert evidence.missing == 1
+    assert evidence.quality_flagged == 1
+    assert CadenceEvidence.from_dict(evidence.to_dict()) == evidence
+
+
+def test_cadence_evidence_rejects_misaligned_or_false_windows():
+    with pytest.raises(ValueError):
+        CadenceEvidence((0.0, 0.1), (True,), (0, 0))
+    with pytest.raises(ValueError):
+        CadenceEvidence(
+            (0.0, 0.1), (True, False), (0, 4), observing_windows=((0.0, 0.1),)
+        )
 
 
 def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):

@@ -6,6 +6,7 @@ import pytest
 
 from tess_assoc import protocol as P
 from tess_assoc.event import EventRecord
+from tess_assoc.observability import CadenceEvidence
 
 
 def _valid_kwargs():
@@ -25,6 +26,11 @@ def _valid_kwargs():
         "snr": 9.5,
         "stellar_meta": {"r_star": 1.0},
         "quality": {"flags": 0},
+        "observability": CadenceEvidence(
+            time=tuple(times),
+            usable=(True,) * n,
+            quality_flags=(0,) * n,
+        ),
     }
 
 

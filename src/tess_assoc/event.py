@@ -11,6 +11,7 @@ from dataclasses import dataclass, field, fields
 from typing import Any
 
 from tess_assoc import protocol as _protocol
+from tess_assoc.observability import CadenceEvidence
 from tess_assoc._validate import (
     is_finite_number,
     is_strict_int,
@@ -32,6 +33,7 @@ class EventRecord:
     snr: float = 0.0  # > 0
     stellar_meta: dict[str, Any] = field(default_factory=dict)
     quality: dict[str, Any] = field(default_factory=dict)
+    observability: CadenceEvidence | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.local_time, (list, tuple)):
@@ -42,6 +44,10 @@ class EventRecord:
             raise ValueError("stellar_meta must be a dict")
         if not isinstance(self.quality, dict):
             raise ValueError("quality must be a dict")
+        if self.observability is not None and not isinstance(
+            self.observability, CadenceEvidence
+        ):
+            raise ValueError("observability must be CadenceEvidence or None")
         # Defensive copies so post-construction mutation is impossible.
         object.__setattr__(self, "local_time", tuple(self.local_time))
         object.__setattr__(self, "local_flux", tuple(self.local_flux))
@@ -76,6 +82,8 @@ class EventRecord:
                 v = list(v)
             elif isinstance(v, dict):
                 v = dict(v)
+            elif isinstance(v, CadenceEvidence):
+                v = v.to_dict()
             out[f.name] = v
         return out
 
@@ -102,6 +110,11 @@ class EventRecord:
                 snr=d["snr"],
                 stellar_meta=d["stellar_meta"],
                 quality=d["quality"],
+                observability=(
+                    None
+                    if d["observability"] is None
+                    else CadenceEvidence.from_dict(d["observability"])
+                ),
             )
         except TypeError as e:
             raise ValueError(f"malformed event payload: {e}") from e

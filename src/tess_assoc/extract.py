@@ -15,6 +15,7 @@ from statistics import median
 
 from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable
 from tess_assoc.event import EventRecord
+from tess_assoc.observability import CadenceEvidence, LightCurve
 from tess_assoc.window import samples_in_windows
 from tess_assoc._validate import require_positive_finite
 from tess_assoc.manifest import ReplaySystem
@@ -59,8 +60,8 @@ def predicted_transits(
     return [t0 + k * period_days for k in range(k_min, k_max + 1)]
 
 
-def load_lightcurve(product: ArchiveProduct) -> tuple[list[float], list[float]]:
-    """Return good-cadence (TIME, flux) lists; PDCSAP preferred, SAP fallback."""
+def load_lightcurve(product: ArchiveProduct) -> LightCurve:
+    """Return good samples and raw cadence evidence; PDCSAP preferred."""
     _require_deps()
     import numpy as np
     from astropy.io import fits
@@ -74,10 +75,39 @@ def load_lightcurve(product: ArchiveProduct) -> tuple[list[float], list[float]]:
         dtype=float,
     )
     quality = np.asarray(data["QUALITY"])
-    good = np.isfinite(time) & np.isfinite(flux) & (quality == 0)
+    finite_time = np.isfinite(time)
+    time = time[finite_time]
+    flux = flux[finite_time]
+    quality = quality[finite_time]
+    usable = np.isfinite(flux) & (quality == 0)
     # Cast to Python floats: list(np_array) would leak np.float64 scalars,
     # which pass isinstance(x, float) yet poison comparisons into np.bool_.
-    return [float(v) for v in time[good]], [float(v) for v in flux[good]]
+    evidence = CadenceEvidence(
+        time=tuple(float(v) for v in time),
+        usable=tuple(bool(v) for v in usable),
+        quality_flags=tuple(int(v) for v in quality),
+    )
+    return LightCurve(
+        time=tuple(float(v) for v in time[usable]),
+        flux=tuple(float(v) for v in flux[usable]),
+        evidence=evidence,
+    )
+
+
+def _as_lightcurve(value: LightCurve | tuple[list[float], list[float]]) -> LightCurve:
+    """Normalize legacy test/provider tuple payloads at the loader seam."""
+    if isinstance(value, LightCurve):
+        return value
+    try:
+        time, flux = value
+    except (TypeError, ValueError) as error:
+        raise ValueError("light-curve loader must return a LightCurve or time/flux pair") from error
+    evidence = CadenceEvidence(
+        time=tuple(time),
+        usable=tuple(True for _ in time),
+        quality_flags=tuple(0 for _ in time),
+    )
+    return LightCurve(time=tuple(time), flux=tuple(flux), evidence=evidence)
 
 
 def _phase_distance(
@@ -186,6 +216,7 @@ def extract_at(
     half_span_days: float = 0.6,
     resample_samples: int = 61,
     quality: dict | None = None,
+    observability: CadenceEvidence | None = None,
 ) -> EventRecord | SkippedTransit:
     """Measure one window into an EventRecord (shared ephemeris/blind core)."""
     _require_deps()
@@ -224,6 +255,7 @@ def extract_at(
         snr=snr,
         stellar_meta={},
         quality=dict(quality or {}),
+        observability=observability,
     )
 def extract_events(
     product: ArchiveProduct,
@@ -236,10 +268,11 @@ def extract_events(
 
     period = system.period_days
     duration_days = system.duration_hours / 24.0
-    time, flux = load_lightcurve(product)
+    curve = _as_lightcurve(load_lightcurve(product))
+    time, flux = list(curve.time), list(curve.flux)
     if not time:
         raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
-    windows = coverage_windows(time)
+    windows = list(curve.evidence.observing_windows)
     quality_base = {
         "provider": "archive",
         "product": "TESS-SPOC FFI",
@@ -278,6 +311,7 @@ def extract_events(
                 "predicted_t0_btjd": t_pred,
                 "epoch_shift_days": t_ref - t_pred,
             },
+            observability=curve.evidence,
         )
         if isinstance(result, SkippedTransit):
             skipped.append(SkippedTransit(t_pred, result.reason))
