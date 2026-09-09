@@ -201,6 +201,9 @@ def test_holdout_records_need_freeze_but_run_sealed(tmp_path):
         run_records(manifest, events)
     path, record = _freeze(tmp_path)
     context = _context(path)
+    with pytest.raises(ValueError, match="not been unblinded"):
+        run_frozen_records(manifest, events, context=context)
+    context = context.mark_unblinded()
     out = run_frozen_records(manifest, events, context=context)
     assert out["sealed_sectors_touched"] == [80]
     assert out["freeze"]["code_sha"] == record.code_sha
@@ -237,7 +240,8 @@ def test_frozen_records_reject_undeclared_sealed_sector(tmp_path):
 
     with pytest.raises(ValueError, match="not declared by the manifest"):
         run_frozen_records(
-            manifest, events, context=_context(_freeze(tmp_path)[0])
+            manifest, events,
+            context=_context(_freeze(tmp_path)[0]).mark_unblinded(),
         )
 
 
@@ -247,7 +251,8 @@ def test_frozen_records_bind_to_pinned_cohort_tic(tmp_path):
     events = {"a": _rec(1, 12, 100.0), "b": _rec(1, 80, 200.0)}
     with pytest.raises(ValueError, match="not uniquely pinned"):
         run_frozen_records(
-            manifest, events, context=_context(_freeze(tmp_path)[0])
+            manifest, events,
+            context=_context(_freeze(tmp_path)[0]).mark_unblinded(),
         )
 
 
@@ -262,7 +267,7 @@ def test_frozen_records_reject_mixed_cohort_roles(tmp_path):
         run_frozen_records(
             manifest,
             events,
-            context=_context(_freeze(tmp_path)[0]),
+            context=_context(_freeze(tmp_path)[0]).mark_unblinded(),
         )
 
 

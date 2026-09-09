@@ -167,6 +167,7 @@ def run_frozen_records(
     """
     if not isinstance(context, FrozenRunContext):
         raise ValueError("run_frozen_records requires a FrozenRunContext")
+    context.require_unblinded()
     manifest = _validate_manifest(manifest)
     _validate_event_inputs(manifest, events)
     sectors = {s.sector for s in manifest.sectors} | {

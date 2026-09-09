@@ -12,8 +12,14 @@ from pathlib import Path
 import pytest
 
 from conftest import needs_archive
-from tess_assoc.archive import ArchiveUnavailable, cache_dir, find_spoc_ffi_uri
-from tess_assoc.extract import BTJD_OFFSET, coverage_windows, predicted_transits
+from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable, cache_dir, find_spoc_ffi_uri
+from tess_assoc.extract import (
+    BTJD_OFFSET,
+    coverage_windows,
+    extract_events,
+    predicted_transits,
+)
+from tess_assoc.manifest import ReplaySystem
 from tess_assoc.replay import MISS_REASONS, load_replay_manifest, replay_all, replay_system
 
 REPLAY = Path(__file__).resolve().parent.parent / "fixtures" / "replay_v1.json"
@@ -33,6 +39,28 @@ def test_coverage_windows_split_on_gaps():
     assert coverage_windows([1.0, 1.1, 1.2, 5.0, 5.1]) == [(1.0, 1.2), (5.0, 5.1)]
     assert coverage_windows([1.0, 1.1, 5.0]) == [(1.0, 1.1)]
     assert coverage_windows([7.0]) == []
+
+
+def test_coverage_windows_split_short_quality_gap():
+    time = [i * 0.02 for i in range(11)] + [0.42 + i * 0.02 for i in range(11)]
+    assert coverage_windows(time) == [(0.0, 0.2), (0.42, 0.62)]
+
+
+def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
+    import tess_assoc.extract as E
+
+    time = [-1.0 + i * 0.02 for i in range(61)] + [0.42 + i * 0.02 for i in range(30)]
+    flux = [0.99 if abs(t - 0.1) <= 0.04 else 1.0 for t in time]
+    monkeypatch.setattr(E, "load_lightcurve", lambda product: (time, flux))
+    monkeypatch.setattr(E, "refine_epoch", lambda *args: 0.1)
+    product = ArchiveProduct(1, 12, "unused", "unused", "now", True)
+    system = ReplaySystem(
+        name="gap", tic_id=1, period_days=1.0,
+        t0_bjd_tdb=BTJD_OFFSET + 0.1, duration_hours=2.0, sectors=[12],
+    )
+    extracted, skipped, _ = extract_events(product, system)
+    assert extracted == []
+    assert skipped[0].reason == "insufficient full observing window coverage"
 
 
 def test_coverage_windows_split_on_known_transit_masks():

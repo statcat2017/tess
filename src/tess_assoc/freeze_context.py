@@ -9,6 +9,7 @@ import dataclasses
 import fcntl
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 
 from tess_assoc.freeze import (
@@ -68,7 +69,7 @@ class FrozenRunContext:
     freeze_path: str
     manifest_path: str
     cohort_key: CohortKey
-    system_payloads: tuple[str, ...]
+    system_payloads: MappingProxyType
 
     def __init__(
         self,
@@ -76,7 +77,7 @@ class FrozenRunContext:
         freeze_path: str,
         manifest_path: str,
         cohort_key: CohortKey,
-        system_payloads: tuple[str, ...],
+        system_payloads: MappingProxyType,
         *,
         _token: object | None = None,
     ) -> None:
@@ -104,12 +105,20 @@ class FrozenRunContext:
         systems = payload.get("systems")
         if not isinstance(systems, list):
             raise ValueError("frozen cohort manifest systems must be a list")
+        fingerprints: dict[int, str] = {}
+        for system in systems:
+            if not isinstance(system, dict) or not isinstance(system.get("tic_id"), int):
+                raise ValueError("frozen cohort systems must have integer TIC ids")
+            tic_id = system["tic_id"]
+            if tic_id in fingerprints:
+                raise ValueError(f"TIC {tic_id} is duplicated in frozen manifest")
+            fingerprints[tic_id] = _system_fingerprint(system)
         return cls(
             record,
             str(Path(freeze_path).resolve()),
             str(Path(manifest_path).resolve()),
             cohort_key,
-            tuple(_system_fingerprint(system) for system in systems),
+            MappingProxyType(fingerprints),
             _token=_CONTEXT_TOKEN,
         )
 
@@ -131,12 +140,12 @@ class FrozenRunContext:
         check_frozen_system(self.record, self.cohort_key, tic_id, sectors)
         if payload is not None:
             expected = _system_fingerprint(payload)
-            candidates = [
-                system for system in self.system_payloads
-                if json.loads(system).get("tic_id") == tic_id
-            ]
-            if len(candidates) != 1 or expected != candidates[0]:
+            if self.system_payloads.get(tic_id) != expected:
                 raise ValueError(f"TIC {tic_id} payload differs from frozen manifest")
+
+    def require_unblinded(self) -> None:
+        if self.record.unblinded_utc is None:
+            raise ValueError("frozen context has not been unblinded")
 
     def mark_unblinded(self) -> "FrozenRunContext":
         stamped = self.record.stamped(_utcnow())

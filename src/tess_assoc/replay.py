@@ -380,6 +380,7 @@ def replay_blind_system(
     ):
         raise ValueError("frozen replay requires a FrozenRunContext")
     if frozen_context is not None:
+        frozen_context.require_unblinded()
         frozen_context.check_system(
             system.tic_id,
             set(system.sectors),
