@@ -9,7 +9,9 @@ from typing import Any
 
 from tess_assoc._validate import (
     is_finite_number,
+    require_bool,
     require_finite,
+    require_nonempty_str,
     require_positive_finite,
     require_strict_int,
 )
@@ -42,8 +44,8 @@ def coverage_windows(
     else:
         if not isinstance(usable, (list, tuple)) or len(usable) != len(times):
             raise ValueError("usable mask must match time length")
-        if any(not isinstance(value, bool) for value in usable):
-            raise ValueError("usable mask must contain bool values")
+        for value in usable:
+            require_bool("usable mask value", value)
         mask = tuple(usable)
     if max_gap_days is not None:
         require_positive_finite("max_gap_days", max_gap_days)
@@ -192,7 +194,7 @@ class CadenceEvidence:
         missing = sorted(required - set(value))
         if missing:
             raise ValueError(f"cadence evidence missing keys: {missing}")
-        extra = sorted(set(value) - required)
+        extra = sorted(set(value) - required, key=repr)
         if extra:
             raise ValueError(f"cadence evidence unknown keys: {extra}")
         return cls(
@@ -225,8 +227,7 @@ class SourceProduct:
             ("data_uri", self.data_uri),
             ("retrieved_utc", self.retrieved_utc),
         ):
-            if not isinstance(value, str) or not value:
-                raise ValueError(f"source product {name} must be a non-empty str")
+            require_nonempty_str(f"source product {name}", value)
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -244,7 +245,7 @@ class SourceProduct:
         missing = sorted(required - set(value))
         if missing:
             raise ValueError(f"source product missing keys: {missing}")
-        extra = sorted(set(value) - required)
+        extra = sorted(set(value) - required, key=repr)
         if extra:
             raise ValueError(f"source product unknown keys: {extra}")
         return cls(

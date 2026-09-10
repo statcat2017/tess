@@ -58,7 +58,7 @@ def test_event_evidence_preserves_source_product():
 
 def test_dataclass_fields_match_protocol():
     field_names = {f.name for f in dataclasses.fields(EventRecord)}
-    assert set(P.EVENT_REQUIRED_FIELDS) == field_names
+    assert set(P.EVENT_FIELDS) == field_names
     assert set(EventRecord(**_valid_kwargs()).to_dict()) == field_names
 
 

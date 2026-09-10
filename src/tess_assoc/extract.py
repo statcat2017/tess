@@ -89,11 +89,19 @@ def load_lightcurve(product: ArchiveProduct) -> LightCurve:
     if missing:
         raise ValueError(f"light-curve missing columns: {missing}")
     try:
-        time = np.asarray(data["TIME"], dtype=float)
-        flux = np.asarray(data[flux_column], dtype=float)
+        raw_time = np.asarray(data["TIME"])
+        raw_flux = np.asarray(data[flux_column])
         quality = np.asarray(data["QUALITY"])
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError("light-curve table contains malformed columns") from error
+    if raw_time.dtype.kind not in "fiu" or raw_flux.dtype.kind not in "fiu":
+        raise ValueError("light-curve TIME and flux columns must be numeric")
+    if quality.dtype.kind not in "iu":
+        raise ValueError("light-curve QUALITY column must contain integer flags")
+    if len(raw_time) != len(raw_flux) or len(raw_time) != len(quality):
+        raise ValueError("light-curve columns must have equal length")
+    time = raw_time.astype(float, copy=False)
+    flux = raw_flux.astype(float, copy=False)
     finite_time = np.isfinite(time)
     invalid_time_count = int((~finite_time).sum())
     time = time[finite_time]
@@ -234,9 +242,20 @@ def extract_events(
     duration_days = system.duration_hours / 24.0
     curve = load_lightcurve(product)
     time, flux = list(curve.time), list(curve.flux)
-    if not time:
-        raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
     windows = list(curve.evidence.observing_windows)
+    if not curve.evidence.time:
+        raise ArchiveUnavailable(f"no finite cadences in {product.local_path}")
+    if not time:
+        skipped = [
+            SkippedTransit(t_pred, "no usable cadence", curve.evidence)
+            for t_pred in predicted_transits(
+                system.t0_bjd_tdb,
+                period,
+                curve.evidence.time[0],
+                curve.evidence.time[-1],
+            )
+        ]
+        return [], skipped, windows
     quality_base = {
         "source_product": (
             None

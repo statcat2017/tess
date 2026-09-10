@@ -96,7 +96,7 @@ class EventRecord:
             missing.remove("observability")
         if missing:
             raise ValueError(f"missing event fields: {missing}")
-        extra = [k for k in d if k not in _protocol.EVENT_REQUIRED_FIELDS]
+        extra = [k for k in d if k not in _protocol.EVENT_FIELDS]
         if extra:
             raise ValueError(f"unknown event fields: {extra}")
         # Shape/value checks live in __post_init__/validate — just delegate.

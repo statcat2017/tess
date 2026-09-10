@@ -39,8 +39,9 @@ EVENT_REQUIRED_FIELDS: tuple[str, ...] = (
     "snr",
     "stellar_meta",
     "quality",
-    "observability",
 )
+EVENT_OPTIONAL_FIELDS: tuple[str, ...] = ("observability",)
+EVENT_FIELDS: tuple[str, ...] = EVENT_REQUIRED_FIELDS + EVENT_OPTIONAL_FIELDS
 
 
 class SectorRole(Enum):

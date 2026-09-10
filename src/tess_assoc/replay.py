@@ -422,30 +422,31 @@ def replay_blind_system(
         curve = load_lightcurve(product)
         time, flux = list(curve.time), list(curve.flux)
         sector_evidence[sector] = curve.evidence
-        if not time:
-            raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
-        raw_time = time
+        if not curve.evidence.time:
+            raise ArchiveUnavailable(f"no finite cadences in {product.local_path}")
+        raw_time = list(curve.evidence.time)
         time, flux, masks = mask_known_transits(
             time, flux, getattr(system, "known_planets", ())
         )
         known_masks[sector] = masks
-        if not time:
-            raise ArchiveUnavailable(
-                f"known-transit masks removed all good cadences in {product.local_path}"
-            )
         excluded_windows = [
             (m["t0"] - m["half_width_days"], m["t0"] + m["half_width_days"])
             for m in masks
         ]
         effective_windows = coverage_windows(
-            raw_time, excluded_windows=excluded_windows
+            raw_time,
+            excluded_windows=excluded_windows,
+            usable=curve.evidence.usable,
         )
         sector_windows[sector] = effective_windows
         if system.t0_bjd_tdb is None or system.period_days is None:
             sector_known = []
         else:
             sector_known = predicted_transits(
-                system.t0_bjd_tdb, system.period_days, time[0], time[-1]
+                system.t0_bjd_tdb,
+                system.period_days,
+                curve.evidence.time[0],
+                curve.evidence.time[-1],
             )
         known.extend((sector, t) for t in sector_known)
         coverable = [
@@ -458,7 +459,10 @@ def replay_blind_system(
         ]
         if coverable:
             anchor_times.append(coverable[0])
-        proposals, detrended, sigma = propose_with_detail(time, flux)
+        if time:
+            proposals, detrended, sigma = propose_with_detail(time, flux)
+        else:
+            proposals, detrended, sigma = [], [], 1.0
         sector_curves[sector] = (time, detrended, sigma)
         sector_proposals[sector] = proposals
         n_proposals += len(proposals)

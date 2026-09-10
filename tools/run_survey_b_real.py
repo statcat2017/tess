@@ -15,7 +15,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from tess_assoc.archive import ArchiveProduct
+from tess_assoc.archive import ArchiveProduct, spoc_ffi_uri
 from tess_assoc.bulk import bulk_fetch
 from tess_assoc.circumbinary import (
     BinaryPilotTarget,
@@ -137,8 +137,8 @@ def _product(tic_id: int, sector: int, path: str) -> ArchiveProduct:
         tic_id=tic_id,
         sector=sector,
         local_path=path,
-        data_uri="",
-        retrieved_utc="",
+        data_uri=spoc_ffi_uri(tic_id, sector),
+        retrieved_utc="not-recorded",
         cached=True,
     )
 

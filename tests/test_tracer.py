@@ -199,6 +199,16 @@ def test_end_to_end_results_and_report():
     )
     assert counts in report
     assert "## Event evidence" in report
+    assert "- event 0: None" in report
+    report_with_misses = render_report(
+        {
+            **results,
+            "skipped": [{"sector": 12, "t0": 2.0, "reason": "no usable cadence"}],
+            "missed": [{"sector": 12, "t0": 3.0, "reason": "below-threshold"}],
+        }
+    )
+    assert "## Skipped proposals" in report_with_misses
+    assert "## Missed transits" in report_with_misses
     for row in asc["retained"]:
         assert f"n={row['n']} P={row['period_days']:.1f}d" in report
     for row in asc["rejected"]:
