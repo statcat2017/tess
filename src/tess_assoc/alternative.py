@@ -9,6 +9,7 @@ from typing import Any
 
 from tess_assoc.audit import measure_event_shape, measure_flux_channel
 from tess_assoc.event import EventRecord
+from tess_assoc._validate import require_strict_int
 from tess_assoc.observability import CadenceEvidence, SourceProduct
 
 
@@ -102,8 +103,13 @@ def read_lightcurve(
         raise RuntimeError("alternative reduction checks need the replay extra") from error
     with fits.open(path) as handle:
         data = handle[1].data
-        columns = list(data.columns.names)
+        columns = getattr(getattr(data, "columns", None), "names", None)
+        if not isinstance(columns, (list, tuple)):
+            raise ValueError("alternative light-curve table has no named columns")
         flux_column = choose_flux_column(columns)
+        missing = [name for name in ("TIME", flux_column) if name not in columns]
+        if missing:
+            raise ValueError(f"alternative light-curve missing columns: {missing}")
         raw_time = np.asarray(data["TIME"])
         raw_flux = np.asarray(data[flux_column])
         quality = (
@@ -126,11 +132,8 @@ def read_lightcurve(
     quality = quality[finite_time]
     usable = np.isfinite(flux) & (quality == 0)
     quality_values = quality.tolist()
-    if any(
-        not isinstance(value, int) or isinstance(value, bool) or value < 0
-        for value in quality_values
-    ):
-        raise ValueError("alternative quality flags must be non-negative ints")
+    for value in quality_values:
+        require_strict_int("alternative quality flag", value, minimum=0)
     evidence = CadenceEvidence(
         time=tuple(float(value) for value in time),
         usable=tuple(bool(value) for value in usable),

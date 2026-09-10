@@ -22,6 +22,11 @@ def event_summary(event: EventRecord) -> dict[str, Any]:
         "duration_days": event.duration_days,
         "snr": event.snr,
         "quality": dict(event.quality),
+        "observability": (
+            None
+            if event.observability is None
+            else event.observability.to_dict()
+        ),
     }
 
 

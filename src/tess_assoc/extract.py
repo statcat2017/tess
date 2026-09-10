@@ -20,7 +20,7 @@ from tess_assoc.observability import (
     SourceProduct,
 )
 from tess_assoc.window import samples_in_windows
-from tess_assoc._validate import is_strict_int, require_positive_finite
+from tess_assoc._validate import require_positive_finite, require_strict_int
 from tess_assoc.manifest import ReplaySystem
 
 BTJD_OFFSET = 2457000.0
@@ -111,8 +111,8 @@ def load_lightcurve(product: ArchiveProduct) -> LightCurve:
     # Cast to Python floats: list(np_array) would leak np.float64 scalars,
     # which pass isinstance(x, float) yet poison comparisons into np.bool_.
     quality_values = quality.tolist()
-    if any(not is_strict_int(value) or value < 0 for value in quality_values):
-        raise ValueError("light-curve quality flags must be non-negative ints")
+    for value in quality_values:
+        require_strict_int("light-curve quality flag", value, minimum=0)
     evidence = CadenceEvidence(
         time=tuple(float(v) for v in time),
         usable=tuple(bool(v) for v in usable),

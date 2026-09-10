@@ -181,7 +181,14 @@ def records_from_proposals(
     records: dict[str, EventRecord] = {}
     skipped: list[SkippedTransit] = []
     base = dict(quality_base or {})
-    windows = coverage_windows(time) if observing_windows is None else observing_windows
+    if observing_windows is None:
+        windows = (
+            list(observability.observing_windows)
+            if observability is not None
+            else coverage_windows(time)
+        )
+    else:
+        windows = observing_windows
     for i, p in enumerate(proposals):
         t_center = center_on_minimum(time, flux, p.t0_guess, p.duration_guess_days)
         result = extract_at(

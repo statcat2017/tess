@@ -92,8 +92,6 @@ class EventRecord:
         if not isinstance(d, dict):
             raise ValueError("event payload must be a dict")
         missing = [k for k in _protocol.EVENT_REQUIRED_FIELDS if k not in d]
-        if "observability" in missing:
-            missing.remove("observability")
         if missing:
             raise ValueError(f"missing event fields: {missing}")
         extra = [k for k in d if k not in _protocol.EVENT_FIELDS]
