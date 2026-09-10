@@ -42,6 +42,7 @@ def _stage_results(
             "morph_corr": decision.morph_corr,
             "timing_plausible": decision.timing_plausible,
             "explanation": decision.explanation,
+            "evidence_refs": {"a": p.a_id, "b": p.b_id},
         }
         pair_results.append(entry)
         if decision.compatible:
@@ -50,6 +51,7 @@ def _stage_results(
             associations.append(
                 {
                     "pair": [p.a_id, p.b_id],
+                    "evidence_refs": {"a": p.a_id, "b": p.b_id},
                     "delta_t_days": t2 - t1,
                     "aliases_total": len(verdicts),
                     "aliases_retained": sum(v.retained for v in verdicts),

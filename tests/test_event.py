@@ -6,7 +6,12 @@ import pytest
 
 from tess_assoc import protocol as P
 from tess_assoc.event import EventRecord
-from tess_assoc.observability import CadenceEvidence, SourceProduct
+from tess_assoc.observability import (
+    AuxiliaryEvidence,
+    CadenceEvidence,
+    DetectorConfiguration,
+    SourceProduct,
+)
 
 
 def _valid_kwargs():
@@ -54,6 +59,19 @@ def test_event_evidence_preserves_source_product():
     record = EventRecord(**kw)
     assert EventRecord.from_dict(record.to_dict()) == record
     assert record.to_dict()["observability"]["source_product"]["data_uri"] == "mast:x"
+
+
+def test_event_optional_evidence_is_typed_and_roundtrips():
+    kw = _valid_kwargs()
+    kw["detector"] = DetectorConfiguration("search", "2", 0.6, 61, 4.0)
+    kw["auxiliary"] = AuxiliaryEvidence(
+        centroid=(1.2, 2.3), background=0.01, uncertainty=0.002
+    )
+    record = EventRecord(**kw)
+    restored = EventRecord.from_dict(record.to_dict())
+    assert restored == record
+    assert restored.detector is not None
+    assert restored.auxiliary is not None
 
 
 def test_dataclass_fields_match_protocol():

@@ -11,7 +11,11 @@ from dataclasses import dataclass, field, fields
 from typing import Any
 
 from tess_assoc import protocol as _protocol
-from tess_assoc.observability import CadenceEvidence
+from tess_assoc.observability import (
+    AuxiliaryEvidence,
+    CadenceEvidence,
+    DetectorConfiguration,
+)
 from tess_assoc._validate import (
     is_finite_number,
     is_strict_int,
@@ -34,6 +38,8 @@ class EventRecord:
     stellar_meta: dict[str, Any] = field(default_factory=dict)
     quality: dict[str, Any] = field(default_factory=dict)
     observability: CadenceEvidence | None = None
+    detector: DetectorConfiguration | None = None
+    auxiliary: AuxiliaryEvidence | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.local_time, (list, tuple)):
@@ -48,6 +54,14 @@ class EventRecord:
             self.observability, CadenceEvidence
         ):
             raise ValueError("observability must be CadenceEvidence or None")
+        if self.detector is not None and not isinstance(
+            self.detector, DetectorConfiguration
+        ):
+            raise ValueError("detector must be DetectorConfiguration or None")
+        if self.auxiliary is not None and not isinstance(
+            self.auxiliary, AuxiliaryEvidence
+        ):
+            raise ValueError("auxiliary must be AuxiliaryEvidence or None")
         # Defensive copies so post-construction mutation is impossible.
         object.__setattr__(self, "local_time", tuple(self.local_time))
         object.__setattr__(self, "local_flux", tuple(self.local_flux))
@@ -84,6 +98,10 @@ class EventRecord:
                 v = dict(v)
             elif isinstance(v, CadenceEvidence):
                 v = v.to_dict()
+            elif isinstance(v, DetectorConfiguration):
+                v = v.to_dict()
+            elif isinstance(v, AuxiliaryEvidence):
+                v = v.to_dict()
             out[f.name] = v
         return out
 
@@ -114,6 +132,16 @@ class EventRecord:
                     None
                     if d.get("observability") is None
                     else CadenceEvidence.from_dict(d["observability"])
+                ),
+                detector=(
+                    None
+                    if d.get("detector") is None
+                    else DetectorConfiguration.from_dict(d["detector"])
+                ),
+                auxiliary=(
+                    None
+                    if d.get("auxiliary") is None
+                    else AuxiliaryEvidence.from_dict(d["auxiliary"])
                 ),
             )
         except TypeError as e:

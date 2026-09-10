@@ -27,6 +27,8 @@ def event_summary(event: EventRecord) -> dict[str, Any]:
             if event.observability is None
             else event.observability.to_dict()
         ),
+        "detector": None if event.detector is None else event.detector.to_dict(),
+        "auxiliary": None if event.auxiliary is None else event.auxiliary.to_dict(),
     }
 
 

@@ -16,6 +16,7 @@ from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable
 from tess_assoc.event import EventRecord
 from tess_assoc.observability import (
     CadenceEvidence,
+    DetectorConfiguration,
     LightCurve,
     SourceProduct,
 )
@@ -189,12 +190,19 @@ def extract_at(
     resample_samples: int = 61,
     quality: dict | None = None,
     observability: CadenceEvidence | None = None,
+    detector: DetectorConfiguration | None = None,
 ) -> EventRecord | SkippedTransit:
     """Measure one window into an EventRecord (shared ephemeris/blind core)."""
     _require_deps()
     import numpy as np
 
     require_positive_finite("duration_days", duration_days)
+    detector = detector or DetectorConfiguration(
+        name="fixed-window-extractor",
+        version="1",
+        half_span_days=half_span_days,
+        resample_samples=resample_samples,
+    )
     tarr = np.array(time, dtype=float)
     step = (2.0 * half_span_days) / (resample_samples - 1)
     phases = [-half_span_days + i * step for i in range(resample_samples)]
@@ -233,6 +241,7 @@ def extract_at(
         stellar_meta={},
         quality=dict(quality or {}),
         observability=observability,
+        detector=detector,
     )
 def extract_events(
     product: ArchiveProduct,

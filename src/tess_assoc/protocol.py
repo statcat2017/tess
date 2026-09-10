@@ -40,7 +40,9 @@ EVENT_REQUIRED_FIELDS: tuple[str, ...] = (
     "stellar_meta",
     "quality",
 )
-EVENT_OPTIONAL_FIELDS: tuple[str, ...] = ("observability",)
+EVENT_OPTIONAL_FIELDS: tuple[str, ...] = (
+    "observability", "detector", "auxiliary"
+)
 EVENT_FIELDS: tuple[str, ...] = EVENT_REQUIRED_FIELDS + EVENT_OPTIONAL_FIELDS
 
 

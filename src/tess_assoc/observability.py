@@ -283,6 +283,106 @@ class SourceProduct:
 
 
 @dataclass(frozen=True)
+class DetectorConfiguration:
+    """Configuration that makes an event measurement reproducible."""
+
+    name: str
+    version: str
+    half_span_days: float
+    resample_samples: int
+    snr_threshold: float | None = None
+
+    def __post_init__(self) -> None:
+        require_nonempty_str("detector name", self.name)
+        require_nonempty_str("detector version", self.version)
+        require_positive_finite("detector half_span_days", self.half_span_days)
+        require_strict_int(
+            "detector resample_samples", self.resample_samples, minimum=3
+        )
+        if self.snr_threshold is not None:
+            require_positive_finite("detector snr_threshold", self.snr_threshold)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "version": self.version,
+            "half_span_days": self.half_span_days,
+            "resample_samples": self.resample_samples,
+            "snr_threshold": self.snr_threshold,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> DetectorConfiguration:
+        if not isinstance(value, dict):
+            raise ValueError("detector configuration must be a dict")
+        required = {
+            "name", "version", "half_span_days", "resample_samples", "snr_threshold"
+        }
+        missing = sorted(required - set(value))
+        if missing:
+            raise ValueError(f"detector configuration missing keys: {missing}")
+        extra = sorted(set(value) - required, key=repr)
+        if extra:
+            raise ValueError(f"detector configuration unknown keys: {extra}")
+        return cls(
+            name=value["name"],
+            version=value["version"],
+            half_span_days=value["half_span_days"],
+            resample_samples=value["resample_samples"],
+            snr_threshold=value["snr_threshold"],
+        )
+
+
+@dataclass(frozen=True)
+class AuxiliaryEvidence:
+    """Optional measurements kept separate from local event morphology."""
+
+    centroid: tuple[float, float] | None = None
+    background: float | None = None
+    uncertainty: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.centroid is not None:
+            if not isinstance(self.centroid, (list, tuple)) or len(self.centroid) != 2:
+                raise ValueError("auxiliary centroid must be a two-value pair")
+            require_finite("auxiliary centroid x", self.centroid[0])
+            require_finite("auxiliary centroid y", self.centroid[1])
+            object.__setattr__(
+                self, "centroid", (self.centroid[0], self.centroid[1])
+            )
+        for name, value in (
+            ("background", self.background),
+            ("uncertainty", self.uncertainty),
+        ):
+            if value is not None:
+                require_finite(f"auxiliary {name}", value)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "centroid": None if self.centroid is None else list(self.centroid),
+            "background": self.background,
+            "uncertainty": self.uncertainty,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> AuxiliaryEvidence:
+        if not isinstance(value, dict):
+            raise ValueError("auxiliary evidence must be a dict")
+        required = {"centroid", "background", "uncertainty"}
+        missing = sorted(required - set(value))
+        if missing:
+            raise ValueError(f"auxiliary evidence missing keys: {missing}")
+        extra = sorted(set(value) - required, key=repr)
+        if extra:
+            raise ValueError(f"auxiliary evidence unknown keys: {extra}")
+        return cls(
+            centroid=value["centroid"],
+            background=value["background"],
+            uncertainty=value["uncertainty"],
+        )
+
+
+@dataclass(frozen=True)
 class LightCurve:
     """Good flux samples plus the raw cadence evidence they came from."""
 

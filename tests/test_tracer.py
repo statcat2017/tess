@@ -171,6 +171,10 @@ def test_end_to_end_results_and_report():
     assert results["protocol_version"] == "v1"
     assert len(results["pairs"]) == 3
     assert len(results["associations"]) == 1
+    assert results["pairs"][0]["evidence_refs"] == {
+        "a": results["pairs"][0]["a"],
+        "b": results["pairs"][0]["b"],
+    }
 
     asc = results["associations"][0]
     assert asc["pair"] == ["A", "B"]
@@ -199,7 +203,7 @@ def test_end_to_end_results_and_report():
     )
     assert counts in report
     assert "## Event evidence" in report
-    assert "- event 0: None" in report
+    assert "source_product" in report and "tracer_v1" in report
     report_with_misses = render_report(
         {
             **results,
