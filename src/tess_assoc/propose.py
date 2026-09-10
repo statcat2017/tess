@@ -11,8 +11,8 @@ from dataclasses import dataclass
 
 from tess_assoc._validate import require_finite, require_positive_finite
 from tess_assoc.event import EventRecord
-from tess_assoc.extract import SkippedTransit, coverage_windows, extract_at
-from tess_assoc.observability import CadenceEvidence
+from tess_assoc.extract import SkippedTransit, extract_at
+from tess_assoc.observability import CadenceEvidence, coverage_windows
 from tess_assoc.window import samples_in_windows
 
 

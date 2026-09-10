@@ -23,7 +23,6 @@ from tess_assoc._validate import (
 from tess_assoc.archive import ArchiveUnavailable, download_spoc_ffi
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import (
-    coverage_windows,
     extract_events,
     load_lightcurve,
     predicted_transits,
@@ -37,7 +36,7 @@ from tess_assoc.manifest import (
     TracerManifest,
 )
 from tess_assoc.freeze_context import FrozenRunContext
-from tess_assoc.observability import CadenceEvidence
+from tess_assoc.observability import CadenceEvidence, coverage_windows
 from tess_assoc import protocol as _protocol
 from tess_assoc.pipeline import run_frozen_records, run_records
 from tess_assoc.propose import (

@@ -18,7 +18,6 @@ from tess_assoc.observability import (
     CadenceEvidence,
     LightCurve,
     SourceProduct,
-    coverage_windows,
 )
 from tess_assoc.window import samples_in_windows
 from tess_assoc._validate import is_strict_int, require_positive_finite
@@ -89,10 +88,8 @@ def load_lightcurve(product: ArchiveProduct) -> LightCurve:
         dtype=float,
     )
     quality = np.asarray(data["QUALITY"])
-    finite_time = np.isfinite(time)
-    time = time[finite_time]
-    flux = flux[finite_time]
-    quality = quality[finite_time]
+    if not np.isfinite(time).all():
+        raise ValueError("light-curve TIME must contain finite values")
     usable = np.isfinite(flux) & (quality == 0)
     # Cast to Python floats: list(np_array) would leak np.float64 scalars,
     # which pass isinstance(x, float) yet poison comparisons into np.bool_.
@@ -251,10 +248,11 @@ def extract_events(
         raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
     windows = list(curve.evidence.observing_windows)
     quality_base = {
-        "provider": "archive",
-        "product": "TESS-SPOC FFI",
-        "data_uri": product.data_uri,
-        "retrieved_utc": product.retrieved_utc,
+        "source_product": (
+            None
+            if curve.evidence.source_product is None
+            else curve.evidence.source_product.to_dict()
+        ),
         "ephemeris": f"{system.name} P={period}d T0={system.t0_bjd_tdb}",
         "role": "predicted-transit",
     }

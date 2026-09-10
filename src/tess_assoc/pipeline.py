@@ -229,6 +229,15 @@ def render_report(results: dict[str, Any]) -> str:
                 f"- sector {entry['sector']} t0={entry['t0']}: "
                 f"{entry['reason']} — {entry.get('observability')}"
             )
+    missed = results.get("missed", [])
+    if missed:
+        lines.append("")
+        lines.append("## Missed transits")
+        for entry in missed:
+            lines.append(
+                f"- sector {entry['sector']} t0={entry['t0']}: "
+                f"{entry['reason']} — {entry.get('observability')}"
+            )
     lines.append("")
     lines.append(f"Sealed sectors touched: {results['sealed_sectors_touched']}")
     return "\n".join(lines) + "\n"

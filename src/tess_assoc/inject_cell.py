@@ -13,10 +13,10 @@ from typing import Any
 from tess_assoc._validate import require_finite, require_positive_finite
 from tess_assoc.benchmark import rank_pairs
 from tess_assoc.event import EventRecord
-from tess_assoc.extract import coverage_windows
 from tess_assoc.inject_geometry import SHAPES
 from tess_assoc.manifest import ManifestSector, TracerManifest
 from tess_assoc.matcher import match, match_score, validate_matcher_thresholds
+from tess_assoc.observability import coverage_windows
 from tess_assoc.orbit import generate_aliases
 from tess_assoc.pairs import build_pairs
 from tess_assoc.propose import (

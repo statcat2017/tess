@@ -15,12 +15,11 @@ from conftest import needs_archive
 from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable, cache_dir, find_spoc_ffi_uri
 from tess_assoc.extract import (
     BTJD_OFFSET,
-    coverage_windows,
     extract_events,
     predicted_transits,
 )
 from tess_assoc.manifest import ReplaySystem
-from tess_assoc.observability import CadenceEvidence
+from tess_assoc.observability import CadenceEvidence, coverage_windows
 from tess_assoc.replay import MISS_REASONS, load_replay_manifest, replay_all, replay_system
 
 REPLAY = Path(__file__).resolve().parent.parent / "fixtures" / "replay_v1.json"
@@ -66,6 +65,12 @@ def test_cadence_evidence_rejects_misaligned_or_false_windows():
         CadenceEvidence(
             (0.0, 0.1), (True, False), (0, 4), observing_windows=((0.0, 0.1),)
         )
+
+
+def test_coverage_windows_respects_quality_mask_at_sector_boundaries():
+    assert coverage_windows(
+        [10.0, 10.1, 10.2, 20.0, 20.1], usable=[True, True, False, True, True]
+    ) == [(10.0, 10.1), (20.0, 20.1)]
 
 
 def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
@@ -160,7 +165,9 @@ def test_live_blind_replay_measures_recall(tmp_path):
     missed = res["missed"]
     assert len(missed) == res["recall"]["known"] - res["recall"]["recalled"]
     for m in missed:
-        assert set(m) == {"sector", "t0", "max_snr", "proposed", "reason"}
+        assert set(m) == {
+            "sector", "t0", "max_snr", "proposed", "reason", "observability"
+        }
         assert m["reason"] in MISS_REASONS
         assert m["max_snr"] is None or isinstance(m["max_snr"], float)
     assert res["recall"]["coverable"] <= res["recall"]["known"]

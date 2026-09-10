@@ -9,8 +9,9 @@ from typing import Any
 
 from tess_assoc._validate import (
     is_finite_number,
-    is_strict_int,
     require_finite,
+    require_positive_finite,
+    require_strict_int,
 )
 
 
@@ -45,8 +46,7 @@ def coverage_windows(
             raise ValueError("usable mask must contain bool values")
         mask = tuple(usable)
     if max_gap_days is not None:
-        if not is_finite_number(max_gap_days) or max_gap_days <= 0:
-            raise ValueError("max_gap_days must be a finite number > 0")
+        require_positive_finite("max_gap_days", max_gap_days)
     threshold = _cadence_threshold(times) if max_gap_days is None else max_gap_days
     spans: list[tuple[float, float]] = []
     if threshold is not None:
@@ -130,8 +130,7 @@ class CadenceEvidence:
         if any(not isinstance(value, bool) for value in usable):
             raise ValueError("cadence usable mask must contain bool values")
         for value in quality_flags:
-            if not is_strict_int(value) or value < 0:
-                raise ValueError("cadence quality flags must be non-negative ints")
+            require_strict_int("cadence quality flag", value, minimum=0)
 
         derived = tuple(coverage_windows(times, usable=usable))
         supplied: list[tuple[float, float]] = []
@@ -263,8 +262,8 @@ class LightCurve:
             raise ValueError("light-curve evidence must be CadenceEvidence")
         time = tuple(self.time)
         flux = tuple(self.flux)
-        if not time or len(time) != len(flux):
-            raise ValueError("light-curve time and flux must be non-empty and equal length")
+        if len(time) != len(flux):
+            raise ValueError("light-curve time and flux must have equal length")
         if any(not is_finite_number(value) for value in (*time, *flux)):
             raise ValueError("light-curve time and flux must be finite")
         expected_time = self.evidence.usable_time

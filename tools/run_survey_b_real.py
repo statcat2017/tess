@@ -23,7 +23,8 @@ from tess_assoc.circumbinary import (
     render_binary_pilot_report,
     run_binary_pilot,
 )
-from tess_assoc.extract import BTJD_OFFSET, coverage_windows, load_lightcurve
+from tess_assoc.observability import coverage_windows
+from tess_assoc.extract import BTJD_OFFSET, load_lightcurve
 from tess_assoc.propose import propose_events, records_from_proposals
 
 

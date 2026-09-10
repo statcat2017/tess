@@ -6,7 +6,7 @@ import pytest
 
 from tess_assoc import protocol as P
 from tess_assoc.event import EventRecord
-from tess_assoc.observability import CadenceEvidence
+from tess_assoc.observability import CadenceEvidence, SourceProduct
 
 
 def _valid_kwargs():
@@ -41,6 +41,19 @@ def test_valid_record_and_roundtrip():
     rec2 = EventRecord.from_dict(d)
     assert rec2.to_dict() == d
     assert rec2 == rec
+
+
+def test_event_evidence_preserves_source_product():
+    kw = _valid_kwargs()
+    kw["observability"] = CadenceEvidence(
+        time=tuple(kw["local_time"]),
+        usable=(True,) * len(kw["local_time"]),
+        quality_flags=(0,) * len(kw["local_time"]),
+        source_product=SourceProduct("MAST", "TESS-SPOC FFI", "mast:x", "now"),
+    )
+    record = EventRecord(**kw)
+    assert EventRecord.from_dict(record.to_dict()) == record
+    assert record.to_dict()["observability"]["source_product"]["data_uri"] == "mast:x"
 
 
 def test_dataclass_fields_match_protocol():
