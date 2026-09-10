@@ -115,7 +115,9 @@ def _search_case(case: dict) -> dict:
         try:
             curve = load_lightcurve(_product(tic_id, product))
             time, flux = list(curve.time), list(curve.flux)
-            proposals, _, _ = propose_with_detail(time, flux)
+            proposals, _, _ = propose_with_detail(
+                time, flux, observability=curve.evidence
+            )
             records, skipped = records_from_proposals(
                 time,
                 flux,

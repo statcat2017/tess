@@ -338,7 +338,9 @@ def _vetting_inputs(
         retrieved_utc=matches[0].get("retrieved_utc", ""),
         cached=True,
     )
-    time, flux = load_lightcurve(product)
+    curve = load_lightcurve(product)
+    time, flux = list(curve.time), list(curve.flux)
+    evidence = curve.evidence.with_excluded_windows(excluded_windows or [])
     if excluded_windows:
         keep = [
             i for i, t in enumerate(time)
@@ -348,7 +350,9 @@ def _vetting_inputs(
         flux = [flux[i] for i in keep]
     if not time:
         return [], [], [], None
-    _, detrended, sigma = propose_with_detail(time, flux)
+    _, detrended, sigma = propose_with_detail(
+        time, flux, observability=evidence
+    )
     return time, flux, detrended, sigma
 
 

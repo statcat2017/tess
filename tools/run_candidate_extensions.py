@@ -183,7 +183,9 @@ def _sensitivity() -> list[dict]:
                 injected = inject_transit(
                     time, flux, center, CASES[117549174]["duration_days"], depth
                 )
-                proposals = propose_events(time, injected)
+                proposals = propose_events(
+                    time, injected, observability=loaded.evidence
+                )
                 records, skipped = records_from_proposals(
                     time,
                     injected,

@@ -99,7 +99,9 @@ def _provider_check(provider: str, products: list) -> dict:
             sector_results.append(result)
             continue
         try:
-            proposals, _, _ = propose_with_detail(curve["time"], curve["flux"])
+            proposals, _, _ = propose_with_detail(
+                curve["time"], curve["flux"], observability=curve["observability"]
+            )
             records, skipped = records_from_proposals(
                 curve["time"],
                 curve["flux"],

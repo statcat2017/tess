@@ -105,7 +105,7 @@ def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
     )
     extracted, skipped, _ = extract_events(product, system)
     assert extracted == []
-    assert skipped[0].reason == "insufficient full observing window coverage"
+    assert skipped[0].reason == "quality-gap-crossing"
 
 
 def test_coverage_windows_split_on_known_transit_masks():

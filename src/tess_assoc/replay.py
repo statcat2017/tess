@@ -433,10 +433,12 @@ def replay_blind_system(
             (m["t0"] - m["half_width_days"], m["t0"] + m["half_width_days"])
             for m in masks
         ]
+        search_evidence = curve.evidence.with_excluded_windows(excluded_windows)
+        sector_evidence[sector] = search_evidence
         effective_windows = coverage_windows(
             raw_time,
             excluded_windows=excluded_windows,
-            usable=curve.evidence.usable,
+            usable=search_evidence.usable,
         )
         sector_windows[sector] = effective_windows
         if system.t0_bjd_tdb is None or system.period_days is None:
@@ -460,7 +462,9 @@ def replay_blind_system(
         if coverable:
             anchor_times.append(coverable[0])
         if time:
-            proposals, detrended, sigma = propose_with_detail(time, flux)
+            proposals, detrended, sigma = propose_with_detail(
+                time, flux, observability=search_evidence
+            )
         else:
             proposals, detrended, sigma = [], [], 1.0
         sector_curves[sector] = (time, detrended, sigma)
@@ -476,7 +480,7 @@ def replay_blind_system(
             resample_samples=n_samples,
             quality_base={"ephemeris_source": replay.ephemeris_source},
             observing_windows=effective_windows,
-            observability=curve.evidence,
+            observability=search_evidence,
         )
         records.update(recs)
         skipped.extend(

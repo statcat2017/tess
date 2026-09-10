@@ -29,7 +29,11 @@ class Proposal:
 
 
 def detrend(
-    time: list[float], flux: list[float], trend_span_days: float = 1.5
+    time: list[float],
+    flux: list[float],
+    trend_span_days: float = 1.5,
+    *,
+    observing_windows: list[tuple[float, float]] | None = None,
 ) -> tuple[list[float], float]:
     """Divide out a rolling-median trend; return (detrended, robust sigma)."""
     require_positive_finite("trend_span_days", trend_span_days)
@@ -40,14 +44,36 @@ def detrend(
 
     tarr = np.array(time, dtype=float)
     farr = np.array(flux, dtype=float)
-    cadence = float(np.median(np.diff(tarr)))
-    width = max(int(round(trend_span_days / cadence)) | 1, 3)
-    pad = width // 2
-    padded = np.pad(farr, pad, mode="edge")
-    trend = np.median(sliding_window_view(padded, width), axis=1)
-    detrended = farr / trend
+    windows = coverage_windows(time) if observing_windows is None else observing_windows
+    if not windows:
+        windows = [(time[0], time[-1])]
+    detrended = np.ones(len(time), dtype=float)
+    for start, end in windows:
+        indices = [i for i, value in enumerate(time) if start <= value <= end]
+        if not indices:
+            continue
+        segment_flux = farr[indices]
+        if len(indices) < 3:
+            trend = segment_flux
+        else:
+            cadence = float(np.median(np.diff(tarr[indices])))
+            width = max(int(round(trend_span_days / cadence)) | 1, 3)
+            width = min(width, len(indices) if len(indices) % 2 else len(indices) - 1)
+            pad = width // 2
+            padded = np.pad(segment_flux, pad, mode="edge")
+            trend = np.median(sliding_window_view(padded, width), axis=1)
+        detrended[indices] = segment_flux / trend
     sigma = float(1.4826 * np.median(np.abs(detrended - 1.0))) or 1e-9
     return [float(v) for v in detrended], sigma
+
+
+def _window_index(
+    value: float, windows: list[tuple[float, float]]
+) -> int | None:
+    for index, (start, end) in enumerate(windows):
+        if start <= value <= end:
+            return index
+    return None
 
 
 def center_on_minimum(
@@ -71,6 +97,8 @@ def find_dips(
     merge_gap_points: int = 2,
     min_duration_days: float = 0.02,
     max_duration_days: float = 0.6,
+    *,
+    observing_windows: list[tuple[float, float]] | None = None,
 ) -> list[Proposal]:
     """Contiguous above-threshold runs → dip proposals (period-free)."""
     require_finite("snr_threshold", snr_threshold)
@@ -78,23 +106,39 @@ def find_dips(
         raise ValueError("snr_threshold must be > 0")
     if len(time) != len(detrended) or not time:
         raise ValueError("time and detrended must be non-empty and equal length")
+    windows = coverage_windows(time) if observing_windows is None else observing_windows
     above = [(1.0 - f) / sigma > snr_threshold for f in detrended]
-    runs: list[tuple[int, int]] = []
+    runs: list[tuple[int, int, int]] = []
     start: int | None = None
+    segment: int | None = None
     for i, flag in enumerate(above):
+        current_segment = _window_index(time[i], windows)
+        if current_segment is None or current_segment != segment:
+            if start is not None and segment is not None:
+                runs.append((start, i - 1, segment))
+            start = None
+            segment = current_segment
+        if current_segment is None:
+            continue
         if flag and start is None:
             start = i
         elif not flag and start is not None:
-            runs.append((start, i - 1))
+            runs.append((start, i - 1, segment))
             start = None
     if start is not None:
-        runs.append((start, len(above) - 1))
+        runs.append((start, len(above) - 1, segment))
     merged: list[list[int]] = []
-    for s, e in runs:
-        if merged and s - merged[-1][1] - 1 <= merge_gap_points:
+    merged_segments: list[int] = []
+    for s, e, run_segment in runs:
+        if (
+            merged
+            and merged_segments[-1] == run_segment
+            and s - merged[-1][1] - 1 <= merge_gap_points
+        ):
             merged[-1][1] = e
         else:
             merged.append([s, e])
+            merged_segments.append(run_segment)
     proposals: list[Proposal] = []
     for s, e in merged:
         if e - s + 1 < min_points:
@@ -148,19 +192,33 @@ def propose_with_detail(
     time: list[float],
     flux: list[float],
     snr_threshold: float = PROPOSER_SNR_THRESHOLD,
+    *,
+    observability: CadenceEvidence | None = None,
 ) -> tuple[list[Proposal], list[float], float]:
     """Blind proposals plus the detrended curve and sigma behind them."""
-    detrended, sigma = detrend(time, flux)
-    return find_dips(time, detrended, sigma, snr_threshold=snr_threshold), detrended, sigma
+    windows = None if observability is None else list(observability.observing_windows)
+    detrended, sigma = detrend(time, flux, observing_windows=windows)
+    proposals = find_dips(
+        time,
+        detrended,
+        sigma,
+        snr_threshold=snr_threshold,
+        observing_windows=windows,
+    )
+    return proposals, detrended, sigma
 
 
 def propose_events(
     time: list[float],
     flux: list[float],
     snr_threshold: float = PROPOSER_SNR_THRESHOLD,
+    *,
+    observability: CadenceEvidence | None = None,
 ) -> list[Proposal]:
     """Blind proposals from raw light curves. No period, no ephemeris."""
-    proposals, _, _ = propose_with_detail(time, flux, snr_threshold)
+    proposals, _, _ = propose_with_detail(
+        time, flux, snr_threshold, observability=observability
+    )
     return proposals
 
 

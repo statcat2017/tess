@@ -165,13 +165,16 @@ def _process_target(
             spans = coverage_windows(time)
             coverage[sector] = spans
             masks = eclipse_windows(target, {sector: spans}).get(sector, [])
+            search_evidence = loaded.evidence.with_excluded_windows(masks)
             keep = [
                 not any(start <= point <= end for start, end in masks)
                 for point in time
             ]
             search_time = [point for point, use in zip(time, keep) if use]
             search_flux = [value for value, use in zip(flux, keep) if use]
-            proposals = propose_events(search_time, search_flux)
+            proposals = propose_events(
+                search_time, search_flux, observability=search_evidence
+            )
             records, skipped = records_from_proposals(
                 search_time,
                 search_flux,
@@ -183,7 +186,7 @@ def _process_target(
                     "source_catalog": "TEBC_morph_05_P_7",
                     "binary_eclipses_masked": True,
                 },
-                observability=loaded.evidence,
+                observability=search_evidence,
             )
             events.extend(records.values())
             sector_result = {

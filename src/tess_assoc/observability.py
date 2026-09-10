@@ -171,6 +171,32 @@ class CadenceEvidence:
     def missing(self) -> int:
         return sum(not is_usable for is_usable in self.usable)
 
+    def with_excluded_windows(
+        self, excluded_windows: list[tuple[float, float]]
+    ) -> CadenceEvidence:
+        """Mark deliberately masked cadences unusable without losing provenance."""
+        if not isinstance(excluded_windows, (list, tuple)):
+            raise ValueError("excluded_windows must be a list/tuple")
+        for window in excluded_windows:
+            if not isinstance(window, (list, tuple)) or len(window) != 2:
+                raise ValueError("each excluded window must be a [start, end] pair")
+            require_finite("excluded window start", window[0])
+            require_finite("excluded window end", window[1])
+            if window[1] <= window[0]:
+                raise ValueError("excluded window end must be after start")
+        usable = tuple(
+            is_usable
+            and not any(start <= t <= end for start, end in excluded_windows)
+            for t, is_usable in zip(self.time, self.usable)
+        )
+        return CadenceEvidence(
+            time=self.time,
+            usable=usable,
+            quality_flags=self.quality_flags,
+            source_product=self.source_product,
+            invalid_time_count=self.invalid_time_count,
+        )
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "time": list(self.time),

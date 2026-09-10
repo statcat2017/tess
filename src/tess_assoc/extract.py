@@ -201,6 +201,11 @@ def extract_at(
     grid = [t_center + ph for ph in phases]
     if grid[0] < tarr[0] or grid[-1] > tarr[-1]:
         return SkippedTransit(t_center, "window truncated at data edge", observability)
+    if observability is not None and not any(
+        start <= grid[0] and grid[-1] <= end
+        for start, end in observability.observing_windows
+    ):
+        return SkippedTransit(t_center, "quality-gap-crossing", observability)
     interp = np.interp(grid, tarr, np.array(flux, dtype=float))
     half = duration_days / 2.0
     inside = np.abs(np.array(phases)) <= half
