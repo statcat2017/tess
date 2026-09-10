@@ -113,9 +113,9 @@ def read_lightcurve(
         raw_time = np.asarray(data["TIME"])
         raw_flux = np.asarray(data[flux_column])
         quality = (
-            np.asarray(data["QUALITY"], dtype=int)
+            np.asarray(data["QUALITY"])
             if "QUALITY" in columns
-            else np.zeros(len(time), dtype=int)
+            else np.zeros(len(raw_time), dtype=int)
         )
     if raw_time.dtype.kind not in "fiu" or raw_flux.dtype.kind not in "fiu":
         raise ValueError("alternative TIME and flux columns must be numeric")
@@ -125,6 +125,7 @@ def read_lightcurve(
         raise ValueError("alternative light-curve columns must have equal length")
     time = raw_time.astype(float, copy=False)
     flux = raw_flux.astype(float, copy=False)
+    cadences_total = len(time)
     finite_time = np.isfinite(time)
     invalid_time_count = int((~finite_time).sum())
     time = time[finite_time]
@@ -145,7 +146,7 @@ def read_lightcurve(
         "time": list(evidence.usable_time),
         "flux": [float(value) for value in flux[usable]],
         "flux_column": flux_column,
-        "cadences_total": int(len(time)),
+        "cadences_total": cadences_total,
         "cadences_good": int(usable.sum()),
         "quality_flagged": int((~(quality == 0)).sum()),
         "observability": evidence,
