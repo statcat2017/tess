@@ -170,7 +170,8 @@ def _sensitivity() -> list[dict]:
     rows = []
     for sector in (2, 29, 70):
         path = _product(117549174, sector)
-        time, flux = load_lightcurve(path)
+        loaded = load_lightcurve(path)
+        time, flux = list(loaded.time), list(loaded.flux)
         curve = {
             "sector": sector,
             "centers": _injection_centers(time),
@@ -190,6 +191,7 @@ def _sensitivity() -> list[dict]:
                     tic_id=117549174,
                     sector=sector,
                     quality_base={"role": "candidate-sensitivity-injection"},
+                    observability=loaded.evidence,
                 )
                 detected = any(abs(record.t0 - center) <= 0.3 for record in records.values())
                 measured = measure_flux_channel(

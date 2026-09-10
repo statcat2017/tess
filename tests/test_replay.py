@@ -19,7 +19,7 @@ from tess_assoc.extract import (
     predicted_transits,
 )
 from tess_assoc.manifest import ReplaySystem
-from tess_assoc.observability import CadenceEvidence, coverage_windows
+from tess_assoc.observability import CadenceEvidence, LightCurve, coverage_windows
 from tess_assoc.replay import MISS_REASONS, load_replay_manifest, replay_all, replay_system
 
 REPLAY = Path(__file__).resolve().parent.parent / "fixtures" / "replay_v1.json"
@@ -73,12 +73,30 @@ def test_coverage_windows_respects_quality_mask_at_sector_boundaries():
     ) == [(10.0, 10.1), (20.0, 20.1)]
 
 
+def test_all_unusable_lightcurve_retains_cadence_evidence():
+    evidence = CadenceEvidence(
+        time=(0.0, 0.1), usable=(False, False), quality_flags=(4, 4)
+    )
+    curve = LightCurve(time=(), flux=(), evidence=evidence)
+    assert curve.evidence.missing == 2
+    assert curve.time == ()
+
+
 def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
     import tess_assoc.extract as E
 
     time = [-1.0 + i * 0.02 for i in range(61)] + [0.42 + i * 0.02 for i in range(30)]
     flux = [0.99 if abs(t - 0.1) <= 0.04 else 1.0 for t in time]
-    monkeypatch.setattr(E, "load_lightcurve", lambda product: (time, flux))
+    evidence = CadenceEvidence(
+        time=tuple(time),
+        usable=(True,) * len(time),
+        quality_flags=(0,) * len(time),
+    )
+    monkeypatch.setattr(
+        E,
+        "load_lightcurve",
+        lambda product: LightCurve(tuple(time), tuple(flux), evidence),
+    )
     monkeypatch.setattr(E, "refine_epoch", lambda *args: 0.1)
     product = ArchiveProduct(1, 12, "unused", "unused", "now", True)
     system = ReplaySystem(

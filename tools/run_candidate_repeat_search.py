@@ -81,7 +81,8 @@ def _search_case(case: dict) -> dict:
             "fetched": fetched,
         }
 
-    anchor_time, anchor_flux = load_lightcurve(_product(tic_id, anchor_product))
+    anchor_curve = load_lightcurve(_product(tic_id, anchor_product))
+    anchor_time, anchor_flux = list(anchor_curve.time), list(anchor_curve.flux)
     anchor_result = extract_at(
         anchor_time,
         anchor_flux,
@@ -90,6 +91,7 @@ def _search_case(case: dict) -> dict:
         tic_id=tic_id,
         sector=case["sector"],
         quality={"role": "isolated-event-anchor", "source": "single_event_audit"},
+        observability=anchor_curve.evidence,
     )
     if isinstance(anchor_result, SkippedTransit):
         return {
@@ -111,7 +113,8 @@ def _search_case(case: dict) -> dict:
             sector_results.append({"sector": sector, "status": "unavailable"})
             continue
         try:
-            time, flux = load_lightcurve(_product(tic_id, product))
+            curve = load_lightcurve(_product(tic_id, product))
+            time, flux = list(curve.time), list(curve.flux)
             proposals, _, _ = propose_with_detail(time, flux)
             records, skipped = records_from_proposals(
                 time,
@@ -123,6 +126,7 @@ def _search_case(case: dict) -> dict:
                     "role": "repeat-search-proposal",
                     "source": "TESS-SPOC FFI",
                 },
+                observability=curve.evidence,
             )
             events = list(records.values())
             candidate_events.extend(events)

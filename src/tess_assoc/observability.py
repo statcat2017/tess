@@ -69,8 +69,11 @@ def coverage_windows(
         if start is not None and previous is not None and previous > start:
             spans.append((start, previous))
 
-    if not excluded_windows:
+    if excluded_windows is None:
         return spans
+    if not isinstance(excluded_windows, (list, tuple)):
+        raise ValueError("excluded_windows must be a list/tuple")
+    normalized_exclusions: list[tuple[float, float]] = []
     for excluded in excluded_windows:
         if not isinstance(excluded, (list, tuple)) or len(excluded) != 2:
             raise ValueError("each excluded window must be a [start, end] pair")
@@ -79,6 +82,8 @@ def coverage_windows(
         require_finite("excluded window end", excluded_end)
         if excluded_end <= excluded_start:
             raise ValueError("excluded window end must be after start")
+        normalized_exclusions.append((excluded_start, excluded_end))
+    for excluded_start, excluded_end in sorted(normalized_exclusions):
         remainder: list[tuple[float, float]] = []
         for start, end in spans:
             if excluded_end <= start or excluded_start >= end:
@@ -101,6 +106,7 @@ class CadenceEvidence:
     quality_flags: tuple[int, ...]
     observing_windows: tuple[tuple[float, float], ...] = ()
     source_product: SourceProduct | None = None
+    invalid_time_count: int = 0
 
     def __post_init__(self) -> None:
         if not isinstance(self.time, (list, tuple)):
@@ -115,6 +121,7 @@ class CadenceEvidence:
             self.source_product, SourceProduct
         ):
             raise ValueError("source_product must be SourceProduct or None")
+        require_strict_int("invalid time count", self.invalid_time_count, minimum=0)
 
         times = tuple(self.time)
         usable = tuple(self.usable)
@@ -171,6 +178,7 @@ class CadenceEvidence:
             "source_product": (
                 None if self.source_product is None else self.source_product.to_dict()
             ),
+            "invalid_time_count": self.invalid_time_count,
         }
 
     @classmethod
@@ -178,7 +186,8 @@ class CadenceEvidence:
         if not isinstance(value, dict):
             raise ValueError("cadence evidence must be a dict")
         required = {
-            "time", "usable", "quality_flags", "observing_windows", "source_product"
+            "time", "usable", "quality_flags", "observing_windows",
+            "source_product", "invalid_time_count",
         }
         missing = sorted(required - set(value))
         if missing:
@@ -196,6 +205,7 @@ class CadenceEvidence:
                 if value["source_product"] is None
                 else SourceProduct.from_dict(value["source_product"])
             ),
+            invalid_time_count=value["invalid_time_count"],
         )
 
 

@@ -79,17 +79,26 @@ def load_lightcurve(product: ArchiveProduct) -> LightCurve:
     import numpy as np
     from astropy.io import fits
 
-    data = None
     with fits.open(product.local_path) as handle:
         data = handle[1].data
-    time = np.asarray(data["TIME"], dtype=float)
-    flux = np.asarray(
-        data["PDCSAP_FLUX"] if "PDCSAP_FLUX" in data.columns.names else data["SAP_FLUX"],
-        dtype=float,
-    )
-    quality = np.asarray(data["QUALITY"])
-    if not np.isfinite(time).all():
-        raise ValueError("light-curve TIME must contain finite values")
+    columns = getattr(getattr(data, "columns", None), "names", None)
+    if not isinstance(columns, (list, tuple)):
+        raise ValueError("light-curve table has no named columns")
+    flux_column = "PDCSAP_FLUX" if "PDCSAP_FLUX" in columns else "SAP_FLUX"
+    missing = [name for name in ("TIME", "QUALITY", flux_column) if name not in columns]
+    if missing:
+        raise ValueError(f"light-curve missing columns: {missing}")
+    try:
+        time = np.asarray(data["TIME"], dtype=float)
+        flux = np.asarray(data[flux_column], dtype=float)
+        quality = np.asarray(data["QUALITY"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("light-curve table contains malformed columns") from error
+    finite_time = np.isfinite(time)
+    invalid_time_count = int((~finite_time).sum())
+    time = time[finite_time]
+    flux = flux[finite_time]
+    quality = quality[finite_time]
     usable = np.isfinite(flux) & (quality == 0)
     # Cast to Python floats: list(np_array) would leak np.float64 scalars,
     # which pass isinstance(x, float) yet poison comparisons into np.bool_.
@@ -106,32 +115,13 @@ def load_lightcurve(product: ArchiveProduct) -> LightCurve:
             data_uri=product.data_uri,
             retrieved_utc=product.retrieved_utc,
         ),
+        invalid_time_count=invalid_time_count,
     )
     return LightCurve(
         time=tuple(float(v) for v in time[usable]),
         flux=tuple(float(v) for v in flux[usable]),
         evidence=evidence,
     )
-
-
-def _as_lightcurve(value: LightCurve | tuple[list[float], list[float]]) -> LightCurve:
-    """Normalize legacy test/provider tuple payloads at the loader seam."""
-    if isinstance(value, LightCurve):
-        return value
-    if not isinstance(value, (list, tuple)) or len(value) != 2:
-        raise ValueError("light-curve loader must return a LightCurve or time/flux pair")
-    time, flux = value
-    if not isinstance(time, (list, tuple)) or not isinstance(flux, (list, tuple)):
-        raise ValueError("light-curve time and flux must be lists/tuples")
-    try:
-        evidence = CadenceEvidence(
-            time=tuple(time),
-            usable=tuple(True for _ in time),
-            quality_flags=tuple(0 for _ in time),
-        )
-        return LightCurve(time=tuple(time), flux=tuple(flux), evidence=evidence)
-    except TypeError as error:
-        raise ValueError("malformed light-curve loader payload") from error
 
 
 def _phase_distance(
@@ -242,7 +232,7 @@ def extract_events(
 
     period = system.period_days
     duration_days = system.duration_hours / 24.0
-    curve = _as_lightcurve(load_lightcurve(product))
+    curve = load_lightcurve(product)
     time, flux = list(curve.time), list(curve.flux)
     if not time:
         raise ArchiveUnavailable(f"no good cadences in {product.local_path}")

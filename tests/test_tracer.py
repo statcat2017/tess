@@ -198,6 +198,7 @@ def test_end_to_end_results_and_report():
         f"{asc['aliases_rejected']} rejected)"
     )
     assert counts in report
+    assert "## Event evidence" in report
     for row in asc["retained"]:
         assert f"n={row['n']} P={row['period_days']:.1f}d" in report
     for row in asc["rejected"]:

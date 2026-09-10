@@ -160,7 +160,8 @@ def _process_target(
             continue
         try:
             product = _product(target.tic_id, sector, result["local_path"])
-            time, flux = load_lightcurve(product)
+            loaded = load_lightcurve(product)
+            time, flux = list(loaded.time), list(loaded.flux)
             spans = coverage_windows(time)
             coverage[sector] = spans
             masks = eclipse_windows(target, {sector: spans}).get(sector, [])
@@ -182,6 +183,7 @@ def _process_target(
                     "source_catalog": "TEBC_morph_05_P_7",
                     "binary_eclipses_masked": True,
                 },
+                observability=loaded.evidence,
             )
             events.extend(records.values())
             sector_result = {
