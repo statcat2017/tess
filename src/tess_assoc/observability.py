@@ -11,7 +11,6 @@ from tess_assoc._validate import (
     is_finite_number,
     is_strict_int,
     require_finite,
-    require_positive_finite,
 )
 
 
@@ -22,35 +21,75 @@ def _cadence_threshold(time: tuple[float, ...]) -> float | None:
     return median(gaps[: max(1, (len(gaps) + 1) // 2)]) * 5.0
 
 
-def _derive_windows(
-    time: tuple[float, ...],
-    usable: tuple[bool, ...],
+def coverage_windows(
+    time: list[float] | tuple[float, ...],
     max_gap_days: float | None = None,
-) -> tuple[tuple[float, float], ...]:
-    threshold = _cadence_threshold(time) if max_gap_days is None else max_gap_days
-    if threshold is None:
-        return ()
+    excluded_windows: list[tuple[float, float]] | None = None,
+    *,
+    usable: list[bool] | tuple[bool, ...] | None = None,
+) -> list[tuple[float, float]]:
+    """Return contiguous usable spans without crossing gaps or masks."""
+    if not isinstance(time, (list, tuple)):
+        raise ValueError("time must be a list/tuple")
+    times = tuple(time)
+    if any(not is_finite_number(value) for value in times):
+        raise ValueError("time must contain finite values")
+    if any(b <= a for a, b in zip(times, times[1:])):
+        raise ValueError("time must be strictly increasing")
+    if usable is None:
+        mask = (True,) * len(times)
+    else:
+        if not isinstance(usable, (list, tuple)) or len(usable) != len(times):
+            raise ValueError("usable mask must match time length")
+        if any(not isinstance(value, bool) for value in usable):
+            raise ValueError("usable mask must contain bool values")
+        mask = tuple(usable)
+    if max_gap_days is not None:
+        if not is_finite_number(max_gap_days) or max_gap_days <= 0:
+            raise ValueError("max_gap_days must be a finite number > 0")
+    threshold = _cadence_threshold(times) if max_gap_days is None else max_gap_days
+    spans: list[tuple[float, float]] = []
+    if threshold is not None:
+        start: float | None = None
+        previous: float | None = None
+        for current, is_usable in zip(times, mask):
+            if not is_usable:
+                if start is not None and previous is not None and previous > start:
+                    spans.append((start, previous))
+                start = None
+                previous = None
+                continue
+            if start is None:
+                start = current
+            elif previous is not None and current - previous > threshold:
+                if previous > start:
+                    spans.append((start, previous))
+                start = current
+            previous = current
+        if start is not None and previous is not None and previous > start:
+            spans.append((start, previous))
 
-    windows: list[tuple[float, float]] = []
-    start: float | None = None
-    previous: float | None = None
-    for current, is_usable in zip(time, usable):
-        if not is_usable:
-            if start is not None and previous is not None and previous > start:
-                windows.append((start, previous))
-            start = None
-            previous = None
-            continue
-        if start is None:
-            start = current
-        elif previous is not None and current - previous > threshold:
-            if previous > start:
-                windows.append((start, previous))
-            start = current
-        previous = current
-    if start is not None and previous is not None and previous > start:
-        windows.append((start, previous))
-    return tuple(windows)
+    if not excluded_windows:
+        return spans
+    for excluded in excluded_windows:
+        if not isinstance(excluded, (list, tuple)) or len(excluded) != 2:
+            raise ValueError("each excluded window must be a [start, end] pair")
+        excluded_start, excluded_end = excluded
+        require_finite("excluded window start", excluded_start)
+        require_finite("excluded window end", excluded_end)
+        if excluded_end <= excluded_start:
+            raise ValueError("excluded window end must be after start")
+        remainder: list[tuple[float, float]] = []
+        for start, end in spans:
+            if excluded_end <= start or excluded_start >= end:
+                remainder.append((start, end))
+                continue
+            if start < excluded_start:
+                remainder.append((start, min(end, excluded_start)))
+            if excluded_end < end:
+                remainder.append((max(start, excluded_end), end))
+        spans = [span for span in remainder if span[1] > span[0]]
+    return spans
 
 
 @dataclass(frozen=True)
@@ -61,6 +100,7 @@ class CadenceEvidence:
     usable: tuple[bool, ...]
     quality_flags: tuple[int, ...]
     observing_windows: tuple[tuple[float, float], ...] = ()
+    source_product: SourceProduct | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.time, (list, tuple)):
@@ -71,6 +111,10 @@ class CadenceEvidence:
             raise ValueError("cadence quality flags must be a list/tuple")
         if not isinstance(self.observing_windows, (list, tuple)):
             raise ValueError("observing_windows must be a list/tuple")
+        if self.source_product is not None and not isinstance(
+            self.source_product, SourceProduct
+        ):
+            raise ValueError("source_product must be SourceProduct or None")
 
         times = tuple(self.time)
         usable = tuple(self.usable)
@@ -81,7 +125,7 @@ class CadenceEvidence:
             raise ValueError("cadence evidence fields must have equal length")
         for value in times:
             require_finite("cadence time", value)
-        if any(not b > a for a, b in zip(times, times[1:])):
+        if any(b <= a for a, b in zip(times, times[1:])):
             raise ValueError("cadence time must be strictly increasing")
         if any(not isinstance(value, bool) for value in usable):
             raise ValueError("cadence usable mask must contain bool values")
@@ -89,16 +133,17 @@ class CadenceEvidence:
             if not is_strict_int(value) or value < 0:
                 raise ValueError("cadence quality flags must be non-negative ints")
 
-        derived = _derive_windows(times, usable)
-        supplied = tuple(tuple(window) for window in self.observing_windows)
-        for window in supplied:
+        derived = tuple(coverage_windows(times, usable=usable))
+        supplied: list[tuple[float, float]] = []
+        for window in self.observing_windows:
             if not isinstance(window, (list, tuple)) or len(window) != 2:
                 raise ValueError("each observing window must be a [start, end] pair")
             require_finite("observing window start", window[0])
             require_finite("observing window end", window[1])
             if window[1] <= window[0]:
                 raise ValueError("observing window end must be after start")
-        if supplied and supplied != derived:
+            supplied.append((window[0], window[1]))
+        if supplied and tuple(supplied) != derived:
             raise ValueError("observing_windows do not match cadence evidence")
 
         object.__setattr__(self, "time", times)
@@ -124,13 +169,18 @@ class CadenceEvidence:
             "usable": list(self.usable),
             "quality_flags": list(self.quality_flags),
             "observing_windows": [list(window) for window in self.observing_windows],
+            "source_product": (
+                None if self.source_product is None else self.source_product.to_dict()
+            ),
         }
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> CadenceEvidence:
         if not isinstance(value, dict):
             raise ValueError("cadence evidence must be a dict")
-        required = {"time", "usable", "quality_flags", "observing_windows"}
+        required = {
+            "time", "usable", "quality_flags", "observing_windows", "source_product"
+        }
         missing = sorted(required - set(value))
         if missing:
             raise ValueError(f"cadence evidence missing keys: {missing}")
@@ -142,6 +192,57 @@ class CadenceEvidence:
             usable=value["usable"],
             quality_flags=value["quality_flags"],
             observing_windows=value["observing_windows"],
+            source_product=(
+                None
+                if value["source_product"] is None
+                else SourceProduct.from_dict(value["source_product"])
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class SourceProduct:
+    """Stable archive identity, excluding machine-local cache paths."""
+
+    provider: str
+    product: str
+    data_uri: str
+    retrieved_utc: str
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("provider", self.provider),
+            ("product", self.product),
+            ("data_uri", self.data_uri),
+            ("retrieved_utc", self.retrieved_utc),
+        ):
+            if not isinstance(value, str) or not value:
+                raise ValueError(f"source product {name} must be a non-empty str")
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "provider": self.provider,
+            "product": self.product,
+            "data_uri": self.data_uri,
+            "retrieved_utc": self.retrieved_utc,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> SourceProduct:
+        if not isinstance(value, dict):
+            raise ValueError("source product must be a dict")
+        required = {"provider", "product", "data_uri", "retrieved_utc"}
+        missing = sorted(required - set(value))
+        if missing:
+            raise ValueError(f"source product missing keys: {missing}")
+        extra = sorted(set(value) - required)
+        if extra:
+            raise ValueError(f"source product unknown keys: {extra}")
+        return cls(
+            provider=value["provider"],
+            product=value["product"],
+            data_uri=value["data_uri"],
+            retrieved_utc=value["retrieved_utc"],
         )
 
 

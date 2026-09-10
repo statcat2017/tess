@@ -216,6 +216,20 @@ def render_report(results: dict[str, Any]) -> str:
         lines.append(f"  retained: {kept}")
         lines.append(f"  rejected: {cut}")
     lines.append("")
+    lines.append("## Event evidence")
+    for index, event in enumerate(results.get("events", [])):
+        evidence = event.get("observability")
+        lines.append(f"- event {index}: {evidence}")
+    skipped = results.get("skipped", [])
+    if skipped:
+        lines.append("")
+        lines.append("## Skipped proposals")
+        for entry in skipped:
+            lines.append(
+                f"- sector {entry['sector']} t0={entry['t0']}: "
+                f"{entry['reason']} — {entry.get('observability')}"
+            )
+    lines.append("")
     lines.append(f"Sealed sectors touched: {results['sealed_sectors_touched']}")
     return "\n".join(lines) + "\n"
 

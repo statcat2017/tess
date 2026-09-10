@@ -37,6 +37,7 @@ from tess_assoc.manifest import (
     TracerManifest,
 )
 from tess_assoc.freeze_context import FrozenRunContext
+from tess_assoc.observability import CadenceEvidence
 from tess_assoc import protocol as _protocol
 from tess_assoc.pipeline import run_frozen_records, run_records
 from tess_assoc.propose import (
@@ -127,6 +128,7 @@ class MissedTransit:
     max_snr: float | None
     proposed: bool
     reason: str
+    observability: CadenceEvidence | None = None
 
     def __post_init__(self) -> None:
         require_strict_int("sector", self.sector, minimum=1)
@@ -137,6 +139,10 @@ class MissedTransit:
             raise ValueError("proposed must be a bool")
         if self.reason not in MISS_REASONS:
             raise ValueError(f"reason must be one of {list(MISS_REASONS)}")
+        if self.observability is not None and not isinstance(
+            self.observability, CadenceEvidence
+        ):
+            raise ValueError("observability must be CadenceEvidence or None")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -145,6 +151,9 @@ class MissedTransit:
             "max_snr": None if self.max_snr is None else float(self.max_snr),
             "proposed": bool(self.proposed),
             "reason": self.reason,
+            "observability": (
+                None if self.observability is None else self.observability.to_dict()
+            ),
         }
 
 
@@ -312,7 +321,10 @@ def replay_system(
                 )
             )
         skipped.extend(
-            {"sector": sector, "t0": s.predicted_t0_btjd, "reason": s.reason}
+            {
+                "sector": sector,
+                **s.to_dict(),
+            }
             for s in skipped_here
         )
 
@@ -404,10 +416,13 @@ def replay_blind_system(
     sector_windows: dict[int, list[tuple[float, float]]] = {}
     sector_proposals: dict[int, list[Proposal]] = {}
     known_masks: dict[int, list[dict[str, Any]]] = {}
+    sector_evidence: dict[int, CadenceEvidence] = {}
     for sector in system.sectors:
         product = download_spoc_ffi(system.tic_id, sector, cache_dir)
         products.append(_product_record(sector, product))
-        time, flux = load_lightcurve(product)
+        curve = load_lightcurve(product)
+        time, flux = list(curve.time), list(curve.flux)
+        sector_evidence[sector] = curve.evidence
         if not time:
             raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
         raw_time = time
@@ -458,10 +473,14 @@ def replay_blind_system(
             resample_samples=n_samples,
             quality_base={"ephemeris_source": replay.ephemeris_source},
             observing_windows=effective_windows,
+            observability=curve.evidence,
         )
         records.update(recs)
         skipped.extend(
-            {"sector": sector, "t0": s.predicted_t0_btjd, "reason": s.reason}
+            {
+                "sector": sector,
+                **s.to_dict(),
+            }
             for s in skipped_here
         )
         manifest_sectors.append(
@@ -513,6 +532,7 @@ def replay_blind_system(
                 MissedTransit(
                     sector=sec, t0=t, max_snr=None,
                     proposed=proposed, reason="no usable cadence",
+                    observability=sector_evidence[sec],
                 ).to_dict()
             )
             continue
@@ -529,6 +549,7 @@ def replay_blind_system(
             MissedTransit(
                 sector=sec, t0=t, max_snr=max_snr,
                 proposed=proposed, reason=reason,
+                observability=sector_evidence[sec],
             ).to_dict()
         )
     if len(anchor_times) >= 2:

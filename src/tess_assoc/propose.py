@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from tess_assoc._validate import require_finite, require_positive_finite
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import SkippedTransit, coverage_windows, extract_at
+from tess_assoc.observability import CadenceEvidence
 from tess_assoc.window import samples_in_windows
 
 
@@ -174,6 +175,7 @@ def records_from_proposals(
     resample_samples: int = 61,
     quality_base: dict | None = None,
     observing_windows: list[tuple[float, float]] | None = None,
+    observability: CadenceEvidence | None = None,
 ) -> tuple[dict[str, EventRecord], list[SkippedTransit]]:
     """Measure proposal windows through the shared extract_at core."""
     records: dict[str, EventRecord] = {}
@@ -191,6 +193,7 @@ def records_from_proposals(
             sector=sector,
             half_span_days=half_span_days,
             resample_samples=resample_samples,
+            observability=observability,
             quality={
                 **base,
                 "role": "blind-proposal",
@@ -203,7 +206,9 @@ def records_from_proposals(
         elif not samples_in_windows(result.local_time, windows):
             skipped.append(
                 SkippedTransit(
-                    p.t0_guess, "insufficient full observing window coverage"
+                    p.t0_guess,
+                    "insufficient full observing window coverage",
+                    observability,
                 )
             )
         else:
