@@ -36,7 +36,11 @@ from tess_assoc.manifest import (
     TracerManifest,
 )
 from tess_assoc.freeze_context import FrozenRunContext
-from tess_assoc.observability import CadenceEvidence, coverage_windows
+from tess_assoc.observability import (
+    CadenceEvidence,
+    DetectorConfiguration,
+    coverage_windows,
+)
 from tess_assoc import protocol as _protocol
 from tess_assoc.pipeline import run_frozen_records, run_records
 from tess_assoc.propose import (
@@ -289,7 +293,6 @@ def replay_system(
     thresholds = dict(replay.matcher_thresholds)
     half_span = replay.window_half_span_days
     n_samples = replay.resample_samples
-
     records: dict[str, EventRecord] = {}
     manifest_events: list[ManifestEvent] = []
     manifest_sectors: list[ManifestSector] = []
@@ -403,6 +406,18 @@ def replay_blind_system(
     thresholds = dict(replay.matcher_thresholds)
     half_span = replay.window_half_span_days
     n_samples = replay.resample_samples
+    proposal_detector = DetectorConfiguration(
+        name="segmented-blind-proposer",
+        version="1",
+        half_span_days=half_span,
+        resample_samples=n_samples,
+        snr_threshold=PROPOSER_SNR_THRESHOLD,
+        trend_span_days=1.5,
+        min_points=2,
+        merge_gap_points=2,
+        min_duration_days=0.02,
+        max_duration_days=0.6,
+    )
 
     records: dict[str, EventRecord] = {}
     manifest_sectors: list[ManifestSector] = []
@@ -481,6 +496,7 @@ def replay_blind_system(
             quality_base={"ephemeris_source": replay.ephemeris_source},
             observing_windows=effective_windows,
             observability=search_evidence,
+            detector=proposal_detector,
         )
         records.update(recs)
         skipped.extend(
@@ -543,6 +559,18 @@ def replay_blind_system(
                 ).to_dict()
             )
             continue
+        if not any(start <= t <= end for start, end in sector_evidence[sec].observing_windows):
+            missed.append(
+                MissedTransit(
+                    sector=sec,
+                    t0=t,
+                    max_snr=None,
+                    proposed=proposed,
+                    reason="fragmented by flagged cadences",
+                    observability=sector_evidence[sec],
+                ).to_dict()
+            )
+            continue
         max_snr = dip_snr_at(
             tcurve[0], tcurve[1], tcurve[2], t, search_half
         )
@@ -581,7 +609,7 @@ def replay_blind_system(
             "recall": {
                 "known": len(known),
                 "recalled": sum(recalled),
-                "rate": (sum(recalled) / len(known)) if known else 0.0,
+                "rate": (recalled_coverable / sum(coverable)) if sum(coverable) else 0.0,
                 "coverable": sum(coverable),
                 "recalled_coverable": recalled_coverable,
                 "rate_coverable": (recalled_coverable / sum(coverable))

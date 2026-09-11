@@ -137,7 +137,7 @@ def _run_validated_records(
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
         "protocol_version": _protocol.PROTOCOL_VERSION,
-        "events": [e.to_dict() for e in records],
+        "events": {event_id: event.to_dict() for event_id, event in events.items()},
         "pairs": pair_results,
         "associations": associations,
         "sealed_sectors_touched": sorted(touched & set(_protocol.SEALED_SECTORS)),
@@ -182,7 +182,7 @@ def run_frozen_records(
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
         "protocol_version": _protocol.PROTOCOL_VERSION,
-        "events": [e.to_dict() for e in records],
+        "events": {event_id: event.to_dict() for event_id, event in events.items()},
         "pairs": pair_results,
         "associations": associations,
         "sealed_sectors_touched": sorted(touched & set(_protocol.SEALED_SECTORS)),
@@ -219,9 +219,14 @@ def render_report(results: dict[str, Any]) -> str:
         lines.append(f"  rejected: {cut}")
     lines.append("")
     lines.append("## Event evidence")
-    for index, event in enumerate(results.get("events", [])):
+    event_payloads = results.get("events", {})
+    if isinstance(event_payloads, dict):
+        event_items = event_payloads.items()
+    else:
+        event_items = ((f"event-{index}", event) for index, event in enumerate(event_payloads))
+    for event_id, event in event_items:
         evidence = event.get("observability")
-        lines.append(f"- event {index}: {evidence}")
+        lines.append(f"- {event_id}: {evidence}")
     skipped = results.get("skipped", [])
     if skipped:
         lines.append("")

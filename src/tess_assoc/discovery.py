@@ -662,9 +662,15 @@ def run_discovery(
 
 
 def _records_of(blind_result: dict[str, Any]) -> dict[str, EventRecord]:
+    event_payloads = blind_result["events"]
+    if isinstance(event_payloads, dict):
+        return {
+            event_id: EventRecord.from_dict(event)
+            for event_id, event in event_payloads.items()
+        }
     return {
         f"k{i}": EventRecord.from_dict(e)
-        for i, e in enumerate(blind_result["events"])
+        for i, e in enumerate(event_payloads)
     }
 
 

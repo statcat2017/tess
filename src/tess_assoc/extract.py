@@ -21,7 +21,11 @@ from tess_assoc.observability import (
     SourceProduct,
 )
 from tess_assoc.window import samples_in_windows
-from tess_assoc._validate import require_positive_finite, require_strict_int
+from tess_assoc._validate import (
+    require_finite,
+    require_positive_finite,
+    require_strict_int,
+)
 from tess_assoc.manifest import ReplaySystem
 
 BTJD_OFFSET = 2457000.0
@@ -147,6 +151,7 @@ def refine_epoch(
     period_days: float,
     t0_guess_btjd: float,
     duration_days: float,
+    observing_window: tuple[float, float] | None = None,
 ) -> float:
     """Shift the predicted epoch to the local flux minimum.
 
@@ -157,7 +162,24 @@ def refine_epoch(
     """
     import numpy as np
 
-    tarr, farr = np.array(time), np.array(flux)
+    if observing_window is None:
+        segment_time, segment_flux = time, flux
+    else:
+        if not isinstance(observing_window, (list, tuple)) or len(observing_window) != 2:
+            raise ValueError("observing_window must be a [start, end] pair")
+        start, end = observing_window
+        require_finite("observing window start", start)
+        require_finite("observing window end", end)
+        if end <= start:
+            raise ValueError("observing window end must be after start")
+        selected = [
+            index for index, value in enumerate(time) if start <= value <= end
+        ]
+        segment_time = [time[index] for index in selected]
+        segment_flux = [flux[index] for index in selected]
+    if not segment_time:
+        raise ArchiveUnavailable("epoch refinement found no cadence in observing window")
+    tarr, farr = np.array(segment_time), np.array(segment_flux)
     half = duration_days / 2.0
     span = 0.15 * period_days
     step = max(duration_days / 8.0, 1e-4)
@@ -170,7 +192,9 @@ def refine_epoch(
             continue
         qualified = True
         level = float(np.median(farr[inside]))
-        if level < best_level:
+        if level < best_level or (
+            level == best_level and abs(float(shift)) < abs(best_shift)
+        ):
             best_level, best_shift = level, float(shift)
     if not qualified:
         raise ArchiveUnavailable(
@@ -203,6 +227,11 @@ def extract_at(
         half_span_days=half_span_days,
         resample_samples=resample_samples,
     )
+    if (
+        detector.half_span_days != half_span_days
+        or detector.resample_samples != resample_samples
+    ):
+        raise ValueError("detector configuration does not match extraction arguments")
     tarr = np.array(time, dtype=float)
     step = (2.0 * half_span_days) / (resample_samples - 1)
     phases = [-half_span_days + i * step for i in range(resample_samples)]
@@ -282,23 +311,44 @@ def extract_events(
 
     extracted: list[ExtractedEvent] = []
     skipped: list[SkippedTransit] = []
-    for t_pred in predicted_transits(system.t0_bjd_tdb, period, time[0], time[-1]):
+    for t_pred in predicted_transits(
+        system.t0_bjd_tdb, period, curve.evidence.time[0], curve.evidence.time[-1]
+    ):
+        predicted_window = next(
+            (window for window in windows if window[0] <= t_pred <= window[1]),
+            None,
+        )
+        if predicted_window is None:
+            skipped.append(
+                SkippedTransit(t_pred, "no usable cadence", curve.evidence)
+            )
+            continue
+        if not (
+            predicted_window[0] <= t_pred - half_span_days
+            and t_pred + half_span_days <= predicted_window[1]
+        ):
+            skipped.append(
+                SkippedTransit(
+                    t_pred,
+                    "insufficient full observing window coverage",
+                    curve.evidence,
+                )
+            )
+            continue
         try:
-            t_ref = refine_epoch(time, flux, period, t_pred, duration_days)
+            t_ref = refine_epoch(
+                time,
+                flux,
+                period,
+                t_pred,
+                duration_days,
+                observing_window=predicted_window,
+            )
         except ArchiveUnavailable:
             skipped.append(
                 SkippedTransit(
                     t_pred,
                     "epoch refinement found no usable cadence",
-                    curve.evidence,
-                )
-            )
-            continue
-        if not any(start <= t_ref <= end for start, end in windows):
-            skipped.append(
-                SkippedTransit(
-                    t_pred,
-                    "refined epoch outside observing window",
                     curve.evidence,
                 )
             )

@@ -291,6 +291,11 @@ class DetectorConfiguration:
     half_span_days: float
     resample_samples: int
     snr_threshold: float | None = None
+    trend_span_days: float = 1.5
+    min_points: int = 2
+    merge_gap_points: int = 2
+    min_duration_days: float = 0.02
+    max_duration_days: float = 0.6
 
     def __post_init__(self) -> None:
         require_nonempty_str("detector name", self.name)
@@ -301,6 +306,19 @@ class DetectorConfiguration:
         )
         if self.snr_threshold is not None:
             require_positive_finite("detector snr_threshold", self.snr_threshold)
+        require_positive_finite("detector trend_span_days", self.trend_span_days)
+        require_strict_int("detector min_points", self.min_points, minimum=1)
+        require_strict_int(
+            "detector merge_gap_points", self.merge_gap_points, minimum=0
+        )
+        require_positive_finite(
+            "detector min_duration_days", self.min_duration_days
+        )
+        require_positive_finite(
+            "detector max_duration_days", self.max_duration_days
+        )
+        if self.max_duration_days < self.min_duration_days:
+            raise ValueError("detector max_duration_days must not be below minimum")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -309,6 +327,11 @@ class DetectorConfiguration:
             "half_span_days": self.half_span_days,
             "resample_samples": self.resample_samples,
             "snr_threshold": self.snr_threshold,
+            "trend_span_days": self.trend_span_days,
+            "min_points": self.min_points,
+            "merge_gap_points": self.merge_gap_points,
+            "min_duration_days": self.min_duration_days,
+            "max_duration_days": self.max_duration_days,
         }
 
     @classmethod
@@ -316,7 +339,9 @@ class DetectorConfiguration:
         if not isinstance(value, dict):
             raise ValueError("detector configuration must be a dict")
         required = {
-            "name", "version", "half_span_days", "resample_samples", "snr_threshold"
+            "name", "version", "half_span_days", "resample_samples",
+            "snr_threshold", "trend_span_days", "min_points", "merge_gap_points",
+            "min_duration_days", "max_duration_days",
         }
         missing = sorted(required - set(value))
         if missing:
@@ -330,6 +355,11 @@ class DetectorConfiguration:
             half_span_days=value["half_span_days"],
             resample_samples=value["resample_samples"],
             snr_threshold=value["snr_threshold"],
+            trend_span_days=value["trend_span_days"],
+            min_points=value["min_points"],
+            merge_gap_points=value["merge_gap_points"],
+            min_duration_days=value["min_duration_days"],
+            max_duration_days=value["max_duration_days"],
         )
 
 

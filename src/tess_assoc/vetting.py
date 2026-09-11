@@ -13,7 +13,7 @@ import math
 from typing import Any
 
 from tess_assoc._validate import is_finite_number, require_finite, require_positive_finite
-from tess_assoc.propose import dip_snr_at
+from tess_assoc.propose import SegmentNoise, dip_snr_at
 
 SECONDARY_SNR_THRESHOLD = 4.0
 CONTAMINATION_LIMIT = 0.1
@@ -36,7 +36,7 @@ SINGLE_TRANSIT_MANUAL_CHECKLIST: tuple[str, ...] = (
 def secondary_search(
     time: list[float],
     detrended: list[float],
-    sigma: float,
+    sigma: float | SegmentNoise,
     t_ref: float,
     alias_periods: list[float],
     half_width_days: float,
@@ -50,7 +50,10 @@ def secondary_search(
     """
     require_finite("t_ref", t_ref)
     require_positive_finite("half_width_days", half_width_days)
-    if not sigma > 0:
+    if isinstance(sigma, SegmentNoise):
+        if not sigma.values or not any(value > 0 for value in sigma.values):
+            raise ValueError("sigma must be > 0")
+    elif not sigma > 0:
         raise ValueError("sigma must be > 0")
     t_min, t_max = time[0], time[-1]
     aliases = []
@@ -64,6 +67,8 @@ def secondary_search(
             if epoch < t_min or epoch > t_max:
                 continue
             if not any(abs(t - epoch) <= half_width_days for t in time):
+                continue
+            if isinstance(sigma, SegmentNoise) and sigma.index_at(epoch) is None:
                 continue
             snr = dip_snr_at(time, detrended, sigma, epoch, half_width_days)
             if snr >= snr_threshold and (found is None or snr > found):

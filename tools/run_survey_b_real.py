@@ -23,7 +23,6 @@ from tess_assoc.circumbinary import (
     render_binary_pilot_report,
     run_binary_pilot,
 )
-from tess_assoc.observability import coverage_windows
 from tess_assoc.extract import BTJD_OFFSET, load_lightcurve
 from tess_assoc.propose import propose_events, records_from_proposals
 
@@ -162,7 +161,7 @@ def _process_target(
             product = _product(target.tic_id, sector, result["local_path"])
             loaded = load_lightcurve(product)
             time, flux = list(loaded.time), list(loaded.flux)
-            spans = coverage_windows(time)
+            spans = list(loaded.evidence.observing_windows)
             coverage[sector] = spans
             masks = eclipse_windows(target, {sector: spans}).get(sector, [])
             search_evidence = loaded.evidence.with_excluded_windows(masks)
