@@ -323,18 +323,6 @@ def extract_events(
                 SkippedTransit(t_pred, "no usable cadence", curve.evidence)
             )
             continue
-        if not (
-            predicted_window[0] <= t_pred - half_span_days
-            and t_pred + half_span_days <= predicted_window[1]
-        ):
-            skipped.append(
-                SkippedTransit(
-                    t_pred,
-                    "insufficient full observing window coverage",
-                    curve.evidence,
-                )
-            )
-            continue
         try:
             t_ref = refine_epoch(
                 time,
@@ -349,6 +337,18 @@ def extract_events(
                 SkippedTransit(
                     t_pred,
                     "epoch refinement found no usable cadence",
+                    curve.evidence,
+                )
+            )
+            continue
+        if not (
+            predicted_window[0] <= t_ref - half_span_days
+            and t_ref + half_span_days <= predicted_window[1]
+        ):
+            skipped.append(
+                SkippedTransit(
+                    t_pred,
+                    "insufficient full observing window coverage",
                     curve.evidence,
                 )
             )

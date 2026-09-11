@@ -169,6 +169,8 @@ def test_end_to_end_results_and_report():
     assert results == repeat
     assert results["sealed_sectors_touched"] == []
     assert results["protocol_version"] == "v1"
+    assert set(P.RESULT_EVENT_FORMATS) == {"list", "id-keyed"}
+    assert results["event_format"] == "id-keyed"
     assert len(results["pairs"]) == 3
     assert len(results["associations"]) == 1
     assert results["pairs"][0]["evidence_refs"] == {

@@ -97,7 +97,7 @@ def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
         "load_lightcurve",
         lambda product: LightCurve(tuple(time), tuple(flux), evidence),
     )
-    monkeypatch.setattr(E, "refine_epoch", lambda *args: 0.1)
+    monkeypatch.setattr(E, "refine_epoch", lambda *args, **kwargs: 0.1)
     product = ArchiveProduct(1, 12, "unused", "unused", "now", True)
     system = ReplaySystem(
         name="gap", tic_id=1, period_days=1.0,
@@ -106,6 +106,32 @@ def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
     extracted, skipped, _ = extract_events(product, system)
     assert extracted == []
     assert skipped[0].reason == "insufficient full observing window coverage"
+
+
+def test_epoch_refinement_can_move_edge_prediction_into_full_coverage(monkeypatch):
+    import tess_assoc.extract as E
+
+    time = [BTJD_OFFSET + i * 0.02 for i in range(501)]
+    flux = [0.98 if abs(t - (BTJD_OFFSET + 1.0)) <= 0.08 else 1.0 for t in time]
+    evidence = CadenceEvidence(
+        time=tuple(time),
+        usable=(True,) * len(time),
+        quality_flags=(0,) * len(time),
+    )
+    monkeypatch.setattr(
+        E,
+        "load_lightcurve",
+        lambda product: LightCurve(tuple(time), tuple(flux), evidence),
+    )
+    product = ArchiveProduct(1, 12, "unused", "unused", "now", True)
+    system = ReplaySystem(
+        name="edge", tic_id=1, period_days=20.0,
+        t0_bjd_tdb=BTJD_OFFSET + 0.4, duration_hours=4.8, sectors=[12],
+    )
+    extracted, skipped, _ = extract_events(product, system)
+    assert len(extracted) == 1
+    assert not skipped
+    assert abs(extracted[0].record.t0 - (BTJD_OFFSET + 1.0)) < 0.1
 
 
 def test_coverage_windows_split_on_known_transit_masks():
