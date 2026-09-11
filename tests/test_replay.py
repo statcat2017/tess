@@ -15,11 +15,11 @@ from conftest import needs_archive
 from tess_assoc.archive import ArchiveProduct, ArchiveUnavailable, cache_dir, find_spoc_ffi_uri
 from tess_assoc.extract import (
     BTJD_OFFSET,
-    coverage_windows,
     extract_events,
     predicted_transits,
 )
 from tess_assoc.manifest import ReplaySystem
+from tess_assoc.observability import CadenceEvidence, LightCurve, coverage_windows
 from tess_assoc.replay import MISS_REASONS, load_replay_manifest, replay_all, replay_system
 
 REPLAY = Path(__file__).resolve().parent.parent / "fixtures" / "replay_v1.json"
@@ -46,13 +46,58 @@ def test_coverage_windows_split_short_quality_gap():
     assert coverage_windows(time) == [(0.0, 0.2), (0.42, 0.62)]
 
 
+def test_cadence_evidence_preserves_quality_gaps_and_roundtrips():
+    evidence = CadenceEvidence(
+        time=(0.0, 0.1, 0.2, 0.5, 0.6),
+        usable=(True, True, False, True, True),
+        quality_flags=(0, 0, 4, 0, 0),
+    )
+    assert evidence.observing_windows == ((0.0, 0.1), (0.5, 0.6))
+    assert evidence.missing == 1
+    assert evidence.quality_flagged == 1
+    assert CadenceEvidence.from_dict(evidence.to_dict()) == evidence
+
+
+def test_cadence_evidence_rejects_misaligned_or_false_windows():
+    with pytest.raises(ValueError):
+        CadenceEvidence((0.0, 0.1), (True,), (0, 0))
+    with pytest.raises(ValueError):
+        CadenceEvidence(
+            (0.0, 0.1), (True, False), (0, 4), observing_windows=((0.0, 0.1),)
+        )
+
+
+def test_coverage_windows_respects_quality_mask_at_sector_boundaries():
+    assert coverage_windows(
+        [10.0, 10.1, 10.2, 20.0, 20.1], usable=[True, True, False, True, True]
+    ) == [(10.0, 10.1), (20.0, 20.1)]
+
+
+def test_all_unusable_lightcurve_retains_cadence_evidence():
+    evidence = CadenceEvidence(
+        time=(0.0, 0.1), usable=(False, False), quality_flags=(4, 4)
+    )
+    curve = LightCurve(time=(), flux=(), evidence=evidence)
+    assert curve.evidence.missing == 2
+    assert curve.time == ()
+
+
 def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
     import tess_assoc.extract as E
 
     time = [-1.0 + i * 0.02 for i in range(61)] + [0.42 + i * 0.02 for i in range(30)]
     flux = [0.99 if abs(t - 0.1) <= 0.04 else 1.0 for t in time]
-    monkeypatch.setattr(E, "load_lightcurve", lambda product: (time, flux))
-    monkeypatch.setattr(E, "refine_epoch", lambda *args: 0.1)
+    evidence = CadenceEvidence(
+        time=tuple(time),
+        usable=(True,) * len(time),
+        quality_flags=(0,) * len(time),
+    )
+    monkeypatch.setattr(
+        E,
+        "load_lightcurve",
+        lambda product: LightCurve(tuple(time), tuple(flux), evidence),
+    )
+    monkeypatch.setattr(E, "refine_epoch", lambda *args, **kwargs: 0.1)
     product = ArchiveProduct(1, 12, "unused", "unused", "now", True)
     system = ReplaySystem(
         name="gap", tic_id=1, period_days=1.0,
@@ -61,6 +106,32 @@ def test_extraction_skips_transit_inside_short_quality_gap(monkeypatch):
     extracted, skipped, _ = extract_events(product, system)
     assert extracted == []
     assert skipped[0].reason == "insufficient full observing window coverage"
+
+
+def test_epoch_refinement_can_move_edge_prediction_into_full_coverage(monkeypatch):
+    import tess_assoc.extract as E
+
+    time = [BTJD_OFFSET + i * 0.02 for i in range(501)]
+    flux = [0.98 if abs(t - (BTJD_OFFSET + 1.0)) <= 0.08 else 1.0 for t in time]
+    evidence = CadenceEvidence(
+        time=tuple(time),
+        usable=(True,) * len(time),
+        quality_flags=(0,) * len(time),
+    )
+    monkeypatch.setattr(
+        E,
+        "load_lightcurve",
+        lambda product: LightCurve(tuple(time), tuple(flux), evidence),
+    )
+    product = ArchiveProduct(1, 12, "unused", "unused", "now", True)
+    system = ReplaySystem(
+        name="edge", tic_id=1, period_days=20.0,
+        t0_bjd_tdb=BTJD_OFFSET + 0.4, duration_hours=4.8, sectors=[12],
+    )
+    extracted, skipped, _ = extract_events(product, system)
+    assert len(extracted) == 1
+    assert not skipped
+    assert abs(extracted[0].record.t0 - (BTJD_OFFSET + 1.0)) < 0.1
 
 
 def test_coverage_windows_split_on_known_transit_masks():
@@ -138,7 +209,9 @@ def test_live_blind_replay_measures_recall(tmp_path):
     missed = res["missed"]
     assert len(missed) == res["recall"]["known"] - res["recall"]["recalled"]
     for m in missed:
-        assert set(m) == {"sector", "t0", "max_snr", "proposed", "reason"}
+        assert set(m) == {
+            "sector", "t0", "max_snr", "proposed", "reason", "observability"
+        }
         assert m["reason"] in MISS_REASONS
         assert m["max_snr"] is None or isinstance(m["max_snr"], float)
     assert res["recall"]["coverable"] <= res["recall"]["known"]

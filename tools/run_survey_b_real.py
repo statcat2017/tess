@@ -15,7 +15,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from tess_assoc.archive import ArchiveProduct
+from tess_assoc.archive import ArchiveProduct, spoc_ffi_uri
 from tess_assoc.bulk import bulk_fetch
 from tess_assoc.circumbinary import (
     BinaryPilotTarget,
@@ -23,7 +23,7 @@ from tess_assoc.circumbinary import (
     render_binary_pilot_report,
     run_binary_pilot,
 )
-from tess_assoc.extract import BTJD_OFFSET, coverage_windows, load_lightcurve
+from tess_assoc.extract import BTJD_OFFSET, load_lightcurve
 from tess_assoc.propose import propose_events, records_from_proposals
 
 
@@ -136,8 +136,8 @@ def _product(tic_id: int, sector: int, path: str) -> ArchiveProduct:
         tic_id=tic_id,
         sector=sector,
         local_path=path,
-        data_uri="",
-        retrieved_utc="",
+        data_uri=spoc_ffi_uri(tic_id, sector),
+        retrieved_utc="not-recorded",
         cached=True,
     )
 
@@ -159,17 +159,21 @@ def _process_target(
             continue
         try:
             product = _product(target.tic_id, sector, result["local_path"])
-            time, flux = load_lightcurve(product)
-            spans = coverage_windows(time)
+            loaded = load_lightcurve(product)
+            time, flux = list(loaded.time), list(loaded.flux)
+            spans = list(loaded.evidence.observing_windows)
             coverage[sector] = spans
             masks = eclipse_windows(target, {sector: spans}).get(sector, [])
+            search_evidence = loaded.evidence.with_excluded_windows(masks)
             keep = [
                 not any(start <= point <= end for start, end in masks)
                 for point in time
             ]
             search_time = [point for point, use in zip(time, keep) if use]
             search_flux = [value for value, use in zip(flux, keep) if use]
-            proposals = propose_events(search_time, search_flux)
+            proposals = propose_events(
+                search_time, search_flux, observability=search_evidence
+            )
             records, skipped = records_from_proposals(
                 search_time,
                 search_flux,
@@ -181,6 +185,7 @@ def _process_target(
                     "source_catalog": "TEBC_morph_05_P_7",
                     "binary_eclipses_masked": True,
                 },
+                observability=search_evidence,
             )
             events.extend(records.values())
             sector_result = {

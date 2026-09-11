@@ -42,6 +42,7 @@ def _stage_results(
             "morph_corr": decision.morph_corr,
             "timing_plausible": decision.timing_plausible,
             "explanation": decision.explanation,
+            "evidence_refs": {"a": p.a_id, "b": p.b_id},
         }
         pair_results.append(entry)
         if decision.compatible:
@@ -50,6 +51,7 @@ def _stage_results(
             associations.append(
                 {
                     "pair": [p.a_id, p.b_id],
+                    "evidence_refs": {"a": p.a_id, "b": p.b_id},
                     "delta_t_days": t2 - t1,
                     "aliases_total": len(verdicts),
                     "aliases_retained": sum(v.retained for v in verdicts),
@@ -135,7 +137,8 @@ def _run_validated_records(
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
         "protocol_version": _protocol.PROTOCOL_VERSION,
-        "events": [e.to_dict() for e in records],
+        "event_format": _protocol.RESULT_EVENT_FORMAT,
+        "events": {event_id: event.to_dict() for event_id, event in events.items()},
         "pairs": pair_results,
         "associations": associations,
         "sealed_sectors_touched": sorted(touched & set(_protocol.SEALED_SECTORS)),
@@ -180,7 +183,8 @@ def run_frozen_records(
         "fixture": manifest.name,
         "tic_id": manifest.tic_id,
         "protocol_version": _protocol.PROTOCOL_VERSION,
-        "events": [e.to_dict() for e in records],
+        "event_format": _protocol.RESULT_EVENT_FORMAT,
+        "events": {event_id: event.to_dict() for event_id, event in events.items()},
         "pairs": pair_results,
         "associations": associations,
         "sealed_sectors_touched": sorted(touched & set(_protocol.SEALED_SECTORS)),
@@ -215,6 +219,34 @@ def render_report(results: dict[str, Any]) -> str:
         )
         lines.append(f"  retained: {kept}")
         lines.append(f"  rejected: {cut}")
+    lines.append("")
+    lines.append("## Event evidence")
+    event_payloads = results.get("events", {})
+    if isinstance(event_payloads, dict):
+        event_items = event_payloads.items()
+    else:
+        event_items = ((f"event-{index}", event) for index, event in enumerate(event_payloads))
+    for event_id, event in event_items:
+        evidence = event.get("observability")
+        lines.append(f"- {event_id}: {evidence}")
+    skipped = results.get("skipped", [])
+    if skipped:
+        lines.append("")
+        lines.append("## Skipped proposals")
+        for entry in skipped:
+            lines.append(
+                f"- sector {entry['sector']} t0={entry['t0']}: "
+                f"{entry['reason']} — {entry.get('observability')}"
+            )
+    missed = results.get("missed", [])
+    if missed:
+        lines.append("")
+        lines.append("## Missed transits")
+        for entry in missed:
+            lines.append(
+                f"- sector {entry['sector']} t0={entry['t0']}: "
+                f"{entry['reason']} — {entry.get('observability')}"
+            )
     lines.append("")
     lines.append(f"Sealed sectors touched: {results['sealed_sectors_touched']}")
     return "\n".join(lines) + "\n"

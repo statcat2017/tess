@@ -39,3 +39,13 @@ def require_strict_int(name: str, v: Any, minimum: int | None = None) -> None:
         raise ValueError(f"{name} must be an int{suffix}")
     if minimum is not None and v < minimum:
         raise ValueError(f"{name} must be an int >= {minimum}")
+
+
+def require_bool(name: str, v: Any) -> None:
+    if not isinstance(v, bool):
+        raise ValueError(f"{name} must be a bool")
+
+
+def require_nonempty_str(name: str, v: Any) -> None:
+    if not isinstance(v, str) or not v:
+        raise ValueError(f"{name} must be a non-empty str")

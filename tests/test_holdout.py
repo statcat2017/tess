@@ -310,7 +310,10 @@ def _live_checkpoint(tmp_path):
         if system.tic_id == 16740101:
             continue
         res = replay_blind_system(replay, system, cache_dir=str(tmp_path))
-        recs = {f"k{i}": EventRecord.from_dict(e) for i, e in enumerate(res["events"])}
+        recs = {
+            event_id: EventRecord.from_dict(event)
+            for event_id, event in res["events"].items()
+        }
         spans = [(w[0], w[1]) for s in res["sectors"] for w in s["windows"]]
         known = [
             t

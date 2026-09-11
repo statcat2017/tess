@@ -1,0 +1,445 @@
+"""Validated cadence evidence for light-curve event measurements."""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass
+from statistics import median
+from typing import Any
+
+from tess_assoc._validate import (
+    is_finite_number,
+    require_bool,
+    require_finite,
+    require_nonempty_str,
+    require_positive_finite,
+    require_strict_int,
+)
+
+
+def _cadence_threshold(time: tuple[float, ...]) -> float | None:
+    gaps = sorted(b - a for a, b in zip(time, time[1:]) if b > a)
+    if not gaps:
+        return None
+    return median(gaps[: max(1, (len(gaps) + 1) // 2)]) * 5.0
+
+
+def coverage_windows(
+    time: list[float] | tuple[float, ...],
+    max_gap_days: float | None = None,
+    excluded_windows: list[tuple[float, float]] | None = None,
+    *,
+    usable: list[bool] | tuple[bool, ...] | None = None,
+) -> list[tuple[float, float]]:
+    """Return contiguous usable spans without crossing gaps or masks."""
+    if not isinstance(time, (list, tuple)):
+        raise ValueError("time must be a list/tuple")
+    times = tuple(time)
+    if any(not is_finite_number(value) for value in times):
+        raise ValueError("time must contain finite values")
+    if any(b <= a for a, b in zip(times, times[1:])):
+        raise ValueError("time must be strictly increasing")
+    if usable is None:
+        mask = (True,) * len(times)
+    else:
+        if not isinstance(usable, (list, tuple)) or len(usable) != len(times):
+            raise ValueError("usable mask must match time length")
+        for value in usable:
+            require_bool("usable mask value", value)
+        mask = tuple(usable)
+    if max_gap_days is not None:
+        require_positive_finite("max_gap_days", max_gap_days)
+    threshold = _cadence_threshold(times) if max_gap_days is None else max_gap_days
+    spans: list[tuple[float, float]] = []
+    if threshold is not None:
+        start: float | None = None
+        previous: float | None = None
+        for current, is_usable in zip(times, mask):
+            if not is_usable:
+                if start is not None and previous is not None and previous > start:
+                    spans.append((start, previous))
+                start = None
+                previous = None
+                continue
+            if start is None:
+                start = current
+            elif previous is not None and current - previous > threshold:
+                if previous > start:
+                    spans.append((start, previous))
+                start = current
+            previous = current
+        if start is not None and previous is not None and previous > start:
+            spans.append((start, previous))
+
+    if excluded_windows is None:
+        return spans
+    if not isinstance(excluded_windows, (list, tuple)):
+        raise ValueError("excluded_windows must be a list/tuple")
+    normalized_exclusions: list[tuple[float, float]] = []
+    for excluded in excluded_windows:
+        if not isinstance(excluded, (list, tuple)) or len(excluded) != 2:
+            raise ValueError("each excluded window must be a [start, end] pair")
+        excluded_start, excluded_end = excluded
+        require_finite("excluded window start", excluded_start)
+        require_finite("excluded window end", excluded_end)
+        if excluded_end <= excluded_start:
+            raise ValueError("excluded window end must be after start")
+        normalized_exclusions.append((excluded_start, excluded_end))
+    for excluded_start, excluded_end in sorted(normalized_exclusions):
+        remainder: list[tuple[float, float]] = []
+        for start, end in spans:
+            if excluded_end <= start or excluded_start >= end:
+                remainder.append((start, end))
+                continue
+            if start < excluded_start:
+                remainder.append((start, min(end, excluded_start)))
+            if excluded_end < end:
+                remainder.append((max(start, excluded_end), end))
+        spans = [span for span in remainder if span[1] > span[0]]
+    return spans
+
+
+@dataclass(frozen=True)
+class CadenceEvidence:
+    """Raw cadence availability and quality state aligned by cadence index."""
+
+    time: tuple[float, ...]
+    usable: tuple[bool, ...]
+    quality_flags: tuple[int, ...]
+    observing_windows: tuple[tuple[float, float], ...] = ()
+    source_product: SourceProduct | None = None
+    invalid_time_count: int = 0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.time, (list, tuple)):
+            raise ValueError("cadence time must be a list/tuple")
+        if not isinstance(self.usable, (list, tuple)):
+            raise ValueError("cadence usable mask must be a list/tuple")
+        if not isinstance(self.quality_flags, (list, tuple)):
+            raise ValueError("cadence quality flags must be a list/tuple")
+        if not isinstance(self.observing_windows, (list, tuple)):
+            raise ValueError("observing_windows must be a list/tuple")
+        if self.source_product is not None and not isinstance(
+            self.source_product, SourceProduct
+        ):
+            raise ValueError("source_product must be SourceProduct or None")
+        require_strict_int("invalid time count", self.invalid_time_count, minimum=0)
+
+        times = tuple(self.time)
+        usable = tuple(self.usable)
+        quality_flags = tuple(self.quality_flags)
+        if not times:
+            raise ValueError("cadence evidence must contain at least one cadence")
+        if len(times) != len(usable) or len(times) != len(quality_flags):
+            raise ValueError("cadence evidence fields must have equal length")
+        for value in times:
+            require_finite("cadence time", value)
+        if any(b <= a for a, b in zip(times, times[1:])):
+            raise ValueError("cadence time must be strictly increasing")
+        if any(not isinstance(value, bool) for value in usable):
+            raise ValueError("cadence usable mask must contain bool values")
+        for value in quality_flags:
+            require_strict_int("cadence quality flag", value, minimum=0)
+
+        derived = tuple(coverage_windows(times, usable=usable))
+        supplied: list[tuple[float, float]] = []
+        for window in self.observing_windows:
+            if not isinstance(window, (list, tuple)) or len(window) != 2:
+                raise ValueError("each observing window must be a [start, end] pair")
+            require_finite("observing window start", window[0])
+            require_finite("observing window end", window[1])
+            if window[1] <= window[0]:
+                raise ValueError("observing window end must be after start")
+            supplied.append((window[0], window[1]))
+        if supplied and tuple(supplied) != derived:
+            raise ValueError("observing_windows do not match cadence evidence")
+
+        object.__setattr__(self, "time", times)
+        object.__setattr__(self, "usable", usable)
+        object.__setattr__(self, "quality_flags", quality_flags)
+        object.__setattr__(self, "observing_windows", derived)
+
+    @property
+    def usable_time(self) -> tuple[float, ...]:
+        return tuple(t for t, is_usable in zip(self.time, self.usable) if is_usable)
+
+    @property
+    def quality_flagged(self) -> int:
+        return sum(flag != 0 for flag in self.quality_flags)
+
+    @property
+    def missing(self) -> int:
+        return sum(not is_usable for is_usable in self.usable)
+
+    def with_excluded_windows(
+        self, excluded_windows: list[tuple[float, float]]
+    ) -> CadenceEvidence:
+        """Mark deliberately masked cadences unusable without losing provenance."""
+        if not isinstance(excluded_windows, (list, tuple)):
+            raise ValueError("excluded_windows must be a list/tuple")
+        for window in excluded_windows:
+            if not isinstance(window, (list, tuple)) or len(window) != 2:
+                raise ValueError("each excluded window must be a [start, end] pair")
+            require_finite("excluded window start", window[0])
+            require_finite("excluded window end", window[1])
+            if window[1] <= window[0]:
+                raise ValueError("excluded window end must be after start")
+        usable = tuple(
+            is_usable
+            and not any(start <= t <= end for start, end in excluded_windows)
+            for t, is_usable in zip(self.time, self.usable)
+        )
+        return CadenceEvidence(
+            time=self.time,
+            usable=usable,
+            quality_flags=self.quality_flags,
+            source_product=self.source_product,
+            invalid_time_count=self.invalid_time_count,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "time": list(self.time),
+            "usable": list(self.usable),
+            "quality_flags": list(self.quality_flags),
+            "observing_windows": [list(window) for window in self.observing_windows],
+            "source_product": (
+                None if self.source_product is None else self.source_product.to_dict()
+            ),
+            "invalid_time_count": self.invalid_time_count,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> CadenceEvidence:
+        if not isinstance(value, dict):
+            raise ValueError("cadence evidence must be a dict")
+        required = {
+            "time", "usable", "quality_flags", "observing_windows",
+            "source_product", "invalid_time_count",
+        }
+        missing = sorted(required - set(value))
+        if missing:
+            raise ValueError(f"cadence evidence missing keys: {missing}")
+        extra = sorted(set(value) - required, key=repr)
+        if extra:
+            raise ValueError(f"cadence evidence unknown keys: {extra}")
+        return cls(
+            time=value["time"],
+            usable=value["usable"],
+            quality_flags=value["quality_flags"],
+            observing_windows=value["observing_windows"],
+            source_product=(
+                None
+                if value["source_product"] is None
+                else SourceProduct.from_dict(value["source_product"])
+            ),
+            invalid_time_count=value["invalid_time_count"],
+        )
+
+
+@dataclass(frozen=True)
+class SourceProduct:
+    """Stable archive identity, excluding machine-local cache paths."""
+
+    provider: str
+    product: str
+    data_uri: str
+    retrieved_utc: str
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("provider", self.provider),
+            ("product", self.product),
+            ("data_uri", self.data_uri),
+            ("retrieved_utc", self.retrieved_utc),
+        ):
+            require_nonempty_str(f"source product {name}", value)
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "provider": self.provider,
+            "product": self.product,
+            "data_uri": self.data_uri,
+            "retrieved_utc": self.retrieved_utc,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> SourceProduct:
+        if not isinstance(value, dict):
+            raise ValueError("source product must be a dict")
+        required = {"provider", "product", "data_uri", "retrieved_utc"}
+        missing = sorted(required - set(value))
+        if missing:
+            raise ValueError(f"source product missing keys: {missing}")
+        extra = sorted(set(value) - required, key=repr)
+        if extra:
+            raise ValueError(f"source product unknown keys: {extra}")
+        return cls(
+            provider=value["provider"],
+            product=value["product"],
+            data_uri=value["data_uri"],
+            retrieved_utc=value["retrieved_utc"],
+        )
+
+
+@dataclass(frozen=True)
+class DetectorConfiguration:
+    """Configuration that makes an event measurement reproducible."""
+
+    name: str
+    version: str
+    half_span_days: float
+    resample_samples: int
+    snr_threshold: float | None = None
+    trend_span_days: float = 1.5
+    min_points: int = 2
+    merge_gap_points: int = 2
+    min_duration_days: float = 0.02
+    max_duration_days: float = 0.6
+
+    def __post_init__(self) -> None:
+        require_nonempty_str("detector name", self.name)
+        require_nonempty_str("detector version", self.version)
+        require_positive_finite("detector half_span_days", self.half_span_days)
+        require_strict_int(
+            "detector resample_samples", self.resample_samples, minimum=3
+        )
+        if self.snr_threshold is not None:
+            require_positive_finite("detector snr_threshold", self.snr_threshold)
+        require_positive_finite("detector trend_span_days", self.trend_span_days)
+        require_strict_int("detector min_points", self.min_points, minimum=1)
+        require_strict_int(
+            "detector merge_gap_points", self.merge_gap_points, minimum=0
+        )
+        require_positive_finite(
+            "detector min_duration_days", self.min_duration_days
+        )
+        require_positive_finite(
+            "detector max_duration_days", self.max_duration_days
+        )
+        if self.max_duration_days < self.min_duration_days:
+            raise ValueError("detector max_duration_days must not be below minimum")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "version": self.version,
+            "half_span_days": self.half_span_days,
+            "resample_samples": self.resample_samples,
+            "snr_threshold": self.snr_threshold,
+            "trend_span_days": self.trend_span_days,
+            "min_points": self.min_points,
+            "merge_gap_points": self.merge_gap_points,
+            "min_duration_days": self.min_duration_days,
+            "max_duration_days": self.max_duration_days,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> DetectorConfiguration:
+        if not isinstance(value, dict):
+            raise ValueError("detector configuration must be a dict")
+        required = {
+            "name", "version", "half_span_days", "resample_samples",
+            "snr_threshold", "trend_span_days", "min_points", "merge_gap_points",
+            "min_duration_days", "max_duration_days",
+        }
+        missing = sorted(required - set(value))
+        if missing:
+            raise ValueError(f"detector configuration missing keys: {missing}")
+        extra = sorted(set(value) - required, key=repr)
+        if extra:
+            raise ValueError(f"detector configuration unknown keys: {extra}")
+        return cls(
+            name=value["name"],
+            version=value["version"],
+            half_span_days=value["half_span_days"],
+            resample_samples=value["resample_samples"],
+            snr_threshold=value["snr_threshold"],
+            trend_span_days=value["trend_span_days"],
+            min_points=value["min_points"],
+            merge_gap_points=value["merge_gap_points"],
+            min_duration_days=value["min_duration_days"],
+            max_duration_days=value["max_duration_days"],
+        )
+
+
+@dataclass(frozen=True)
+class AuxiliaryEvidence:
+    """Optional measurements kept separate from local event morphology."""
+
+    centroid: tuple[float, float] | None = None
+    background: float | None = None
+    uncertainty: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.centroid is not None:
+            if not isinstance(self.centroid, (list, tuple)) or len(self.centroid) != 2:
+                raise ValueError("auxiliary centroid must be a two-value pair")
+            require_finite("auxiliary centroid x", self.centroid[0])
+            require_finite("auxiliary centroid y", self.centroid[1])
+            object.__setattr__(
+                self, "centroid", (self.centroid[0], self.centroid[1])
+            )
+        for name, value in (
+            ("background", self.background),
+            ("uncertainty", self.uncertainty),
+        ):
+            if value is not None:
+                require_finite(f"auxiliary {name}", value)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "centroid": None if self.centroid is None else list(self.centroid),
+            "background": self.background,
+            "uncertainty": self.uncertainty,
+        }
+
+    @classmethod
+    def from_dict(cls, value: dict[str, Any]) -> AuxiliaryEvidence:
+        if not isinstance(value, dict):
+            raise ValueError("auxiliary evidence must be a dict")
+        required = {"centroid", "background", "uncertainty"}
+        missing = sorted(required - set(value))
+        if missing:
+            raise ValueError(f"auxiliary evidence missing keys: {missing}")
+        extra = sorted(set(value) - required, key=repr)
+        if extra:
+            raise ValueError(f"auxiliary evidence unknown keys: {extra}")
+        return cls(
+            centroid=value["centroid"],
+            background=value["background"],
+            uncertainty=value["uncertainty"],
+        )
+
+
+@dataclass(frozen=True)
+class LightCurve:
+    """Good flux samples plus the raw cadence evidence they came from."""
+
+    time: tuple[float, ...]
+    flux: tuple[float, ...]
+    evidence: CadenceEvidence
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.time, (list, tuple)) or not isinstance(
+            self.flux, (list, tuple)
+        ):
+            raise ValueError("light-curve time and flux must be lists/tuples")
+        if not isinstance(self.evidence, CadenceEvidence):
+            raise ValueError("light-curve evidence must be CadenceEvidence")
+        time = tuple(self.time)
+        flux = tuple(self.flux)
+        if len(time) != len(flux):
+            raise ValueError("light-curve time and flux must have equal length")
+        if any(not is_finite_number(value) for value in (*time, *flux)):
+            raise ValueError("light-curve time and flux must be finite")
+        expected_time = self.evidence.usable_time
+        if time != expected_time:
+            raise ValueError("light-curve samples must match usable cadence evidence")
+        object.__setattr__(self, "time", time)
+        object.__setattr__(self, "flux", flux)
+
+    def __iter__(self) -> Iterator[list[float]]:
+        """Keep the historical ``time, flux = load_lightcurve(...)`` seam."""
+        yield list(self.time)
+        yield list(self.flux)

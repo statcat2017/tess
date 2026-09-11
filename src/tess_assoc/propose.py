@@ -11,11 +11,45 @@ from dataclasses import dataclass
 
 from tess_assoc._validate import require_finite, require_positive_finite
 from tess_assoc.event import EventRecord
-from tess_assoc.extract import SkippedTransit, coverage_windows, extract_at
+from tess_assoc.extract import SkippedTransit, extract_at
+from tess_assoc.observability import (
+    CadenceEvidence,
+    DetectorConfiguration,
+    coverage_windows,
+)
 from tess_assoc.window import samples_in_windows
 
 
 PROPOSER_SNR_THRESHOLD = 4.0
+
+
+@dataclass(frozen=True)
+class SegmentNoise:
+    """Robust scatter estimates aligned with observing windows."""
+
+    windows: tuple[tuple[float, float], ...]
+    values: tuple[float, ...]
+
+    @property
+    def representative(self) -> float:
+        return max(self.values, default=1e-9)
+
+    def __gt__(self, other: object) -> bool:
+        if not isinstance(other, (int, float)):
+            return NotImplemented
+        return self.representative > other
+
+    def at(self, t: float) -> float | None:
+        for window, value in zip(self.windows, self.values):
+            if window[0] <= t <= window[1]:
+                return value
+        return None
+
+    def index_at(self, t: float) -> int | None:
+        for index, window in enumerate(self.windows):
+            if window[0] <= t <= window[1]:
+                return index
+        return None
 
 
 @dataclass(frozen=True)
@@ -28,8 +62,12 @@ class Proposal:
 
 
 def detrend(
-    time: list[float], flux: list[float], trend_span_days: float = 1.5
-) -> tuple[list[float], float]:
+    time: list[float],
+    flux: list[float],
+    trend_span_days: float = 1.5,
+    *,
+    observing_windows: list[tuple[float, float]] | None = None,
+) -> tuple[list[float], float | SegmentNoise]:
     """Divide out a rolling-median trend; return (detrended, robust sigma)."""
     require_positive_finite("trend_span_days", trend_span_days)
     if len(time) != len(flux) or not time:
@@ -39,14 +77,45 @@ def detrend(
 
     tarr = np.array(time, dtype=float)
     farr = np.array(flux, dtype=float)
-    cadence = float(np.median(np.diff(tarr)))
-    width = max(int(round(trend_span_days / cadence)) | 1, 3)
-    pad = width // 2
-    padded = np.pad(farr, pad, mode="edge")
-    trend = np.median(sliding_window_view(padded, width), axis=1)
-    detrended = farr / trend
-    sigma = float(1.4826 * np.median(np.abs(detrended - 1.0))) or 1e-9
+    windows = coverage_windows(time) if observing_windows is None else observing_windows
+    if not windows:
+        windows = [(time[0], time[-1])]
+    detrended = np.ones(len(time), dtype=float)
+    sigmas: list[float] = []
+    used_windows: list[tuple[float, float]] = []
+    for start, end in windows:
+        indices = [i for i, value in enumerate(time) if start <= value <= end]
+        if not indices:
+            continue
+        used_windows.append((start, end))
+        segment_flux = farr[indices]
+        if len(indices) < 3:
+            trend = segment_flux
+        else:
+            cadence = float(np.median(np.diff(tarr[indices])))
+            width = max(int(round(trend_span_days / cadence)) | 1, 3)
+            width = min(width, len(indices) if len(indices) % 2 else len(indices) - 1)
+            pad = width // 2
+            padded = np.pad(segment_flux, pad, mode="edge")
+            trend = np.median(sliding_window_view(padded, width), axis=1)
+        detrended[indices] = segment_flux / trend
+        sigmas.append(float(1.4826 * np.median(np.abs(detrended[indices] - 1.0))) or 1e-9)
+    if observing_windows is None:
+        sigma: float | SegmentNoise = (
+            float(1.4826 * np.median(np.abs(detrended - 1.0))) or 1e-9
+        )
+    else:
+        sigma = SegmentNoise(tuple(used_windows), tuple(sigmas))
     return [float(v) for v in detrended], sigma
+
+
+def _window_index(
+    value: float, windows: list[tuple[float, float]]
+) -> int | None:
+    for index, (start, end) in enumerate(windows):
+        if start <= value <= end:
+            return index
+    return None
 
 
 def center_on_minimum(
@@ -64,12 +133,14 @@ def center_on_minimum(
 def find_dips(
     time: list[float],
     detrended: list[float],
-    sigma: float,
+    sigma: float | SegmentNoise,
     snr_threshold: float = 4.0,
     min_points: int = 2,
     merge_gap_points: int = 2,
     min_duration_days: float = 0.02,
     max_duration_days: float = 0.6,
+    *,
+    observing_windows: list[tuple[float, float]] | None = None,
 ) -> list[Proposal]:
     """Contiguous above-threshold runs → dip proposals (period-free)."""
     require_finite("snr_threshold", snr_threshold)
@@ -77,23 +148,45 @@ def find_dips(
         raise ValueError("snr_threshold must be > 0")
     if len(time) != len(detrended) or not time:
         raise ValueError("time and detrended must be non-empty and equal length")
-    above = [(1.0 - f) / sigma > snr_threshold for f in detrended]
-    runs: list[tuple[int, int]] = []
+    windows = coverage_windows(time) if observing_windows is None else observing_windows
+    above: list[bool] = []
+    for t, f in zip(time, detrended):
+        segment_sigma = sigma.at(t) if isinstance(sigma, SegmentNoise) else sigma
+        above.append(
+            segment_sigma is not None
+            and (1.0 - f) / segment_sigma > snr_threshold
+        )
+    runs: list[tuple[int, int, int]] = []
     start: int | None = None
+    segment: int | None = None
     for i, flag in enumerate(above):
+        current_segment = _window_index(time[i], windows)
+        if current_segment is None or current_segment != segment:
+            if start is not None and segment is not None:
+                runs.append((start, i - 1, segment))
+            start = None
+            segment = current_segment
+        if current_segment is None:
+            continue
         if flag and start is None:
             start = i
         elif not flag and start is not None:
-            runs.append((start, i - 1))
+            runs.append((start, i - 1, segment))
             start = None
     if start is not None:
-        runs.append((start, len(above) - 1))
+        runs.append((start, len(above) - 1, segment))
     merged: list[list[int]] = []
-    for s, e in runs:
-        if merged and s - merged[-1][1] - 1 <= merge_gap_points:
+    merged_segments: list[int] = []
+    for s, e, run_segment in runs:
+        if (
+            merged
+            and merged_segments[-1] == run_segment
+            and s - merged[-1][1] - 1 <= merge_gap_points
+        ):
             merged[-1][1] = e
         else:
             merged.append([s, e])
+            merged_segments.append(run_segment)
     proposals: list[Proposal] = []
     for s, e in merged:
         if e - s + 1 < min_points:
@@ -106,12 +199,13 @@ def find_dips(
         if not depth > 0:
             continue
         t0_guess = time[s + window.index(min(window))]
+        segment_sigma = sigma.at(time[s]) if isinstance(sigma, SegmentNoise) else sigma
         proposals.append(
             Proposal(
                 t0_guess=t0_guess,
                 depth_guess=depth,
                 duration_guess_days=duration,
-                snr_guess=depth / sigma * ((e - s + 1) ** 0.5),
+                snr_guess=depth / segment_sigma * ((e - s + 1) ** 0.5),
                 n_points=e - s + 1,
             )
         )
@@ -121,7 +215,7 @@ def find_dips(
 def dip_snr_at(
     time: list[float],
     detrended: list[float],
-    sigma: float,
+    sigma: float | SegmentNoise,
     t_center: float,
     half_width_days: float,
 ) -> float:
@@ -130,12 +224,20 @@ def dip_snr_at(
     require_positive_finite("half_width_days", half_width_days)
     if len(time) != len(detrended):
         raise ValueError("time and detrended must be equal length")
-    if not sigma > 0:
+    center_segment = sigma.index_at(t_center) if isinstance(sigma, SegmentNoise) else None
+    sigma_at_center = sigma.at(t_center) if isinstance(sigma, SegmentNoise) else sigma
+    if sigma_at_center is None:
+        raise ValueError("no observing segment contains t_center")
+    if not sigma_at_center > 0:
         raise ValueError("sigma must be > 0")
     best = float("-inf")
     for t, f in zip(time, detrended):
-        if abs(t - t_center) <= half_width_days:
-            snr = (1.0 - f) / sigma
+        same_segment = (
+            not isinstance(sigma, SegmentNoise)
+            or sigma.index_at(t) == center_segment
+        )
+        if same_segment and abs(t - t_center) <= half_width_days:
+            snr = (1.0 - f) / sigma_at_center
             if snr > best:
                 best = snr
     if best == float("-inf"):
@@ -147,19 +249,33 @@ def propose_with_detail(
     time: list[float],
     flux: list[float],
     snr_threshold: float = PROPOSER_SNR_THRESHOLD,
-) -> tuple[list[Proposal], list[float], float]:
+    *,
+    observability: CadenceEvidence | None = None,
+) -> tuple[list[Proposal], list[float], float | SegmentNoise]:
     """Blind proposals plus the detrended curve and sigma behind them."""
-    detrended, sigma = detrend(time, flux)
-    return find_dips(time, detrended, sigma, snr_threshold=snr_threshold), detrended, sigma
+    windows = None if observability is None else list(observability.observing_windows)
+    detrended, sigma = detrend(time, flux, observing_windows=windows)
+    proposals = find_dips(
+        time,
+        detrended,
+        sigma,
+        snr_threshold=snr_threshold,
+        observing_windows=windows,
+    )
+    return proposals, detrended, sigma
 
 
 def propose_events(
     time: list[float],
     flux: list[float],
     snr_threshold: float = PROPOSER_SNR_THRESHOLD,
+    *,
+    observability: CadenceEvidence | None = None,
 ) -> list[Proposal]:
     """Blind proposals from raw light curves. No period, no ephemeris."""
-    proposals, _, _ = propose_with_detail(time, flux, snr_threshold)
+    proposals, _, _ = propose_with_detail(
+        time, flux, snr_threshold, observability=observability
+    )
     return proposals
 
 
@@ -174,12 +290,29 @@ def records_from_proposals(
     resample_samples: int = 61,
     quality_base: dict | None = None,
     observing_windows: list[tuple[float, float]] | None = None,
+    observability: CadenceEvidence | None = None,
+    detector: DetectorConfiguration | None = None,
+    proposal_snr_threshold: float = PROPOSER_SNR_THRESHOLD,
 ) -> tuple[dict[str, EventRecord], list[SkippedTransit]]:
     """Measure proposal windows through the shared extract_at core."""
     records: dict[str, EventRecord] = {}
     skipped: list[SkippedTransit] = []
     base = dict(quality_base or {})
-    windows = coverage_windows(time) if observing_windows is None else observing_windows
+    detector = detector or DetectorConfiguration(
+        name="segmented-blind-proposer",
+        version="1",
+        half_span_days=half_span_days,
+        resample_samples=resample_samples,
+        snr_threshold=proposal_snr_threshold,
+    )
+    if observing_windows is None:
+        windows = (
+            list(observability.observing_windows)
+            if observability is not None
+            else coverage_windows(time)
+        )
+    else:
+        windows = observing_windows
     for i, p in enumerate(proposals):
         t_center = center_on_minimum(time, flux, p.t0_guess, p.duration_guess_days)
         result = extract_at(
@@ -191,6 +324,8 @@ def records_from_proposals(
             sector=sector,
             half_span_days=half_span_days,
             resample_samples=resample_samples,
+            observability=observability,
+            detector=detector,
             quality={
                 **base,
                 "role": "blind-proposal",
@@ -203,7 +338,9 @@ def records_from_proposals(
         elif not samples_in_windows(result.local_time, windows):
             skipped.append(
                 SkippedTransit(
-                    p.t0_guess, "insufficient full observing window coverage"
+                    p.t0_guess,
+                    "insufficient full observing window coverage",
+                    observability,
                 )
             )
         else:

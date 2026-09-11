@@ -31,9 +31,17 @@ def build_holdout_systems(
     for name, res in blind_results.items():
         tic = res["tic_id"]
         system = by_tic[tic]
-        records = {
-            f"k{i}": EventRecord.from_dict(e) for i, e in enumerate(res["events"])
-        }
+        event_payloads = res["events"]
+        if isinstance(event_payloads, dict):
+            records = {
+                event_id: EventRecord.from_dict(event)
+                for event_id, event in event_payloads.items()
+            }
+        else:
+            records = {
+                f"k{i}": EventRecord.from_dict(event)
+                for i, event in enumerate(event_payloads)
+            }
         spans = [(w[0], w[1]) for s in res["sectors"] for w in s["windows"]]
         known = [
             t

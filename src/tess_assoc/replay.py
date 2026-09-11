@@ -23,7 +23,6 @@ from tess_assoc._validate import (
 from tess_assoc.archive import ArchiveUnavailable, download_spoc_ffi
 from tess_assoc.event import EventRecord
 from tess_assoc.extract import (
-    coverage_windows,
     extract_events,
     load_lightcurve,
     predicted_transits,
@@ -37,6 +36,11 @@ from tess_assoc.manifest import (
     TracerManifest,
 )
 from tess_assoc.freeze_context import FrozenRunContext
+from tess_assoc.observability import (
+    CadenceEvidence,
+    DetectorConfiguration,
+    coverage_windows,
+)
 from tess_assoc import protocol as _protocol
 from tess_assoc.pipeline import run_frozen_records, run_records
 from tess_assoc.propose import (
@@ -127,6 +131,7 @@ class MissedTransit:
     max_snr: float | None
     proposed: bool
     reason: str
+    observability: CadenceEvidence | None = None
 
     def __post_init__(self) -> None:
         require_strict_int("sector", self.sector, minimum=1)
@@ -137,6 +142,10 @@ class MissedTransit:
             raise ValueError("proposed must be a bool")
         if self.reason not in MISS_REASONS:
             raise ValueError(f"reason must be one of {list(MISS_REASONS)}")
+        if self.observability is not None and not isinstance(
+            self.observability, CadenceEvidence
+        ):
+            raise ValueError("observability must be CadenceEvidence or None")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -145,6 +154,9 @@ class MissedTransit:
             "max_snr": None if self.max_snr is None else float(self.max_snr),
             "proposed": bool(self.proposed),
             "reason": self.reason,
+            "observability": (
+                None if self.observability is None else self.observability.to_dict()
+            ),
         }
 
 
@@ -281,7 +293,6 @@ def replay_system(
     thresholds = dict(replay.matcher_thresholds)
     half_span = replay.window_half_span_days
     n_samples = replay.resample_samples
-
     records: dict[str, EventRecord] = {}
     manifest_events: list[ManifestEvent] = []
     manifest_sectors: list[ManifestSector] = []
@@ -312,7 +323,10 @@ def replay_system(
                 )
             )
         skipped.extend(
-            {"sector": sector, "t0": s.predicted_t0_btjd, "reason": s.reason}
+            {
+                "sector": sector,
+                **s.to_dict(),
+            }
             for s in skipped_here
         )
 
@@ -392,6 +406,18 @@ def replay_blind_system(
     thresholds = dict(replay.matcher_thresholds)
     half_span = replay.window_half_span_days
     n_samples = replay.resample_samples
+    proposal_detector = DetectorConfiguration(
+        name="segmented-blind-proposer",
+        version="1",
+        half_span_days=half_span,
+        resample_samples=n_samples,
+        snr_threshold=PROPOSER_SNR_THRESHOLD,
+        trend_span_days=1.5,
+        min_points=2,
+        merge_gap_points=2,
+        min_duration_days=0.02,
+        max_duration_days=0.6,
+    )
 
     records: dict[str, EventRecord] = {}
     manifest_sectors: list[ManifestSector] = []
@@ -404,34 +430,40 @@ def replay_blind_system(
     sector_windows: dict[int, list[tuple[float, float]]] = {}
     sector_proposals: dict[int, list[Proposal]] = {}
     known_masks: dict[int, list[dict[str, Any]]] = {}
+    sector_evidence: dict[int, CadenceEvidence] = {}
     for sector in system.sectors:
         product = download_spoc_ffi(system.tic_id, sector, cache_dir)
         products.append(_product_record(sector, product))
-        time, flux = load_lightcurve(product)
-        if not time:
-            raise ArchiveUnavailable(f"no good cadences in {product.local_path}")
-        raw_time = time
+        curve = load_lightcurve(product)
+        time, flux = list(curve.time), list(curve.flux)
+        sector_evidence[sector] = curve.evidence
+        if not curve.evidence.time:
+            raise ArchiveUnavailable(f"no finite cadences in {product.local_path}")
+        raw_time = list(curve.evidence.time)
         time, flux, masks = mask_known_transits(
             time, flux, getattr(system, "known_planets", ())
         )
         known_masks[sector] = masks
-        if not time:
-            raise ArchiveUnavailable(
-                f"known-transit masks removed all good cadences in {product.local_path}"
-            )
         excluded_windows = [
             (m["t0"] - m["half_width_days"], m["t0"] + m["half_width_days"])
             for m in masks
         ]
+        search_evidence = curve.evidence.with_excluded_windows(excluded_windows)
+        sector_evidence[sector] = search_evidence
         effective_windows = coverage_windows(
-            raw_time, excluded_windows=excluded_windows
+            raw_time,
+            excluded_windows=excluded_windows,
+            usable=search_evidence.usable,
         )
         sector_windows[sector] = effective_windows
         if system.t0_bjd_tdb is None or system.period_days is None:
             sector_known = []
         else:
             sector_known = predicted_transits(
-                system.t0_bjd_tdb, system.period_days, time[0], time[-1]
+                system.t0_bjd_tdb,
+                system.period_days,
+                curve.evidence.time[0],
+                curve.evidence.time[-1],
             )
         known.extend((sector, t) for t in sector_known)
         coverable = [
@@ -444,7 +476,12 @@ def replay_blind_system(
         ]
         if coverable:
             anchor_times.append(coverable[0])
-        proposals, detrended, sigma = propose_with_detail(time, flux)
+        if time:
+            proposals, detrended, sigma = propose_with_detail(
+                time, flux, observability=search_evidence
+            )
+        else:
+            proposals, detrended, sigma = [], [], 1.0
         sector_curves[sector] = (time, detrended, sigma)
         sector_proposals[sector] = proposals
         n_proposals += len(proposals)
@@ -458,10 +495,15 @@ def replay_blind_system(
             resample_samples=n_samples,
             quality_base={"ephemeris_source": replay.ephemeris_source},
             observing_windows=effective_windows,
+            observability=search_evidence,
+            detector=proposal_detector,
         )
         records.update(recs)
         skipped.extend(
-            {"sector": sector, "t0": s.predicted_t0_btjd, "reason": s.reason}
+            {
+                "sector": sector,
+                **s.to_dict(),
+            }
             for s in skipped_here
         )
         manifest_sectors.append(
@@ -513,6 +555,19 @@ def replay_blind_system(
                 MissedTransit(
                     sector=sec, t0=t, max_snr=None,
                     proposed=proposed, reason="no usable cadence",
+                    observability=sector_evidence[sec],
+                ).to_dict()
+            )
+            continue
+        if not any(start <= t <= end for start, end in sector_evidence[sec].observing_windows):
+            missed.append(
+                MissedTransit(
+                    sector=sec,
+                    t0=t,
+                    max_snr=None,
+                    proposed=proposed,
+                    reason="fragmented by flagged cadences",
+                    observability=sector_evidence[sec],
                 ).to_dict()
             )
             continue
@@ -529,6 +584,7 @@ def replay_blind_system(
             MissedTransit(
                 sector=sec, t0=t, max_snr=max_snr,
                 proposed=proposed, reason=reason,
+                observability=sector_evidence[sec],
             ).to_dict()
         )
     if len(anchor_times) >= 2:
@@ -553,7 +609,7 @@ def replay_blind_system(
             "recall": {
                 "known": len(known),
                 "recalled": sum(recalled),
-                "rate": (sum(recalled) / len(known)) if known else 0.0,
+                "rate": (recalled_coverable / sum(coverable)) if sum(coverable) else 0.0,
                 "coverable": sum(coverable),
                 "recalled_coverable": recalled_coverable,
                 "rate_coverable": (recalled_coverable / sum(coverable))

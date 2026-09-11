@@ -19,6 +19,7 @@ from tess_assoc.alternative import (
 )
 from tess_assoc.candidate_followup import event_summary, rank_repeat_events
 from tess_assoc.matcher import REQUIRED_THRESHOLDS
+from tess_assoc.observability import SourceProduct
 from tess_assoc.propose import propose_with_detail, records_from_proposals
 
 
@@ -55,7 +56,15 @@ def _provider_check(provider: str, products: list) -> dict:
         }
 
     anchor_product, anchor_path = anchor
-    anchor_curve = read_lightcurve(anchor_path)
+    anchor_curve = read_lightcurve(
+        anchor_path,
+        source_product=SourceProduct(
+            anchor_product.provider,
+            "alternative light curve",
+            anchor_product.data_uri,
+            "not-recorded",
+        ),
+    )
     anchor_measurement = measure_event(
         anchor_curve, t0=ANCHOR_T0, duration_days=ANCHOR_DURATION_DAYS
     )
@@ -70,7 +79,15 @@ def _provider_check(provider: str, products: list) -> dict:
     sector_results = []
     candidates = []
     for sector, (product, path) in sorted(downloaded.items()):
-        curve = read_lightcurve(path)
+        curve = read_lightcurve(
+            path,
+            source_product=SourceProduct(
+                product.provider,
+                "alternative light curve",
+                product.data_uri,
+                "not-recorded",
+            ),
+        )
         result = {
             "sector": sector,
             "path": str(path),
@@ -82,7 +99,9 @@ def _provider_check(provider: str, products: list) -> dict:
             sector_results.append(result)
             continue
         try:
-            proposals, _, _ = propose_with_detail(curve["time"], curve["flux"])
+            proposals, _, _ = propose_with_detail(
+                curve["time"], curve["flux"], observability=curve["observability"]
+            )
             records, skipped = records_from_proposals(
                 curve["time"],
                 curve["flux"],
@@ -90,6 +109,7 @@ def _provider_check(provider: str, products: list) -> dict:
                 tic_id=TIC_ID,
                 sector=sector,
                 quality_base={"role": f"{provider.lower()}-repeat-search"},
+                observability=curve["observability"],
             )
             candidates.extend(records.values())
             result["proposals"] = len(proposals)

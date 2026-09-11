@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from tess_assoc.event import EventRecord
 from tess_assoc.manifest import TracerManifest
+from tess_assoc.observability import CadenceEvidence, DetectorConfiguration, SourceProduct
 
 N_SAMPLES = 61
 HALF_SPAN_DAYS = 0.6
@@ -53,5 +54,16 @@ def provide_events(manifest: TracerManifest) -> dict[str, EventRecord]:
                 "origin": e.origin,
                 "shape": e.shape,
             },
+            observability=CadenceEvidence(
+                time=tuple(times),
+                usable=(True,) * len(times),
+                quality_flags=(0,) * len(times),
+                source_product=SourceProduct(
+                    "fixture", "tracer fixture", manifest.name, "not-recorded"
+                ),
+            ),
+            detector=DetectorConfiguration(
+                "fixture-provider", "1", HALF_SPAN_DAYS, N_SAMPLES
+            ),
         )
     return out

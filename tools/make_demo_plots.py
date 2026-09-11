@@ -290,7 +290,7 @@ def main() -> None:
     for system in replay.systems:
         res = replay_system(replay, system)
         by_id = {}
-        for e in res["events"]:
+        for e in res["events"].values():
             by_id.setdefault(e["sector"], []).append(e)
         secs = sorted(by_id)
         ea = sorted(by_id[secs[0]], key=lambda e: e["t0"])[0]
@@ -337,7 +337,7 @@ def main() -> None:
             system.t0_bjd_tdb, system.period_days, time[0], time[-1]
         )
         found = sorted(
-            e["t0"] for e in blind["events"] if e["sector"] == sector
+            e["t0"] for e in blind["events"].values() if e["sector"] == sector
         )
         lanes.append((sector, time[0], time[-1], known, found))
         _svg_sector_curve(

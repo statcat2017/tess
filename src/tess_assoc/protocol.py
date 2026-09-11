@@ -16,6 +16,11 @@ from tess_assoc._validate import is_strict_int
 
 PROTOCOL_VERSION = "v1"
 
+# v1 accepts legacy event lists and ID-keyed event payloads. Writers use the
+# keyed form so evidence references remain resolvable after serialization.
+RESULT_EVENT_FORMATS: tuple[str, ...] = ("list", "id-keyed")
+RESULT_EVENT_FORMAT = "id-keyed"
+
 # --- Sector boundaries (PRD + Proposal §21) ---
 DEV_SECTORS: frozenset[int] = frozenset(range(1, 80))  # 1–79 inclusive
 SEALED_SECTORS: frozenset[int] = frozenset(range(80, 106))  # 80–105 inclusive
@@ -40,6 +45,10 @@ EVENT_REQUIRED_FIELDS: tuple[str, ...] = (
     "stellar_meta",
     "quality",
 )
+EVENT_OPTIONAL_FIELDS: tuple[str, ...] = (
+    "observability", "detector", "auxiliary"
+)
+EVENT_FIELDS: tuple[str, ...] = EVENT_REQUIRED_FIELDS + EVENT_OPTIONAL_FIELDS
 
 
 class SectorRole(Enum):

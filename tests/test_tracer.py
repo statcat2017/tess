@@ -169,8 +169,14 @@ def test_end_to_end_results_and_report():
     assert results == repeat
     assert results["sealed_sectors_touched"] == []
     assert results["protocol_version"] == "v1"
+    assert set(P.RESULT_EVENT_FORMATS) == {"list", "id-keyed"}
+    assert results["event_format"] == "id-keyed"
     assert len(results["pairs"]) == 3
     assert len(results["associations"]) == 1
+    assert results["pairs"][0]["evidence_refs"] == {
+        "a": results["pairs"][0]["a"],
+        "b": results["pairs"][0]["b"],
+    }
 
     asc = results["associations"][0]
     assert asc["pair"] == ["A", "B"]
@@ -198,6 +204,17 @@ def test_end_to_end_results_and_report():
         f"{asc['aliases_rejected']} rejected)"
     )
     assert counts in report
+    assert "## Event evidence" in report
+    assert "source_product" in report and "tracer_v1" in report
+    report_with_misses = render_report(
+        {
+            **results,
+            "skipped": [{"sector": 12, "t0": 2.0, "reason": "no usable cadence"}],
+            "missed": [{"sector": 12, "t0": 3.0, "reason": "below-threshold"}],
+        }
+    )
+    assert "## Skipped proposals" in report_with_misses
+    assert "## Missed transits" in report_with_misses
     for row in asc["retained"]:
         assert f"n={row['n']} P={row['period_days']:.1f}d" in report
     for row in asc["rejected"]:

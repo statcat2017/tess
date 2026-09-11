@@ -124,7 +124,10 @@ def test_live_benchmark_three_systems(tmp_path):
     systems = []
     for system in replay.systems:
         res = replay_blind_system(replay, system, cache_dir=str(tmp_path))
-        recs = {f"k{i}": EventRecord.from_dict(e) for i, e in enumerate(res["events"])}
+        recs = {
+            event_id: EventRecord.from_dict(event)
+            for event_id, event in res["events"].items()
+        }
         spans = [(w[0], w[1]) for s in res["sectors"] for w in s["windows"]]
         known = [
             t

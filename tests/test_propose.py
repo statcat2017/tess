@@ -2,7 +2,8 @@
 
 import pytest
 
-from tess_assoc.extract import SkippedTransit, extract_at
+from tess_assoc.extract import SkippedTransit, extract_at, refine_epoch
+from tess_assoc.observability import CadenceEvidence
 from tess_assoc.propose import (
     center_on_minimum,
     detrend,
@@ -58,6 +59,78 @@ def test_detrend_centers_on_unity():
     detrended, sigma = detrend(time, flux)
     assert abs(sum(detrended) / len(detrended) - 1.0) < 0.01
     assert sigma > 0
+
+
+def test_proposer_does_not_merge_dips_across_gap():
+    time = [0.0, 0.02, 0.04, 1.0, 1.02, 1.04]
+    detrended = [0.98, 0.98, 1.0, 0.98, 0.98, 1.0]
+    proposals = find_dips(
+        time,
+        detrended,
+        0.001,
+        snr_threshold=4.0,
+        observing_windows=[(0.0, 0.04), (1.0, 1.04)],
+    )
+    assert len(proposals) == 2
+
+
+def test_segment_noise_is_independent_between_observing_windows():
+    import random
+
+    rng = random.Random(11)
+    quiet_time = [i * 0.02 for i in range(80)]
+    noisy_time = [2.0 + i * 0.02 for i in range(80)]
+    quiet_flux = [1.0 + rng.gauss(0.0, 0.0005) for _ in quiet_time]
+    noisy_flux = [1.0 + rng.gauss(0.0, 0.05) for _ in noisy_time]
+    for index, value in enumerate(quiet_time):
+        if abs(value - 0.8) <= 0.04:
+            quiet_flux[index] -= 0.01
+    all_time = quiet_time + noisy_time
+    all_flux = quiet_flux + noisy_flux
+    evidence = CadenceEvidence(
+        time=tuple(all_time),
+        usable=(True,) * len(all_time),
+        quality_flags=(0,) * len(all_time),
+    )
+    with_noisy = propose_events(all_time, all_flux, observability=evidence)
+    quiet_only = propose_events(quiet_time, quiet_flux)
+    quiet_with_noisy = [p for p in with_noisy if p.t0_guess < 1.5]
+    assert quiet_with_noisy
+    assert [p.t0_guess for p in quiet_with_noisy] == [p.t0_guess for p in quiet_only]
+
+
+def test_epoch_refinement_stays_inside_requested_observing_window():
+    time = [-0.2 + i * 0.04 for i in range(11)] + [5.0, 5.1, 5.2, 5.3, 5.4]
+    flux = [1.0] * 11 + [0.5] * 5
+    refined = refine_epoch(
+        time,
+        flux,
+        period_days=40.0,
+        t0_guess_btjd=0.0,
+        duration_days=0.2,
+        observing_window=(-0.2, 0.2),
+    )
+    assert -0.2 <= refined <= 0.2
+
+
+def test_extraction_rejects_quality_gap_crossing():
+    time = [-1.0 + i * 0.02 for i in range(50)] + [0.02 + i * 0.02 for i in range(50)]
+    evidence = CadenceEvidence(
+        time=tuple([-1.0 + i * 0.02 for i in range(101)]),
+        usable=tuple([True] * 50 + [False] + [True] * 50),
+        quality_flags=tuple([0] * 50 + [4] + [0] * 50),
+    )
+    result = extract_at(
+        time,
+        [1.0] * len(time),
+        0.0,
+        0.1,
+        tic_id=1,
+        sector=12,
+        observability=evidence,
+    )
+    assert isinstance(result, SkippedTransit)
+    assert result.reason == "quality-gap-crossing"
 
 
 def test_extract_at_measures_and_skips():
